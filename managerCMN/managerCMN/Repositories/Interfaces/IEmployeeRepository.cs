@@ -5,6 +5,7 @@ namespace managerCMN.Repositories.Interfaces;
 public interface IEmployeeRepository : IRepository<Employee>
 {
     Task<Employee?> GetByCodeAsync(string employeeCode);
+    Task<Employee?> GetByAttendanceCodeAsync(string attendanceCode);
     Task<Employee?> GetByEmailAsync(string email);
     Task<Employee?> GetWithDetailsAsync(int id);
     Task<IEnumerable<Employee>> GetByDepartmentAsync(int departmentId);

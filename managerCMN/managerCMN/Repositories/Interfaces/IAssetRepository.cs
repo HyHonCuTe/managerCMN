@@ -6,5 +6,5 @@ public interface IAssetRepository : IRepository<Asset>
 {
     Task<Asset?> GetByCodeAsync(string assetCode);
     Task<Asset?> GetWithConfigurationAsync(int assetId);
-    Task<IEnumerable<Asset>> GetByCategoryAsync(string category);
+    Task<IEnumerable<Asset>> GetByCategoryAsync(int categoryId);
 }

@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeContact> EmployeeContacts => Set<EmployeeContact>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<Position> Positions => Set<Position>();
     public DbSet<Contract> Contracts => Set<Contract>();
 
     // Leave
@@ -34,6 +35,9 @@ public class ApplicationDbContext : DbContext
     public DbSet<Asset> Assets => Set<Asset>();
     public DbSet<AssetAssignment> AssetAssignments => Set<AssetAssignment>();
     public DbSet<AssetConfiguration> AssetConfigurations => Set<AssetConfiguration>();
+    public DbSet<AssetCategory> AssetCategories => Set<AssetCategory>();
+    public DbSet<Brand> Brands => Set<Brand>();
+    public DbSet<Supplier> Suppliers => Set<Supplier>();
 
     // Tickets
     public DbSet<Ticket> Tickets => Set<Ticket>();
@@ -76,6 +80,11 @@ public class ApplicationDbContext : DbContext
             .HasIndex(e => e.Email)
             .IsUnique();
 
+        modelBuilder.Entity<Employee>()
+            .HasIndex(e => e.AttendanceCode)
+            .IsUnique()
+            .HasFilter("[AttendanceCode] IS NOT NULL");
+
         // Department -> Manager
         modelBuilder.Entity<Department>()
             .HasOne(d => d.Manager)
@@ -88,6 +97,13 @@ public class ApplicationDbContext : DbContext
             .HasOne(e => e.Department)
             .WithMany(d => d.Employees)
             .HasForeignKey(e => e.DepartmentId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // Employee -> Position
+        modelBuilder.Entity<Employee>()
+            .HasOne(e => e.Position)
+            .WithMany(p => p.Employees)
+            .HasForeignKey(e => e.PositionId)
             .OnDelete(DeleteBehavior.SetNull);
 
         // Contract

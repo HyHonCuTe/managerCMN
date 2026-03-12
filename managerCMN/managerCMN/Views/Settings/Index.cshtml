@@ -1,0 +1,622 @@
+@{
+    ViewData["Title"] = "Cài đặt danh mục";
+    var activeTab = ViewBag.ActiveTab as string ?? "departments";
+    var departments = ViewBag.Departments as IEnumerable<Department> ?? Enumerable.Empty<Department>();
+    var positions = ViewBag.Positions as IEnumerable<Position> ?? Enumerable.Empty<Position>();
+    var employeeList = ViewBag.EmployeeList as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
+    var assetCategories = ViewBag.AssetCategories as IEnumerable<AssetCategory> ?? Enumerable.Empty<AssetCategory>();
+    var brands = ViewBag.Brands as IEnumerable<Brand> ?? Enumerable.Empty<Brand>();
+    var suppliers = ViewBag.Suppliers as IEnumerable<Supplier> ?? Enumerable.Empty<Supplier>();
+}
+
+<div class="mb-4">
+    <h4 class="mb-0"><i class="bi bi-gear"></i> Cài đặt danh mục</h4>
+    <small class="text-muted">Quản lý phòng ban, chức vụ và các danh mục hệ thống</small>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        <i class="bi bi-check-circle"></i> @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="bi bi-exclamation-circle"></i> @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<ul class="nav nav-tabs mb-3" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "departments" ? "active" : "")" href="?tab=departments">
+            <i class="bi bi-diagram-3"></i> Phòng ban
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "positions" ? "active" : "")" href="?tab=positions">
+            <i class="bi bi-person-badge"></i> Chức vụ
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "categories" ? "active" : "")" href="?tab=categories">
+            <i class="bi bi-tags"></i> Danh mục tài sản
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "brands" ? "active" : "")" href="?tab=brands">
+            <i class="bi bi-building"></i> Hãng sản xuất
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "suppliers" ? "active" : "")" href="?tab=suppliers">
+            <i class="bi bi-truck"></i> Nhà cung cấp
+        </a>
+    </li>
+</ul>
+
+@* ========== DEPARTMENTS TAB ========== *@
+@if (activeTab == "departments")
+{
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-diagram-3"></i> Danh sách phòng ban</span>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addDeptModal">
+            <i class="bi bi-plus-lg"></i> Thêm phòng ban
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Tên phòng ban</th>
+                    <th>Trưởng phòng</th>
+                    <th>Mô tả</th>
+                    <th style="width:120px">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var dept in departments)
+                {
+                <tr>
+                    <td><strong>@dept.DepartmentName</strong></td>
+                    <td>@dept.Manager?.FullName</td>
+                    <td class="text-muted">@dept.Description</td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editDeptModal-@dept.DepartmentId">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form asp-action="DeleteDepartment" asp-route-id="@dept.DepartmentId" method="post" class="d-inline" onsubmit="return confirm('Xóa phòng ban này?')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                }
+                @if (!departments.Any())
+                {
+                <tr><td colspan="4" class="text-center text-muted py-3">Chưa có phòng ban nào.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@* Add Department Modal *@
+<div class="modal fade" id="addDeptModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="CreateDepartment" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Thêm phòng ban</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên phòng ban <span class="text-danger">*</span></label>
+                    <input name="departmentName" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Trưởng phòng</label>
+                    <select name="managerId" class="form-select">
+                        <option value="">-- Chọn --</option>
+                        @if (employeeList != null)
+                        {
+                            @foreach (var item in employeeList)
+                            {
+                                <option value="@item.Value">@item.Text</option>
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mô tả</label>
+                    <textarea name="description" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Thêm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* Edit Department Modals *@
+@foreach (var dept in departments)
+{
+<div class="modal fade" id="editDeptModal-@dept.DepartmentId" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="EditDepartment" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="departmentId" value="@dept.DepartmentId" />
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Sửa phòng ban</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên phòng ban <span class="text-danger">*</span></label>
+                    <input name="departmentName" class="form-control" value="@dept.DepartmentName" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Trưởng phòng</label>
+                    <select name="managerId" class="form-select">
+                        <option value="">-- Chọn --</option>
+                        @if (employeeList != null)
+                        {
+                            @foreach (var item in employeeList)
+                            {
+                                if (item.Value == dept.ManagerId?.ToString())
+                                {
+                                    <option value="@item.Value" selected>@item.Text</option>
+                                }
+                                else
+                                {
+                                    <option value="@item.Value">@item.Text</option>
+                                }
+                            }
+                        }
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mô tả</label>
+                    <textarea name="description" class="form-control" rows="2">@dept.Description</textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+}
+}
+
+@* ========== POSITIONS TAB ========== *@
+@if (activeTab == "positions")
+{
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-person-badge"></i> Danh sách chức vụ</span>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addPosModal">
+            <i class="bi bi-plus-lg"></i> Thêm chức vụ
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Tên chức vụ</th>
+                    <th>Mô tả</th>
+                    <th>Thứ tự</th>
+                    <th>Trạng thái</th>
+                    <th style="width:120px">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var pos in positions)
+                {
+                <tr>
+                    <td><strong>@pos.PositionName</strong></td>
+                    <td class="text-muted">@pos.Description</td>
+                    <td>@pos.SortOrder</td>
+                    <td>
+                        <span class="badge bg-@(pos.IsActive ? "success" : "secondary")">@(pos.IsActive ? "Hoạt động" : "Ẩn")</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editPosModal-@pos.PositionId">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form asp-action="DeletePosition" asp-route-id="@pos.PositionId" method="post" class="d-inline" onsubmit="return confirm('Xóa chức vụ này?')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                }
+                @if (!positions.Any())
+                {
+                <tr><td colspan="5" class="text-center text-muted py-3">Chưa có chức vụ nào.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@* Add Position Modal *@
+<div class="modal fade" id="addPosModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="CreatePosition" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Thêm chức vụ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên chức vụ <span class="text-danger">*</span></label>
+                    <input name="positionName" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mô tả</label>
+                    <textarea name="description" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Thứ tự hiển thị</label>
+                    <input name="sortOrder" type="number" class="form-control" value="0" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Thêm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* Edit Position Modals *@
+@foreach (var pos in positions)
+{
+<div class="modal fade" id="editPosModal-@pos.PositionId" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="EditPosition" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="positionId" value="@pos.PositionId" />
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Sửa chức vụ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên chức vụ <span class="text-danger">*</span></label>
+                    <input name="positionName" class="form-control" value="@pos.PositionName" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mô tả</label>
+                    <textarea name="description" class="form-control" rows="2">@pos.Description</textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Thứ tự hiển thị</label>
+                    <input name="sortOrder" type="number" class="form-control" value="@pos.SortOrder" />
+                </div>
+                <div class="form-check">
+                    <input name="isActive" type="checkbox" class="form-check-input" value="true" @(pos.IsActive ? "checked" : "") />
+                    <input name="isActive" type="hidden" value="false" />
+                    <label class="form-check-label">Hoạt động</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+}
+}
+
+@* ========== ASSET CATEGORIES TAB ========== *@
+@if (activeTab == "categories")
+{
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-tags"></i> Danh mục tài sản</span>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCatModal">
+            <i class="bi bi-plus-lg"></i> Thêm danh mục
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Tên danh mục</th>
+                    <th>Trạng thái</th>
+                    <th style="width:120px">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var cat in assetCategories)
+                {
+                <tr>
+                    <td><strong>@cat.CategoryName</strong></td>
+                    <td><span class="badge bg-@(cat.IsActive ? "success" : "secondary")">@(cat.IsActive ? "Hoạt động" : "Ẩn")</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editCatModal-@cat.AssetCategoryId"><i class="bi bi-pencil"></i></button>
+                        <form asp-action="DeleteAssetCategory" asp-route-id="@cat.AssetCategoryId" method="post" class="d-inline" onsubmit="return confirm('Xóa danh mục này?')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                }
+                @if (!assetCategories.Any()) { <tr><td colspan="3" class="text-center text-muted py-3">Chưa có danh mục nào.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addCatModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="CreateAssetCategory" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Thêm danh mục</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên danh mục <span class="text-danger">*</span></label>
+                    <input name="categoryName" class="form-control" required />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Thêm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@foreach (var cat in assetCategories)
+{
+<div class="modal fade" id="editCatModal-@cat.AssetCategoryId" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="EditAssetCategory" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="assetCategoryId" value="@cat.AssetCategoryId" />
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Sửa danh mục</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên danh mục <span class="text-danger">*</span></label>
+                    <input name="categoryName" class="form-control" value="@cat.CategoryName" required />
+                </div>
+                <div class="form-check">
+                    <input name="isActive" type="checkbox" class="form-check-input" value="true" @(cat.IsActive ? "checked" : "") />
+                    <input name="isActive" type="hidden" value="false" />
+                    <label class="form-check-label">Hoạt động</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+}
+}
+
+@* ========== BRANDS TAB ========== *@
+@if (activeTab == "brands")
+{
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-building"></i> Hãng sản xuất</span>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addBrandModal">
+            <i class="bi bi-plus-lg"></i> Thêm hãng
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Tên hãng sản xuất</th>
+                    <th>Trạng thái</th>
+                    <th style="width:120px">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var brand in brands)
+                {
+                <tr>
+                    <td><strong>@brand.BrandName</strong></td>
+                    <td><span class="badge bg-@(brand.IsActive ? "success" : "secondary")">@(brand.IsActive ? "Hoạt động" : "Ẩn")</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editBrandModal-@brand.BrandId"><i class="bi bi-pencil"></i></button>
+                        <form asp-action="DeleteBrand" asp-route-id="@brand.BrandId" method="post" class="d-inline" onsubmit="return confirm('Xóa hãng này?')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                }
+                @if (!brands.Any()) { <tr><td colspan="3" class="text-center text-muted py-3">Chưa có hãng sản xuất nào.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addBrandModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="CreateBrand" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Thêm hãng sản xuất</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên hãng <span class="text-danger">*</span></label>
+                    <input name="brandName" class="form-control" required />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Thêm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@foreach (var brand in brands)
+{
+<div class="modal fade" id="editBrandModal-@brand.BrandId" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="EditBrand" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="brandId" value="@brand.BrandId" />
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Sửa hãng sản xuất</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên hãng <span class="text-danger">*</span></label>
+                    <input name="brandName" class="form-control" value="@brand.BrandName" required />
+                </div>
+                <div class="form-check">
+                    <input name="isActive" type="checkbox" class="form-check-input" value="true" @(brand.IsActive ? "checked" : "") />
+                    <input name="isActive" type="hidden" value="false" />
+                    <label class="form-check-label">Hoạt động</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+}
+}
+
+@* ========== SUPPLIERS TAB ========== *@
+@if (activeTab == "suppliers")
+{
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-truck"></i> Nhà cung cấp</span>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSupModal">
+            <i class="bi bi-plus-lg"></i> Thêm nhà cung cấp
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Tên nhà cung cấp</th>
+                    <th>Điện thoại</th>
+                    <th>Địa chỉ</th>
+                    <th>Trạng thái</th>
+                    <th style="width:120px">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var sup in suppliers)
+                {
+                <tr>
+                    <td><strong>@sup.SupplierName</strong></td>
+                    <td>@sup.Phone</td>
+                    <td class="text-muted">@sup.Address</td>
+                    <td><span class="badge bg-@(sup.IsActive ? "success" : "secondary")">@(sup.IsActive ? "Hoạt động" : "Ẩn")</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editSupModal-@sup.SupplierId"><i class="bi bi-pencil"></i></button>
+                        <form asp-action="DeleteSupplier" asp-route-id="@sup.SupplierId" method="post" class="d-inline" onsubmit="return confirm('Xóa nhà cung cấp này?')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                }
+                @if (!suppliers.Any()) { <tr><td colspan="5" class="text-center text-muted py-3">Chưa có nhà cung cấp nào.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addSupModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="CreateSupplier" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Thêm nhà cung cấp</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên nhà cung cấp <span class="text-danger">*</span></label>
+                    <input name="supplierName" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Điện thoại</label>
+                    <input name="phone" class="form-control" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Địa chỉ</label>
+                    <input name="address" class="form-control" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Thêm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@foreach (var sup in suppliers)
+{
+<div class="modal fade" id="editSupModal-@sup.SupplierId" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="EditSupplier" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="supplierId" value="@sup.SupplierId" />
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Sửa nhà cung cấp</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên nhà cung cấp <span class="text-danger">*</span></label>
+                    <input name="supplierName" class="form-control" value="@sup.SupplierName" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Điện thoại</label>
+                    <input name="phone" class="form-control" value="@sup.Phone" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Địa chỉ</label>
+                    <input name="address" class="form-control" value="@sup.Address" />
+                </div>
+                <div class="form-check">
+                    <input name="isActive" type="checkbox" class="form-check-input" value="true" @(sup.IsActive ? "checked" : "") />
+                    <input name="isActive" type="hidden" value="false" />
+                    <label class="form-check-label">Hoạt động</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+}
+}

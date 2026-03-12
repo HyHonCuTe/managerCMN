@@ -29,16 +29,22 @@
                     <select asp-for="Status" asp-items="Html.GetEnumSelectList<AssetStatus>()" class="form-select"></select>
                 </div>
                 <div class="col-md-4">
-                    <label asp-for="Category" class="form-label">Danh mục</label>
-                    <input asp-for="Category" class="form-control" />
+                    <label asp-for="AssetCategoryId" class="form-label">Danh mục</label>
+                    <select asp-for="AssetCategoryId" asp-items="@(ViewBag.Categories as SelectList)" class="form-select">
+                        <option value="">-- Chọn danh mục --</option>
+                    </select>
                 </div>
                 <div class="col-md-4">
-                    <label asp-for="Brand" class="form-label">Thương hiệu</label>
-                    <input asp-for="Brand" class="form-control" />
+                    <label asp-for="BrandId" class="form-label">Hãng sản xuất</label>
+                    <select asp-for="BrandId" asp-items="@(ViewBag.Brands as SelectList)" class="form-select">
+                        <option value="">-- Chọn hãng --</option>
+                    </select>
                 </div>
                 <div class="col-md-4">
-                    <label asp-for="Supplier" class="form-label">Nhà cung cấp</label>
-                    <input asp-for="Supplier" class="form-control" />
+                    <label asp-for="SupplierId" class="form-label">Nhà cung cấp</label>
+                    <select asp-for="SupplierId" asp-items="@(ViewBag.Suppliers as SelectList)" class="form-select">
+                        <option value="">-- Chọn NCC --</option>
+                    </select>
                 </div>
                 <div class="col-md-4">
                     <label asp-for="PurchaseDate" class="form-label">Ngày mua</label>

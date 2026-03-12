@@ -11,14 +11,11 @@ public class AssetCreateViewModel
     [Required, MaxLength(200)]
     public string AssetName { get; set; } = string.Empty;
 
-    [MaxLength(100)]
-    public string? Category { get; set; }
+    public int? AssetCategoryId { get; set; }
 
-    [MaxLength(100)]
-    public string? Brand { get; set; }
+    public int? BrandId { get; set; }
 
-    [MaxLength(200)]
-    public string? Supplier { get; set; }
+    public int? SupplierId { get; set; }
 
     public DateTime? PurchaseDate { get; set; }
 

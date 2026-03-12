@@ -1,16 +1,23 @@
 using ClosedXML.Excel;
+using managerCMN.Data;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace managerCMN.Services.Implementations;
 
 public class AssetService : IAssetService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ApplicationDbContext _db;
 
-    public AssetService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+    public AssetService(IUnitOfWork unitOfWork, ApplicationDbContext db)
+    {
+        _unitOfWork = unitOfWork;
+        _db = db;
+    }
 
     public async Task<IEnumerable<Asset>> GetAllAsync()
         => await _unitOfWork.Assets.GetAllAsync();
@@ -95,12 +102,28 @@ public class AssetService : IAssetService
             {
                 AssetCode = assetCode,
                 AssetName = row.Cell(2).GetString(),
-                Category = row.Cell(3).IsEmpty() ? null : row.Cell(3).GetString(),
-                Brand = row.Cell(4).IsEmpty() ? null : row.Cell(4).GetString(),
-                Supplier = row.Cell(5).IsEmpty() ? null : row.Cell(5).GetString(),
                 PurchaseDate = row.Cell(6).IsEmpty() ? null : row.Cell(6).GetDateTime(),
                 Status = AssetStatus.Available
             };
+
+            if (!row.Cell(3).IsEmpty())
+            {
+                var catName = row.Cell(3).GetString().Trim();
+                var cat = await _db.AssetCategories.FirstOrDefaultAsync(c => c.CategoryName == catName);
+                if (cat != null) asset.AssetCategoryId = cat.AssetCategoryId;
+            }
+            if (!row.Cell(4).IsEmpty())
+            {
+                var brandName = row.Cell(4).GetString().Trim();
+                var brand = await _db.Brands.FirstOrDefaultAsync(b => b.BrandName == brandName);
+                if (brand != null) asset.BrandId = brand.BrandId;
+            }
+            if (!row.Cell(5).IsEmpty())
+            {
+                var supName = row.Cell(5).GetString().Trim();
+                var sup = await _db.Suppliers.FirstOrDefaultAsync(s => s.SupplierName == supName);
+                if (sup != null) asset.SupplierId = sup.SupplierId;
+            }
 
             await _unitOfWork.Assets.AddAsync(asset);
         }

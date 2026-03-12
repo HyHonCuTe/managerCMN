@@ -38,6 +38,11 @@
                     <label asp-for="Phone" class="form-label">Số điện thoại</label>
                     <input asp-for="Phone" class="form-control" />
                 </div>
+
+                <div class="col-md-3">
+                    <label asp-for="AttendanceCode" class="form-label">Mã chấm công</label>
+                    <input asp-for="AttendanceCode" class="form-control" />
+                </div>
                 <div class="col-md-3">
                     <label asp-for="Status" class="form-label">Trạng thái</label>
                     <select asp-for="Status" asp-items="Html.GetEnumSelectList<EmployeeStatus>()" class="form-select"></select>
@@ -72,8 +77,10 @@
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label asp-for="Position" class="form-label">Chức vụ</label>
-                    <input asp-for="Position" class="form-control" />
+                    <label asp-for="PositionId" class="form-label">Chức vụ</label>
+                    <select asp-for="PositionId" asp-items="@ViewBag.Positions" class="form-select">
+                        <option value="">-- Chọn chức vụ --</option>
+                    </select>
                 </div>
                 <div class="col-md-4">
                     <label asp-for="StartWorkingDate" class="form-label">Ngày bắt đầu làm việc</label>

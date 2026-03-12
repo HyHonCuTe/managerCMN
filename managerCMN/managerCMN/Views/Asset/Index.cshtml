@@ -23,8 +23,8 @@
                 <tr>
                     <td><strong>@asset.AssetCode</strong></td>
                     <td>@asset.AssetName</td>
-                    <td>@asset.Category</td>
-                    <td>@asset.Brand</td>
+                    <td>@asset.AssetCategory?.CategoryName</td>
+                    <td>@asset.Brand?.BrandName</td>
                     <td>
                         @switch (asset.Status)
                         {

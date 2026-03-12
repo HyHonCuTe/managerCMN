@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using managerCMN.Data;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
@@ -13,11 +15,26 @@ public class AssetController : Controller
 {
     private readonly IAssetService _assetService;
     private readonly IEmployeeService _employeeService;
+    private readonly ApplicationDbContext _db;
 
-    public AssetController(IAssetService assetService, IEmployeeService employeeService)
+    public AssetController(IAssetService assetService, IEmployeeService employeeService, ApplicationDbContext db)
     {
         _assetService = assetService;
         _employeeService = employeeService;
+        _db = db;
+    }
+
+    private async Task PopulateDropdownsAsync(int? categoryId = null, int? brandId = null, int? supplierId = null)
+    {
+        ViewBag.Categories = new SelectList(
+            await _db.AssetCategories.Where(c => c.IsActive).OrderBy(c => c.CategoryName).ToListAsync(),
+            "AssetCategoryId", "CategoryName", categoryId);
+        ViewBag.Brands = new SelectList(
+            await _db.Brands.Where(b => b.IsActive).OrderBy(b => b.BrandName).ToListAsync(),
+            "BrandId", "BrandName", brandId);
+        ViewBag.Suppliers = new SelectList(
+            await _db.Suppliers.Where(s => s.IsActive).OrderBy(s => s.SupplierName).ToListAsync(),
+            "SupplierId", "SupplierName", supplierId);
     }
 
     public async Task<IActionResult> Index()
@@ -33,21 +50,29 @@ public class AssetController : Controller
         return View(asset);
     }
 
-    public IActionResult Create() => View();
+    public async Task<IActionResult> Create()
+    {
+        await PopulateDropdownsAsync();
+        return View();
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(AssetCreateViewModel model)
     {
-        if (!ModelState.IsValid) return View(model);
+        if (!ModelState.IsValid)
+        {
+            await PopulateDropdownsAsync(model.AssetCategoryId, model.BrandId, model.SupplierId);
+            return View(model);
+        }
 
         var asset = new Asset
         {
             AssetCode = model.AssetCode,
             AssetName = model.AssetName,
-            Category = model.Category,
-            Brand = model.Brand,
-            Supplier = model.Supplier,
+            AssetCategoryId = model.AssetCategoryId,
+            BrandId = model.BrandId,
+            SupplierId = model.SupplierId,
             PurchaseDate = model.PurchaseDate,
             PurchasePrice = model.PurchasePrice,
             Status = AssetStatus.Available
@@ -76,6 +101,7 @@ public class AssetController : Controller
     {
         var asset = await _assetService.GetWithConfigurationAsync(id);
         if (asset == null) return NotFound();
+        await PopulateDropdownsAsync(asset.AssetCategoryId, asset.BrandId, asset.SupplierId);
         return View(asset);
     }
 
@@ -83,7 +109,11 @@ public class AssetController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(Asset asset)
     {
-        if (!ModelState.IsValid) return View(asset);
+        if (!ModelState.IsValid)
+        {
+            await PopulateDropdownsAsync(asset.AssetCategoryId, asset.BrandId, asset.SupplierId);
+            return View(asset);
+        }
 
         await _assetService.UpdateAsync(asset);
         return RedirectToAction(nameof(Index));

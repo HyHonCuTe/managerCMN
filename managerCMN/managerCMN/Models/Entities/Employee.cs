@@ -31,6 +31,9 @@ public class Employee
     public string? TemporaryAddress { get; set; }
 
     [MaxLength(20)]
+    public string? AttendanceCode { get; set; }
+
+    [MaxLength(20)]
     public string? TaxCode { get; set; }
 
     [MaxLength(50)]
@@ -42,8 +45,8 @@ public class Employee
     public int? DepartmentId { get; set; }
     public Department? Department { get; set; }
 
-    [MaxLength(100)]
-    public string? Position { get; set; }
+    public int? PositionId { get; set; }
+    public Position? Position { get; set; }
 
     [MaxLength(2000)]
     public string? Qualifications { get; set; }

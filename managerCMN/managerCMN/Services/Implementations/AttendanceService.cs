@@ -30,32 +30,61 @@ public class AttendanceService : IAttendanceService
         var worksheet = workbook.Worksheets.First();
         var rows = worksheet.RowsUsed().Skip(1); // Skip header
 
+        // Parse all punch records: group by (attendanceCode, date) to find check-in/check-out
+        var punchRecords = new List<(string AttendanceCode, DateTime PunchTime)>();
+
         foreach (var row in rows)
         {
-            var empCode = row.Cell(1).GetString().Trim();
-            var employee = await _unitOfWork.Employees.GetByCodeAsync(empCode);
+            // Column C (3) = No. = AttendanceCode number
+            var noStr = row.Cell(3).GetString().Trim();
+            if (string.IsNullOrEmpty(noStr)) continue;
+
+            // Column D (4) = Date/Time
+            DateTime punchTime;
+            if (row.Cell(4).DataType == XLDataType.DateTime)
+            {
+                punchTime = row.Cell(4).GetDateTime();
+            }
+            else
+            {
+                var dtStr = row.Cell(4).GetString().Trim();
+                if (!DateTime.TryParse(dtStr, out punchTime)) continue;
+            }
+
+            punchRecords.Add((noStr, punchTime));
+        }
+
+        // Group by (AttendanceCode, Date) to determine check-in (earliest) and check-out (latest)
+        var grouped = punchRecords
+            .GroupBy(r => (r.AttendanceCode, r.PunchTime.Date))
+            .ToList();
+
+        // Cache employee lookups
+        var empCache = new Dictionary<string, Employee?>();
+
+        foreach (var group in grouped)
+        {
+            var attCode = group.Key.AttendanceCode;
+            var date = DateOnly.FromDateTime(group.Key.Date);
+
+            if (!empCache.ContainsKey(attCode))
+                empCache[attCode] = await _unitOfWork.Employees.GetByAttendanceCodeAsync(attCode);
+
+            var employee = empCache[attCode];
             if (employee == null) continue;
 
-            var dateValue = row.Cell(2).GetDateTime();
-            var date = DateOnly.FromDateTime(dateValue);
-
-            // Check if attendance already exists
+            // Check if attendance already exists for this employee+date
             var existing = await _unitOfWork.Attendances
                 .AnyAsync(a => a.EmployeeId == employee.EmployeeId && a.Date == date);
             if (existing) continue;
 
-            TimeOnly? checkIn = null;
-            TimeOnly? checkOut = null;
-
-            if (!row.Cell(3).IsEmpty())
-                checkIn = TimeOnly.FromDateTime(row.Cell(3).GetDateTime());
-
-            if (!row.Cell(4).IsEmpty())
-                checkOut = TimeOnly.FromDateTime(row.Cell(4).GetDateTime());
+            var punches = group.OrderBy(r => r.PunchTime).ToList();
+            var checkIn = TimeOnly.FromDateTime(punches.First().PunchTime);
+            TimeOnly? checkOut = punches.Count > 1 ? TimeOnly.FromDateTime(punches.Last().PunchTime) : null;
 
             decimal? workingHours = null;
-            if (checkIn.HasValue && checkOut.HasValue)
-                workingHours = (decimal)(checkOut.Value.ToTimeSpan() - checkIn.Value.ToTimeSpan()).TotalHours;
+            if (checkOut.HasValue)
+                workingHours = Math.Round((decimal)(checkOut.Value.ToTimeSpan() - checkIn.ToTimeSpan()).TotalHours, 2);
 
             var attendance = new Attendance
             {
@@ -64,9 +93,8 @@ public class AttendanceService : IAttendanceService
                 CheckIn = checkIn,
                 CheckOut = checkOut,
                 WorkingHours = workingHours,
-                OvertimeHours = workingHours > 8 ? workingHours - 8 : 0,
-                IsLate = checkIn.HasValue && checkIn.Value > LateThreshold,
-                Note = row.Cell(5).IsEmpty() ? null : row.Cell(5).GetString()
+                OvertimeHours = workingHours.HasValue && workingHours > 8 ? Math.Round(workingHours.Value - 8, 2) : 0,
+                IsLate = checkIn > LateThreshold,
             };
 
             await _unitOfWork.Attendances.AddAsync(attendance);

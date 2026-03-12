@@ -4,19 +4,23 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using managerCMN.Models.Entities;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
+using managerCMN.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace managerCMN.Controllers;
 
-[Authorize(Policy = "AdminOnly")]
+[Authorize(Policy = "ManagerOrAdmin")]
 public class EmployeeController : Controller
 {
     private readonly IEmployeeService _employeeService;
     private readonly IDepartmentService _departmentService;
+    private readonly ApplicationDbContext _db;
 
-    public EmployeeController(IEmployeeService employeeService, IDepartmentService departmentService)
+    public EmployeeController(IEmployeeService employeeService, IDepartmentService departmentService, ApplicationDbContext db)
     {
         _employeeService = employeeService;
         _departmentService = departmentService;
+        _db = db;
     }
 
     public async Task<IActionResult> Index()
@@ -34,7 +38,7 @@ public class EmployeeController : Controller
 
     public async Task<IActionResult> Create()
     {
-        await PopulateDepartments();
+        await PopulateDropdowns();
         return View();
     }
 
@@ -44,7 +48,7 @@ public class EmployeeController : Controller
     {
         if (!ModelState.IsValid)
         {
-            await PopulateDepartments();
+            await PopulateDropdowns();
             return View(model);
         }
 
@@ -55,13 +59,14 @@ public class EmployeeController : Controller
             Gender = model.Gender,
             Email = model.Email,
             Phone = model.Phone,
+            AttendanceCode = model.AttendanceCode,
             PermanentAddress = model.PermanentAddress,
             TemporaryAddress = model.TemporaryAddress,
             TaxCode = model.TaxCode,
             BankAccount = model.BankAccount,
             BankName = model.BankName,
             DepartmentId = model.DepartmentId,
-            Position = model.Position,
+            PositionId = model.PositionId,
             Qualifications = model.Qualifications,
             StartWorkingDate = model.StartWorkingDate
         };
@@ -75,7 +80,7 @@ public class EmployeeController : Controller
         var employee = await _employeeService.GetByIdAsync(id);
         if (employee == null) return NotFound();
 
-        await PopulateDepartments();
+        await PopulateDropdowns();
         var model = new EmployeeEditViewModel
         {
             EmployeeId = employee.EmployeeId,
@@ -85,13 +90,14 @@ public class EmployeeController : Controller
             Gender = employee.Gender,
             Email = employee.Email,
             Phone = employee.Phone,
+            AttendanceCode = employee.AttendanceCode,
             PermanentAddress = employee.PermanentAddress,
             TemporaryAddress = employee.TemporaryAddress,
             TaxCode = employee.TaxCode,
             BankAccount = employee.BankAccount,
             BankName = employee.BankName,
             DepartmentId = employee.DepartmentId,
-            Position = employee.Position,
+            PositionId = employee.PositionId,
             Qualifications = employee.Qualifications,
             StartWorkingDate = employee.StartWorkingDate,
             Status = employee.Status
@@ -106,7 +112,7 @@ public class EmployeeController : Controller
     {
         if (!ModelState.IsValid)
         {
-            await PopulateDepartments();
+            await PopulateDropdowns();
             return View(model);
         }
 
@@ -118,13 +124,14 @@ public class EmployeeController : Controller
         employee.Gender = model.Gender;
         employee.Email = model.Email;
         employee.Phone = model.Phone;
+        employee.AttendanceCode = model.AttendanceCode;
         employee.PermanentAddress = model.PermanentAddress;
         employee.TemporaryAddress = model.TemporaryAddress;
         employee.TaxCode = model.TaxCode;
         employee.BankAccount = model.BankAccount;
         employee.BankName = model.BankName;
         employee.DepartmentId = model.DepartmentId;
-        employee.Position = model.Position;
+        employee.PositionId = model.PositionId;
         employee.Qualifications = model.Qualifications;
         employee.StartWorkingDate = model.StartWorkingDate;
         employee.Status = model.Status;
@@ -141,9 +148,11 @@ public class EmployeeController : Controller
         return RedirectToAction(nameof(Index));
     }
 
-    private async Task PopulateDepartments()
+    private async Task PopulateDropdowns()
     {
         var departments = await _departmentService.GetAllAsync();
         ViewBag.Departments = new SelectList(departments, "DepartmentId", "DepartmentName");
+        var positions = await _db.Positions.Where(p => p.IsActive).OrderBy(p => p.SortOrder).ToListAsync();
+        ViewBag.Positions = new SelectList(positions, "PositionId", "PositionName");
     }
 }

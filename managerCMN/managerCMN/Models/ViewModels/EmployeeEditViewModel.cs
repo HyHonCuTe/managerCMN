@@ -22,6 +22,9 @@ public class EmployeeEditViewModel
     [MaxLength(20)]
     public string? Phone { get; set; }
 
+    [MaxLength(20)]
+    public string? AttendanceCode { get; set; }
+
     [MaxLength(500)]
     public string? PermanentAddress { get; set; }
 
@@ -39,8 +42,7 @@ public class EmployeeEditViewModel
 
     public int? DepartmentId { get; set; }
 
-    [MaxLength(100)]
-    public string? Position { get; set; }
+    public int? PositionId { get; set; }
 
     [MaxLength(2000)]
     public string? Qualifications { get; set; }

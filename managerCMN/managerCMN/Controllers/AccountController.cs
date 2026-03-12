@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using managerCMN.Models.Entities;
 using managerCMN.Repositories.Interfaces;
 
@@ -22,10 +23,20 @@ public class AccountController : Controller
     }
 
     [HttpGet]
-    public IActionResult Login(string? returnUrl = null)
+    public async Task<IActionResult> Login(string? returnUrl = null)
     {
         ViewData["ReturnUrl"] = returnUrl;
         ViewData["IsDevelopment"] = _env.IsDevelopment();
+
+        if (_env.IsDevelopment())
+        {
+            ViewBag.DevEmployees = await _db.Employees
+                .Include(e => e.Department)
+                .OrderBy(e => e.EmployeeCode)
+                .Select(e => new { e.EmployeeId, e.EmployeeCode, e.FullName, Department = e.Department != null ? e.Department.DepartmentName : "" })
+                .ToListAsync();
+        }
+
         return View();
     }
 
@@ -55,6 +66,9 @@ public class AccountController : Controller
         var user = await _unitOfWork.Users.GetByEmailAsync(email);
         if (user == null)
         {
+            // Try to find matching employee by email
+            var matchedEmployee = await _db.Employees.FirstOrDefaultAsync(e => e.Email == email);
+
             user = new User
             {
                 Email = email,
@@ -62,10 +76,27 @@ public class AccountController : Controller
                 GoogleId = googleId,
                 AvatarUrl = picture,
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                EmployeeId = matchedEmployee?.EmployeeId
             };
             await _unitOfWork.Users.AddAsync(user);
             await _unitOfWork.SaveChangesAsync();
+
+            // Assign role: Admin for the master account, User for everyone else
+            int roleId = string.Equals(email, "tienthanhnguyen811@gmail.com", StringComparison.OrdinalIgnoreCase) ? 1 : 3;
+            _db.Set<UserRole>().Add(new UserRole { UserId = user.UserId, RoleId = roleId });
+            await _db.SaveChangesAsync();
+        }
+        else if (!user.EmployeeId.HasValue)
+        {
+            // Try to link existing user to employee by email
+            var matchedEmployee = await _db.Employees.FirstOrDefaultAsync(e => e.Email == email);
+            if (matchedEmployee != null)
+            {
+                user.EmployeeId = matchedEmployee.EmployeeId;
+                _unitOfWork.Users.Update(user);
+                await _unitOfWork.SaveChangesAsync();
+            }
         }
 
         user.LastLogin = DateTime.UtcNow;
@@ -80,32 +111,75 @@ public class AccountController : Controller
     /// Dev-only login: creates/gets admin user and signs in directly without Google OAuth
     /// </summary>
     [HttpPost]
-    public async Task<IActionResult> DevLogin(string? returnUrl = null)
+    public async Task<IActionResult> DevLogin(string? returnUrl = null, int? employeeId = null)
     {
         if (!_env.IsDevelopment())
             return NotFound();
 
-        const string devEmail = "admin@company.local";
-        var user = await _unitOfWork.Users.GetByEmailAsync(devEmail);
-        if (user == null)
-        {
-            user = new User
-            {
-                Email = devEmail,
-                FullName = "Admin (Dev)",
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            };
-            await _unitOfWork.Users.AddAsync(user);
-            await _unitOfWork.SaveChangesAsync();
-        }
+        User? user;
 
-        // Ensure admin role
-        var userWithRoles = await _unitOfWork.Users.GetWithRolesAsync(user.UserId);
-        if (userWithRoles?.UserRoles == null || !userWithRoles.UserRoles.Any(ur => ur.RoleId == 1))
+        if (employeeId.HasValue)
         {
-            _db.Set<UserRole>().Add(new UserRole { UserId = user.UserId, RoleId = 1 });
-            await _db.SaveChangesAsync();
+            // Log in as a specific employee
+            var emp = await _db.Employees.FindAsync(employeeId.Value);
+            if (emp == null) return NotFound();
+
+            user = await _db.Users.FirstOrDefaultAsync(u => u.EmployeeId == employeeId.Value);
+            if (user == null)
+            {
+                user = new User
+                {
+                    Email = emp.Email ?? $"dev-{emp.EmployeeCode.ToLowerInvariant()}@company.local",
+                    FullName = emp.FullName,
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    EmployeeId = emp.EmployeeId
+                };
+                await _unitOfWork.Users.AddAsync(user);
+                await _unitOfWork.SaveChangesAsync();
+
+                // Default role: User (3)
+                _db.Set<UserRole>().Add(new UserRole { UserId = user.UserId, RoleId = 3 });
+                await _db.SaveChangesAsync();
+            }
+        }
+        else
+        {
+            // Original DevLogin: admin@company.local linked to NV001
+            const string devEmail = "admin@company.local";
+            user = await _unitOfWork.Users.GetByEmailAsync(devEmail);
+            if (user == null)
+            {
+                var nv001 = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeCode == "NV001");
+                user = new User
+                {
+                    Email = devEmail,
+                    FullName = "Admin (Dev)",
+                    IsActive = true,
+                    CreatedAt = DateTime.UtcNow,
+                    EmployeeId = nv001?.EmployeeId
+                };
+                await _unitOfWork.Users.AddAsync(user);
+                await _unitOfWork.SaveChangesAsync();
+            }
+            else if (!user.EmployeeId.HasValue)
+            {
+                var nv001 = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeCode == "NV001");
+                if (nv001 != null)
+                {
+                    user.EmployeeId = nv001.EmployeeId;
+                    _unitOfWork.Users.Update(user);
+                    await _unitOfWork.SaveChangesAsync();
+                }
+            }
+
+            // Ensure admin role
+            var userWithRoles = await _unitOfWork.Users.GetWithRolesAsync(user.UserId);
+            if (userWithRoles?.UserRoles == null || !userWithRoles.UserRoles.Any(ur => ur.RoleId == 1))
+            {
+                _db.Set<UserRole>().Add(new UserRole { UserId = user.UserId, RoleId = 1 });
+                await _db.SaveChangesAsync();
+            }
         }
 
         user.LastLogin = DateTime.UtcNow;

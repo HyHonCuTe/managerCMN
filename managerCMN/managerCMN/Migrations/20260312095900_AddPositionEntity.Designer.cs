@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using managerCMN.Data;
 
@@ -11,9 +12,11 @@ using managerCMN.Data;
 namespace managerCMN.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260312095900_AddPositionEntity")]
+    partial class AddPositionEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -30,9 +33,6 @@ namespace managerCMN.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AssetId"));
 
-                    b.Property<int?>("AssetCategoryId")
-                        .HasColumnType("int");
-
                     b.Property<string>("AssetCode")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -43,8 +43,13 @@ namespace managerCMN.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<int?>("BrandId")
-                        .HasColumnType("int");
+                    b.Property<string>("Brand")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -58,19 +63,14 @@ namespace managerCMN.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<int?>("SupplierId")
-                        .HasColumnType("int");
+                    b.Property<string>("Supplier")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.HasKey("AssetId");
 
-                    b.HasIndex("AssetCategoryId");
-
                     b.HasIndex("AssetCode")
                         .IsUnique();
-
-                    b.HasIndex("BrandId");
-
-                    b.HasIndex("SupplierId");
 
                     b.ToTable("Assets");
                 });
@@ -113,27 +113,6 @@ namespace managerCMN.Migrations
                     b.HasIndex("EmployeeId");
 
                     b.ToTable("AssetAssignments");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.AssetCategory", b =>
-                {
-                    b.Property<int>("AssetCategoryId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AssetCategoryId"));
-
-                    b.Property<string>("CategoryName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.HasKey("AssetCategoryId");
-
-                    b.ToTable("AssetCategories");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.AssetConfiguration", b =>
@@ -213,27 +192,6 @@ namespace managerCMN.Migrations
                         .IsUnique();
 
                     b.ToTable("Attendances");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.Brand", b =>
-                {
-                    b.Property<int>("BrandId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("BrandId"));
-
-                    b.Property<string>("BrandName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.HasKey("BrandId");
-
-                    b.ToTable("Brands");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Contract", b =>
@@ -699,35 +657,6 @@ namespace managerCMN.Migrations
                         });
                 });
 
-            modelBuilder.Entity("managerCMN.Models.Entities.Supplier", b =>
-                {
-                    b.Property<int>("SupplierId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SupplierId"));
-
-                    b.Property<string>("Address")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("Phone")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("SupplierName")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("SupplierId");
-
-                    b.ToTable("Suppliers");
-                });
-
             modelBuilder.Entity("managerCMN.Models.Entities.SystemLog", b =>
                 {
                     b.Property<long>("LogId")
@@ -895,27 +824,6 @@ namespace managerCMN.Migrations
                         .IsUnique();
 
                     b.ToTable("UserRoles");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.Asset", b =>
-                {
-                    b.HasOne("managerCMN.Models.Entities.AssetCategory", "AssetCategory")
-                        .WithMany("Assets")
-                        .HasForeignKey("AssetCategoryId");
-
-                    b.HasOne("managerCMN.Models.Entities.Brand", "Brand")
-                        .WithMany("Assets")
-                        .HasForeignKey("BrandId");
-
-                    b.HasOne("managerCMN.Models.Entities.Supplier", "Supplier")
-                        .WithMany("Assets")
-                        .HasForeignKey("SupplierId");
-
-                    b.Navigation("AssetCategory");
-
-                    b.Navigation("Brand");
-
-                    b.Navigation("Supplier");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.AssetAssignment", b =>
@@ -1117,16 +1025,6 @@ namespace managerCMN.Migrations
                     b.Navigation("Configuration");
                 });
 
-            modelBuilder.Entity("managerCMN.Models.Entities.AssetCategory", b =>
-                {
-                    b.Navigation("Assets");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.Brand", b =>
-                {
-                    b.Navigation("Assets");
-                });
-
             modelBuilder.Entity("managerCMN.Models.Entities.Department", b =>
                 {
                     b.Navigation("Employees");
@@ -1168,11 +1066,6 @@ namespace managerCMN.Migrations
             modelBuilder.Entity("managerCMN.Models.Entities.Role", b =>
                 {
                     b.Navigation("UserRoles");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.Supplier", b =>
-                {
-                    b.Navigation("Assets");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.User", b =>

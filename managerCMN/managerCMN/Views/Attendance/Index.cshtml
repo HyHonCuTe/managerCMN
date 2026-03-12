@@ -1,61 +1,420 @@
-@model IEnumerable<Attendance>
+@model AttendanceCalendarViewModel
 @{
-    ViewData["Title"] = "Chấm công";
+    ViewData["Title"] = "Bảng chấm công";
+    var firstDay = new DateOnly(Model.Year, Model.Month, 1);
+    var daysInMonth = DateTime.DaysInMonth(Model.Year, Model.Month);
+    var startDow = (int)firstDay.DayOfWeek;
+    var mondayOffset = startDow == 0 ? 6 : startDow - 1;
+    var today = DateOnly.FromDateTime(DateTime.Now);
+    var prevMonth = firstDay.AddMonths(-1);
+    var nextMonth = firstDay.AddMonths(1);
+    var dayAbbrs = new[] { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
+
+    decimal CalcPoints(decimal? wh, bool isSat)
+    {
+        if (!wh.HasValue) return 0;
+        if (isSat) return wh.Value >= 3 ? 1m : 0m;
+        return wh.Value >= 8 ? 2m : (wh.Value >= 6 ? 1.5m : (wh.Value >= 3.5m ? 1m : 0m));
+    }
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0"><i class="bi bi-clock-history"></i> Bảng chấm công</h4>
-    <div>
-        <a asp-action="LateReport" class="btn btn-outline-warning"><i class="bi bi-exclamation-triangle"></i> Đi muộn</a>
-        <a asp-action="Import" class="btn btn-primary"><i class="bi bi-upload"></i> Import Excel</a>
+<div class="att-page">
+    @* === CYCLE HEADER === *@
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="d-flex align-items-center gap-3">
+            <a asp-action="Index" asp-route-employeeId="@Model.SelectedEmployeeId"
+               asp-route-year="@prevMonth.Year" asp-route-month="@prevMonth.Month"
+               class="att-nav-btn"><i class="bi bi-chevron-left"></i></a>
+            <h4 class="mb-0 fw-bold">Cycle: @Model.Month.ToString("00")/@Model.Year</h4>
+            <a asp-action="Index" asp-route-employeeId="@Model.SelectedEmployeeId"
+               asp-route-year="@nextMonth.Year" asp-route-month="@nextMonth.Month"
+               class="att-nav-btn"><i class="bi bi-chevron-right"></i></a>
+        </div>
+        @if (ViewBag.IsAdminOrManager == true)
+        {
+        <div class="d-flex gap-2">
+            <a asp-action="LateReport" class="btn btn-outline-warning btn-sm"><i class="bi bi-exclamation-triangle"></i> Danh s&#225;ch &#273;i mu&#7897;n</a>
+            <a asp-action="Import" class="btn btn-success btn-sm"><i class="bi bi-upload"></i> Import Excel</a>
+        </div>
+        }
     </div>
-</div>
 
-<div class="card mb-3">
-    <div class="card-body">
-        <form method="get" class="row g-2 align-items-end">
-            <div class="col-auto">
-                <label class="form-label">Tháng</label>
-                <select name="month" class="form-select">
-                    @for (int m = 1; m <= 12; m++)
-                    {
-                        <option value="@m" selected="@(ViewBag.Month == m)">Tháng @m</option>
-                    }
-                </select>
-            </div>
-            <div class="col-auto">
-                <label class="form-label">Năm</label>
-                <input name="year" type="number" class="form-control" value="@ViewBag.Year" />
-            </div>
-            <div class="col-auto">
-                <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Lọc</button>
-            </div>
-        </form>
-    </div>
-</div>
+    @if (!string.IsNullOrEmpty(Model.EmployeeName))
+    {
+        <div class="text-muted small mb-2">
+            L&#7883;ch l&#224;m vi&#7879;c: @Model.EmployeeCode - @Model.EmployeeName &middot; Duration: 01/@Model.Month.ToString("00") - @daysInMonth/@Model.Month.ToString("00")/@Model.Year
+        </div>
+    }
 
-<div class="card">
-    <div class="card-body">
-        <table class="table table-hover data-table">
-            <thead class="table-light">
-                <tr><th>Nhân viên</th><th>Ngày</th><th>Check-in</th><th>Check-out</th><th>Đi muộn</th><th>OT (giờ)</th><th>Ghi chú</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var att in Model)
+    @* === FILTER BAR === *@
+    <form method="get" class="att-filter-bar mb-2">
+        @if (ViewBag.IsAdminOrManager == true)
+        {
+        <div class="att-filter-group">
+            <label class="att-filter-label">Nh&#226;n vi&#234;n</label>
+            <select name="employeeId" class="form-select form-select-sm" onchange="this.form.submit()">
+                @foreach (var emp in Model.Employees)
                 {
-                <tr class="@(att.IsLate ? "table-warning" : "")">
-                    <td>@att.Employee?.FullName</td>
-                    <td>@att.Date.ToString("dd/MM/yyyy")</td>
-                    <td>@att.CheckIn?.ToString("HH\\:mm")</td>
-                    <td>@att.CheckOut?.ToString("HH\\:mm")</td>
-                    <td>
-                        @if (att.IsLate) { <span class="badge bg-warning">Đi muộn</span> }
-                    </td>
-                    <td>@(att.OvertimeHours.HasValue && att.OvertimeHours > 0 ? att.OvertimeHours.Value.ToString("0.0") : "")</td>
-                    <td>@att.Note</td>
-                </tr>
+                    var dept = !string.IsNullOrEmpty(emp.DepartmentName) ? $" [{emp.DepartmentName}]" : "";
+                    if (emp.EmployeeId == Model.SelectedEmployeeId)
+                    {
+                        <option value="@emp.EmployeeId" selected>@emp.EmployeeCode - @emp.FullName@dept</option>
+                    }
+                    else
+                    {
+                        <option value="@emp.EmployeeId">@emp.EmployeeCode - @emp.FullName@dept</option>
+                    }
                 }
-            </tbody>
-        </table>
+            </select>
+        </div>
+        }
+        else
+        {
+            <input type="hidden" name="employeeId" value="@Model.SelectedEmployeeId" />
+        }
+        <div class="att-filter-group">
+            <label class="att-filter-label">Th&#225;ng</label>
+            <select name="month" class="form-select form-select-sm" onchange="this.form.submit()">
+                @for (int m = 1; m <= 12; m++)
+                {
+                    if (m == Model.Month)
+                    {
+                        <option value="@m" selected>Th&#225;ng @m</option>
+                    }
+                    else
+                    {
+                        <option value="@m">Th&#225;ng @m</option>
+                    }
+                }
+            </select>
+        </div>
+        <div class="att-filter-group">
+            <label class="att-filter-label">N&#259;m</label>
+            <input name="year" type="number" class="form-control form-control-sm" value="@Model.Year" style="width:85px" />
+        </div>
+        <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-search"></i></button>
+    </form>
+
+    @* === SUMMARY BAR === *@
+    <div class="att-summary-bar mb-2">
+        <span class="att-stat att-stat-green"><i class="bi bi-check-circle-fill"></i> S&#7889; c&#244;ng: @Model.TotalWorkDays.ToString("0.00")/@Model.StandardWorkDays.ToString("0.00")</span>
+        <span class="att-stat att-stat-orange"><i class="bi bi-clock-fill"></i> Mu&#7897;n: @Model.LateDays</span>
+        <span class="att-stat att-stat-red"><i class="bi bi-dash-circle-fill"></i> Kh&#7845;u tr&#7915;: @Model.DeductionPoints.ToString("0.00")</span>
+        @if (Model.TotalOvertimeHours > 0)
+        {
+            <span class="att-stat att-stat-cyan"><i class="bi bi-lightning-fill"></i> OT: @Model.TotalOvertimeHours.ToString("0.0")h</span>
+        }
+        <span class="att-separator">|</span>
+        <span class="att-legend"><span class="att-dot att-dot-rest"></span> Ng&#224;y ngh&#7881;</span>
+        <span class="att-legend"><span class="att-dot att-dot-late"></span> Ng&#224;y mu&#7897;n</span>
+        <span class="att-legend"><span class="att-dot att-dot-half"></span> M&#7845;t m&#7897;t ph&#7847;n c&#244;ng</span>
+        <span class="att-legend"><span class="att-dot att-dot-full"></span> Ng&#224;y &#273;&#7911; c&#244;ng</span>
+        <span class="att-legend"><span class="att-dot att-dot-shift-ok"></span> Ca &#273;&#7911; c&#244;ng</span>
+        <span class="att-legend"><span class="att-dot att-dot-shift-late"></span> Ca mu&#7897;n</span>
+        <span class="att-legend"><span class="att-dot att-dot-shift-off"></span> Ca ngh&#7881;</span>
+        <span class="att-legend"><span class="att-dot att-dot-absent"></span> V&#7855;ng</span>
+    </div>
+
+    @* === CALENDAR GRID === *@
+    <div class="att-grid">
+        @* Day of week headers *@
+        <div class="att-hdr">TH&#7912; HAI</div>
+        <div class="att-hdr">TH&#7912; BA</div>
+        <div class="att-hdr">TH&#7912; T&#431;</div>
+        <div class="att-hdr">TH&#7912; N&#258;M</div>
+        <div class="att-hdr">TH&#7912; S&#193;U</div>
+        <div class="att-hdr att-hdr-sat">TH&#7912; B&#7842;Y</div>
+        <div class="att-hdr att-hdr-sun">CH&#7910; NH&#7852;T</div>
+
+        @* Overflow from previous month *@
+        @for (int i = mondayOffset - 1; i >= 0; i--)
+        {
+            var d = firstDay.AddDays(-(i + 1));
+            <div class="att-cell att-cell-overflow">
+                <div class="att-cell-hdr att-cell-hdr-grey">
+                    <span>@d.Day.ToString("00")/@d.Month.ToString("00")</span>
+                </div>
+            </div>
+        }
+
+        @* Days of current month *@
+        @for (int day = 1; day <= daysInMonth; day++)
+        {
+            var date = new DateOnly(Model.Year, Model.Month, day);
+            var dow = (int)date.DayOfWeek;
+            var isSun = dow == 0;
+            var isSat = dow == 6;
+            var isFuture = date > today;
+            var isToday = date == today;
+            var hasData = Model.AttendanceByDate.ContainsKey(date);
+            var att = hasData ? Model.AttendanceByDate[date] : null;
+            var abbr = dayAbbrs[dow];
+
+            @* Determine header color class *@
+            var hdrClass = "att-cell-hdr ";
+            if (isSun) { hdrClass += "att-cell-hdr-grey"; }
+            else if (isFuture) { hdrClass += "att-cell-hdr-future"; }
+            else if (!hasData) { hdrClass += "att-cell-hdr-absent"; }
+            else if (att!.CheckOut == null) { hdrClass += "att-cell-hdr-error"; }
+            else if (att.IsLate) { hdrClass += "att-cell-hdr-late"; }
+            else { hdrClass += "att-cell-hdr-ok"; }
+
+            var cellExtra = isToday ? " att-cell-today" : "";
+
+            <div class="att-cell@(cellExtra)">
+                <div class="@hdrClass">
+                    <span>@day.ToString("00")/@Model.Month.ToString("00")</span>
+                    @if (hasData && att!.CheckIn.HasValue)
+                    {
+                        <span class="att-time-badge">
+                            <i class="bi bi-clock"></i>
+                            @att.CheckIn.Value.ToString("H\\:mm") - @(att.CheckOut.HasValue ? att.CheckOut.Value.ToString("H\\:mm") : "--:--")
+                        </span>
+                    }
+                    else if (!isSun && !isFuture && !hasData)
+                    {
+                        <span class="att-time-badge">
+                            <i class="bi bi-clock"></i> --:-- - --:--
+                        </span>
+                    }
+                </div>
+
+                @if (!isSun)
+                {
+                    <div class="att-cell-body">
+                        @if (hasData)
+                        {
+                            var points = CalcPoints(att!.WorkingHours, isSat);
+                            var lateMin = 0;
+                            if (att.IsLate && att.CheckIn.HasValue)
+                            {
+                                lateMin = (int)(att.CheckIn.Value.ToTimeSpan() - new TimeSpan(8, 30, 0)).TotalMinutes;
+                                if (lateMin < 0) lateMin = 0;
+                            }
+
+                            @* Work points - large number *@
+                            <div class="att-points @(points >= 2 ? "att-pts-full" : points >= 1.5m ? "att-pts-late" : points >= 1 ? "att-pts-half" : "att-pts-zero")">
+                                @points.ToString("0.#")
+                            </div>
+
+                            @* Shift rows *@
+                            <div class="att-shifts">
+                                @* S1 - Morning shift *@
+                                @{
+                                    var s1Class = "att-dot ";
+                                    if (!att.CheckIn.HasValue) { s1Class += "att-dot-shift-off"; }
+                                    else if (att.IsLate) { s1Class += "att-dot-shift-late"; }
+                                    else { s1Class += "att-dot-shift-ok"; }
+                                }
+                                <div class="att-shift-row">
+                                    <span class="@s1Class"></span>
+                                    <span>@(abbr)-S1: 8:30-12:00</span>
+                                </div>
+
+                                @* S2 - Afternoon shift (Mon-Fri only) *@
+                                @if (!isSat)
+                                {
+                                    var s2Class = "att-dot ";
+                                    if (!att.CheckOut.HasValue || att.CheckOut.Value <= new TimeOnly(13, 30))
+                                    {
+                                        s2Class += "att-dot-shift-off";
+                                    }
+                                    else if (att.CheckOut.Value < new TimeOnly(17, 30))
+                                    {
+                                        s2Class += "att-dot-shift-late";
+                                    }
+                                    else
+                                    {
+                                        s2Class += "att-dot-shift-ok";
+                                    }
+                                    <div class="att-shift-row">
+                                        <span class="@s2Class"></span>
+                                        <span>@(abbr)-S2: 13:30-18:00</span>
+                                    </div>
+                                }
+                            </div>
+
+                            @* Late info *@
+                            @if (att.IsLate)
+                            {
+                                <div class="att-late-row att-late-warn">Mu&#7897;n: @lateMin ph&#250;t</div>
+                            }
+                            else
+                            {
+                                <div class="att-late-row att-late-ok">Mu&#7897;n: 0 ph&#250;t</div>
+                            }
+
+                            @* OT *@
+                            @if (att.OvertimeHours.HasValue && att.OvertimeHours > 0)
+                            {
+                                <div class="att-ot">OT: @att.OvertimeHours.Value.ToString("0.0")h</div>
+                            }
+                        }
+                        else if (!isFuture)
+                        {
+                            @* Absent day *@
+                            <div class="att-points att-pts-zero">0</div>
+                            <div class="att-absent-label">Ngh&#7881;</div>
+                        }
+                    </div>
+                }
+            </div>
+        }
+
+        @* Overflow to next month *@
+        @{
+            var lastDow = (int)new DateOnly(Model.Year, Model.Month, daysInMonth).DayOfWeek;
+            var trailing = lastDow == 0 ? 0 : 7 - lastDow;
+        }
+        @for (int i = 1; i <= trailing; i++)
+        {
+            var d = new DateOnly(Model.Year, Model.Month, daysInMonth).AddDays(i);
+            <div class="att-cell att-cell-overflow">
+                <div class="att-cell-hdr att-cell-hdr-grey">
+                    <span>@d.Day.ToString("00")/@d.Month.ToString("00")</span>
+                </div>
+            </div>
+        }
     </div>
 </div>
+
+<style>
+    .att-page { max-width: 100%; }
+
+    /* Nav buttons */
+    .att-nav-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 32px; height: 32px; border-radius: 50%; background: #f0f0f0;
+        color: #333; text-decoration: none; transition: background .2s;
+    }
+    .att-nav-btn:hover { background: #ddd; color: #000; }
+
+    /* Filter bar */
+    .att-filter-bar {
+        display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+        background: #fff; padding: 10px 14px; border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.08);
+    }
+    .att-filter-group { display: flex; flex-direction: column; gap: 2px; }
+    .att-filter-label { font-size: .72rem; font-weight: 600; color: #6c757d; text-transform: uppercase; }
+
+    /* Summary bar */
+    .att-summary-bar {
+        display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+        background: #fff; padding: 8px 14px; border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.08); font-size: .78rem;
+    }
+    .att-stat { font-weight: 600; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; }
+    .att-stat-green { background: #d1f5d3; color: #1a7a2e; }
+    .att-stat-orange { background: #fff3cd; color: #856404; }
+    .att-stat-red { background: #f8d7da; color: #842029; }
+    .att-stat-cyan { background: #cff4fc; color: #055160; }
+    .att-separator { color: #ccc; }
+    .att-legend { display: inline-flex; align-items: center; gap: 4px; color: #555; font-size: .72rem; }
+
+    /* Dots */
+    .att-dot {
+        display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+    }
+    .att-dot-full { background: #28a745; }
+    .att-dot-late { background: #fd7e14; }
+    .att-dot-half { background: #ffc107; }
+    .att-dot-absent { background: #dc3545; }
+    .att-dot-rest { background: #adb5bd; }
+    .att-dot-shift-ok { background: #28a745; }
+    .att-dot-shift-late { background: #fd7e14; }
+    .att-dot-shift-off { background: #dc3545; }
+
+    /* Calendar grid */
+    .att-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background: #dee2e6;
+        border-radius: 6px;
+        overflow: hidden;
+    }
+
+    /* Headers */
+    .att-hdr {
+        background: #e9ecef; color: #495057; text-align: center;
+        font-weight: 700; font-size: .72rem; padding: 8px 4px;
+        text-transform: uppercase; letter-spacing: .5px;
+    }
+    .att-hdr-sat { color: #0d6efd; }
+    .att-hdr-sun { color: #dc3545; }
+
+    /* Cells */
+    .att-cell {
+        background: #fff; min-height: 140px;
+        display: flex; flex-direction: column;
+        font-size: .75rem; position: relative;
+        transition: box-shadow .15s;
+    }
+    .att-cell:hover:not(.att-cell-overflow) {
+        box-shadow: 0 0 0 2px #0d6efd inset; z-index: 2;
+    }
+    .att-cell-overflow { min-height: 60px; background: #f8f9fa; }
+    .att-cell-today { box-shadow: 0 0 0 2.5px #0d6efd inset !important; z-index: 3; }
+
+    /* Cell header (date bar) */
+    .att-cell-hdr {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 4px 8px; font-weight: 600; font-size: .78rem;
+        color: #fff; min-height: 28px;
+    }
+    .att-cell-hdr-ok { background: linear-gradient(135deg, #28a745, #20c997); }
+    .att-cell-hdr-late { background: linear-gradient(135deg, #fd7e14, #e67e22); }
+    .att-cell-hdr-error { background: linear-gradient(135deg, #dc3545, #c0392b); }
+    .att-cell-hdr-absent { background: linear-gradient(135deg, #dc3545, #e74c3c); }
+    .att-cell-hdr-grey { background: #dee2e6; color: #6c757d; }
+    .att-cell-hdr-future { background: #f8f9fa; color: #adb5bd; }
+
+    .att-time-badge { font-size: .68rem; opacity: .9; display: inline-flex; align-items: center; gap: 3px; }
+    .att-time-badge i { font-size: .6rem; }
+
+    /* Cell body */
+    .att-cell-body {
+        flex: 1; padding: 4px 8px 6px; display: flex;
+        flex-direction: column; gap: 1px;
+    }
+
+    /* Work points */
+    .att-points {
+        font-size: 1.5rem; font-weight: 800; line-height: 1.1;
+        margin-bottom: 2px;
+    }
+    .att-pts-full { color: #28a745; }
+    .att-pts-late { color: #fd7e14; }
+    .att-pts-half { color: #ffc107; }
+    .att-pts-zero { color: #dc3545; }
+
+    /* Shifts */
+    .att-shifts { display: flex; flex-direction: column; gap: 1px; }
+    .att-shift-row {
+        display: flex; align-items: center; gap: 5px;
+        font-size: .7rem; color: #555; line-height: 1.4;
+    }
+
+    /* Late info */
+    .att-late-row { font-size: .68rem; margin-top: 2px; }
+    .att-late-warn { color: #fd7e14; font-weight: 600; }
+    .att-late-ok { color: #28a745; }
+
+    /* OT badge */
+    .att-ot { font-size: .65rem; color: #0dcaf0; font-weight: 600; margin-top: auto; }
+
+    /* Absent label */
+    .att-absent-label { color: #dc3545; font-weight: 600; font-size: .78rem; }
+
+    @@media (max-width: 1200px) {
+        .att-cell { min-height: 120px; font-size: .7rem; }
+        .att-points { font-size: 1.2rem; }
+    }
+    @@media (max-width: 768px) {
+        .att-cell { min-height: 90px; }
+        .att-time-badge { display: none; }
+        .att-shift-row { font-size: .6rem; }
+        .att-points { font-size: 1rem; }
+    }
+</style>

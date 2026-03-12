@@ -23,9 +23,9 @@
                 <div class="row g-2">
                     <div class="col-4"><strong>Mã TS:</strong></div><div class="col-8">@Model.AssetCode</div>
                     <div class="col-4"><strong>Tên:</strong></div><div class="col-8">@Model.AssetName</div>
-                    <div class="col-4"><strong>Danh mục:</strong></div><div class="col-8">@Model.Category</div>
-                    <div class="col-4"><strong>Hãng:</strong></div><div class="col-8">@Model.Brand</div>
-                    <div class="col-4"><strong>NCC:</strong></div><div class="col-8">@Model.Supplier</div>
+                    <div class="col-4"><strong>Danh mục:</strong></div><div class="col-8">@Model.AssetCategory?.CategoryName</div>
+                    <div class="col-4"><strong>Hãng:</strong></div><div class="col-8">@Model.Brand?.BrandName</div>
+                    <div class="col-4"><strong>NCC:</strong></div><div class="col-8">@Model.Supplier?.SupplierName</div>
                     <div class="col-4"><strong>Ngày mua:</strong></div><div class="col-8">@Model.PurchaseDate?.ToString("dd/MM/yyyy")</div>
                     <div class="col-4"><strong>Giá mua:</strong></div><div class="col-8">@Model.PurchasePrice?.ToString("N0") ₫</div>
                     <div class="col-4"><strong>Trạng thái:</strong></div>

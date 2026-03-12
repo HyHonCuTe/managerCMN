@@ -1,0 +1,30 @@
+@{
+    ViewData["Title"] = "Cấp phát Tài sản";
+    var asset = (Asset)ViewBag.Asset;
+}
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-person-plus"></i> Cấp phát tài sản: @asset.AssetName (@asset.AssetCode)</div>
+    <div class="card-body">
+        <form asp-action="Assign" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="AssetId" value="@asset.AssetId" />
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Nhân viên <span class="text-danger">*</span></label>
+                    <select name="EmployeeId" class="form-select" asp-items="@ViewBag.Employees">
+                        <option value="">-- Chọn nhân viên --</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Ghi chú</label>
+                    <input name="Note" class="form-control" />
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Cấp phát</button>
+                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>

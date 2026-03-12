@@ -1,0 +1,55 @@
+@model LeaveRequestCreateViewModel
+@{
+    ViewData["Title"] = "Tạo đơn Nghỉ phép";
+}
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-calendar-plus"></i> Tạo đơn nghỉ phép</div>
+    <div class="card-body">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="StartDate" class="form-label">Từ ngày <span class="text-danger">*</span></label>
+                    <input asp-for="StartDate" class="form-control" type="date" />
+                    <span asp-validation-for="StartDate" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="EndDate" class="form-label">Đến ngày <span class="text-danger">*</span></label>
+                    <input asp-for="EndDate" class="form-control" type="date" />
+                    <span asp-validation-for="EndDate" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="TotalDays" class="form-label">Số ngày</label>
+                    <input asp-for="TotalDays" class="form-control" type="number" step="0.5" />
+                </div>
+                <div class="col-12">
+                    <label asp-for="Reason" class="form-label">Lý do <span class="text-danger">*</span></label>
+                    <textarea asp-for="Reason" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Reason" class="text-danger"></span>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i> Gửi đơn</button>
+                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.querySelector('[name="StartDate"]').addEventListener('change', calcDays);
+        document.querySelector('[name="EndDate"]').addEventListener('change', calcDays);
+        function calcDays() {
+            var s = document.querySelector('[name="StartDate"]').value;
+            var e = document.querySelector('[name="EndDate"]').value;
+            if (s && e) {
+                var diff = (new Date(e) - new Date(s)) / (1000 * 60 * 60 * 24) + 1;
+                if (diff > 0) document.querySelector('[name="TotalDays"]').value = diff;
+            }
+        }
+    </script>
+}

@@ -1,0 +1,68 @@
+@model AssetCreateViewModel
+@{
+    ViewData["Title"] = "Thêm Tài sản";
+}
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-plus-lg"></i> Thêm tài sản mới</div>
+    <div class="card-body">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <h5>Thông tin chung</h5>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="AssetCode" class="form-label">Mã tài sản <span class="text-danger">*</span></label>
+                    <input asp-for="AssetCode" class="form-control" />
+                    <span asp-validation-for="AssetCode" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="AssetName" class="form-label">Tên tài sản <span class="text-danger">*</span></label>
+                    <input asp-for="AssetName" class="form-control" />
+                    <span asp-validation-for="AssetName" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Category" class="form-label">Danh mục</label>
+                    <input asp-for="Category" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Brand" class="form-label">Hãng sản xuất</label>
+                    <input asp-for="Brand" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Supplier" class="form-label">Nhà cung cấp</label>
+                    <input asp-for="Supplier" class="form-control" />
+                </div>
+                <div class="col-md-2">
+                    <label asp-for="PurchaseDate" class="form-label">Ngày mua</label>
+                    <input asp-for="PurchaseDate" class="form-control" type="date" />
+                </div>
+                <div class="col-md-2">
+                    <label asp-for="PurchasePrice" class="form-label">Giá mua</label>
+                    <input asp-for="PurchasePrice" class="form-control" type="number" />
+                </div>
+            </div>
+
+            <h5 class="mt-4">Cấu hình (nếu là máy tính)</h5>
+            <div class="row g-3">
+                <div class="col-md-3"><label asp-for="CPU" class="form-label">CPU</label><input asp-for="CPU" class="form-control" /></div>
+                <div class="col-md-3"><label asp-for="Mainboard" class="form-label">Mainboard</label><input asp-for="Mainboard" class="form-control" /></div>
+                <div class="col-md-3"><label asp-for="RAM" class="form-label">RAM</label><input asp-for="RAM" class="form-control" /></div>
+                <div class="col-md-3"><label asp-for="SSD" class="form-label">SSD</label><input asp-for="SSD" class="form-control" /></div>
+                <div class="col-md-3"><label asp-for="HDD" class="form-label">HDD</label><input asp-for="HDD" class="form-control" /></div>
+                <div class="col-md-3"><label asp-for="VGA" class="form-label">VGA</label><input asp-for="VGA" class="form-control" /></div>
+                <div class="col-md-3"><label asp-for="OS" class="form-label">Hệ điều hành</label><input asp-for="OS" class="form-control" /></div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

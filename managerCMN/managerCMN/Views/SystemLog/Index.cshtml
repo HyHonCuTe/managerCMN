@@ -1,0 +1,52 @@
+@model IEnumerable<SystemLog>
+@{
+    ViewData["Title"] = "Nhật ký Hệ thống";
+}
+
+<h4 class="mb-3"><i class="bi bi-journal-text"></i> Nhật ký Hệ thống</h4>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label">Module</label>
+                <input name="module" class="form-control" value="@ViewBag.Module" placeholder="VD: Employee, Leave..." />
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Từ</label>
+                <input name="from" type="date" class="form-control" value="@(ViewBag.From != null ? ((DateTime)ViewBag.From).ToString("yyyy-MM-dd") : "")" />
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Đến</label>
+                <input name="to" type="date" class="form-control" value="@(ViewBag.To != null ? ((DateTime)ViewBag.To).ToString("yyyy-MM-dd") : "")" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Lọc</button>
+                <a asp-action="Index" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover data-table">
+            <thead class="table-light">
+                <tr><th>Thời gian</th><th>Người dùng</th><th>Module</th><th>Hành động</th><th>Chi tiết</th><th>IP</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var log in Model)
+                {
+                <tr>
+                    <td>@log.CreatedDate.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                    <td>@log.UserId</td>
+                    <td><span class="badge bg-secondary">@log.Module</span></td>
+                    <td>@log.Action</td>
+                    <td><small>@log.DataAfter</small></td>
+                    <td><small>@log.IPAddress</small></td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

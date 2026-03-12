@@ -1,0 +1,33 @@
+@model Department
+@{
+    ViewData["Title"] = "Thêm Phòng ban";
+}
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-plus-lg"></i> Thêm phòng ban mới</div>
+    <div class="card-body">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="DepartmentName" class="form-label">Tên phòng ban <span class="text-danger">*</span></label>
+                    <input asp-for="DepartmentName" class="form-control" />
+                    <span asp-validation-for="DepartmentName" class="text-danger"></span>
+                </div>
+                <div class="col-12">
+                    <label asp-for="Description" class="form-label">Mô tả</label>
+                    <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

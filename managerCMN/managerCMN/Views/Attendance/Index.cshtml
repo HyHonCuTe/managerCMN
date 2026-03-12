@@ -1,0 +1,61 @@
+@model IEnumerable<Attendance>
+@{
+    ViewData["Title"] = "Chấm công";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-clock-history"></i> Bảng chấm công</h4>
+    <div>
+        <a asp-action="LateReport" class="btn btn-outline-warning"><i class="bi bi-exclamation-triangle"></i> Đi muộn</a>
+        <a asp-action="Import" class="btn btn-primary"><i class="bi bi-upload"></i> Import Excel</a>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-auto">
+                <label class="form-label">Tháng</label>
+                <select name="month" class="form-select">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m" selected="@(ViewBag.Month == m)">Tháng @m</option>
+                    }
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label">Năm</label>
+                <input name="year" type="number" class="form-control" value="@ViewBag.Year" />
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Lọc</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover data-table">
+            <thead class="table-light">
+                <tr><th>Nhân viên</th><th>Ngày</th><th>Check-in</th><th>Check-out</th><th>Đi muộn</th><th>OT (giờ)</th><th>Ghi chú</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var att in Model)
+                {
+                <tr class="@(att.IsLate ? "table-warning" : "")">
+                    <td>@att.Employee?.FullName</td>
+                    <td>@att.Date.ToString("dd/MM/yyyy")</td>
+                    <td>@att.CheckIn?.ToString("HH\\:mm")</td>
+                    <td>@att.CheckOut?.ToString("HH\\:mm")</td>
+                    <td>
+                        @if (att.IsLate) { <span class="badge bg-warning">Đi muộn</span> }
+                    </td>
+                    <td>@(att.OvertimeHours.HasValue && att.OvertimeHours > 0 ? att.OvertimeHours.Value.ToString("0.0") : "")</td>
+                    <td>@att.Note</td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

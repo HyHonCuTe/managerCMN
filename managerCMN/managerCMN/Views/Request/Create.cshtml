@@ -1,0 +1,48 @@
+@model RequestCreateViewModel
+@{
+    ViewData["Title"] = "Tạo đơn từ";
+}
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-send-plus"></i> Tạo đơn từ mới</div>
+    <div class="card-body">
+        <form asp-action="Create" method="post" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="RequestType" class="form-label">Loại đơn <span class="text-danger">*</span></label>
+                    <select asp-for="RequestType" asp-items="Html.GetEnumSelectList<RequestType>()" class="form-select">
+                        <option value="">-- Chọn --</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="StartTime" class="form-label">Từ</label>
+                    <input asp-for="StartTime" class="form-control" type="datetime-local" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="EndTime" class="form-label">Đến</label>
+                    <input asp-for="EndTime" class="form-control" type="datetime-local" />
+                </div>
+                <div class="col-12">
+                    <label asp-for="Reason" class="form-label">Lý do <span class="text-danger">*</span></label>
+                    <textarea asp-for="Reason" class="form-control" rows="3"></textarea>
+                    <span asp-validation-for="Reason" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Attachments" class="form-label">File đính kèm</label>
+                    <input asp-for="Attachments" class="form-control" type="file" multiple />
+                    <small class="text-muted">Có thể chọn nhiều file</small>
+                </div>
+            </div>
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i> Gửi đơn</button>
+                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

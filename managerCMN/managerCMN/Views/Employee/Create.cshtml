@@ -1,0 +1,94 @@
+@model EmployeeCreateViewModel
+@{
+    ViewData["Title"] = "Thêm Nhân viên";
+}
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-person-plus"></i> Thêm nhân viên mới</div>
+    <div class="card-body">
+        <form asp-action="Create" method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="FullName" class="form-label">Họ tên <span class="text-danger">*</span></label>
+                    <input asp-for="FullName" class="form-control" />
+                    <span asp-validation-for="FullName" class="text-danger"></span>
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="DateOfBirth" class="form-label">Ngày sinh</label>
+                    <input asp-for="DateOfBirth" class="form-control" type="date" />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="Gender" class="form-label">Giới tính</label>
+                    <select asp-for="Gender" asp-items="Html.GetEnumSelectList<Gender>()" class="form-select">
+                        <option value="">-- Chọn --</option>
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Email" class="form-label">Email <span class="text-danger">*</span></label>
+                    <input asp-for="Email" class="form-control" type="email" />
+                    <span asp-validation-for="Email" class="text-danger"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Phone" class="form-label">Số điện thoại</label>
+                    <input asp-for="Phone" class="form-control" />
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="PermanentAddress" class="form-label">Địa chỉ thường trú</label>
+                    <input asp-for="PermanentAddress" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="TemporaryAddress" class="form-label">Địa chỉ tạm trú</label>
+                    <input asp-for="TemporaryAddress" class="form-control" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="TaxCode" class="form-label">Mã số thuế</label>
+                    <input asp-for="TaxCode" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="BankAccount" class="form-label">Số tài khoản</label>
+                    <input asp-for="BankAccount" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="BankName" class="form-label">Ngân hàng</label>
+                    <input asp-for="BankName" class="form-control" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="DepartmentId" class="form-label">Phòng ban <span class="text-danger">*</span></label>
+                    <select asp-for="DepartmentId" asp-items="@ViewBag.Departments" class="form-select">
+                        <option value="">-- Chọn phòng ban --</option>
+                    </select>
+                    <span asp-validation-for="DepartmentId" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Position" class="form-label">Chức vụ</label>
+                    <input asp-for="Position" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="StartWorkingDate" class="form-label">Ngày bắt đầu làm việc</label>
+                    <input asp-for="StartWorkingDate" class="form-control" type="date" />
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="Qualifications" class="form-label">Bằng cấp / Chuyên ngành</label>
+                    <textarea asp-for="Qualifications" class="form-control" rows="2"></textarea>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,19 @@
+namespace managerCMN.Repositories.Interfaces;
+
+public interface IUnitOfWork : IDisposable
+{
+    IEmployeeRepository Employees { get; }
+    IDepartmentRepository Departments { get; }
+    IContractRepository Contracts { get; }
+    ILeaveBalanceRepository LeaveBalances { get; }
+    ILeaveRequestRepository LeaveRequests { get; }
+    IRequestRepository Requests { get; }
+    IAttendanceRepository Attendances { get; }
+    IAssetRepository Assets { get; }
+    IAssetAssignmentRepository AssetAssignments { get; }
+    ITicketRepository Tickets { get; }
+    IUserRepository Users { get; }
+    ISystemLogRepository SystemLogs { get; }
+    INotificationRepository Notifications { get; }
+    Task<int> SaveChangesAsync();
+}

@@ -1,0 +1,122 @@
+@model DashboardViewModel
+@{
+    ViewData["Title"] = "Dashboard";
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card primary">
+            <div class="card-body">
+                <div class="stat-label">Nhân viên</div>
+                <div class="stat-value text-primary">@Model.TotalEmployees</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card warning">
+            <div class="card-body">
+                <div class="stat-label">Yêu cầu chờ duyệt</div>
+                <div class="stat-value text-warning">@Model.PendingRequests</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card danger">
+            <div class="card-body">
+                <div class="stat-label">Ticket đang mở</div>
+                <div class="stat-value text-danger">@Model.ActiveTickets</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card info">
+            <div class="card-body">
+                <div class="stat-label">Tài sản</div>
+                <div class="stat-value text-info">@Model.TotalAssets</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (Model.ExpiringContracts?.Any() == true)
+{
+<div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-exclamation-triangle text-warning"></i> Hợp đồng sắp hết hạn</span>
+        <a asp-controller="Contract" asp-action="Expiring" class="btn btn-sm btn-outline-warning">Xem tất cả</a>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nhân viên</th>
+                    <th>Loại HĐ</th>
+                    <th>Ngày hết hạn</th>
+                    <th>Trạng thái</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in Model.ExpiringContracts)
+                {
+                <tr>
+                    <td>@c.Employee?.FullName</td>
+                    <td>@c.ContractType</td>
+                    <td>@c.EndDate?.ToString("dd/MM/yyyy")</td>
+                    <td>
+                        @if(c.EndDate < DateTime.UtcNow)
+                        {
+                            <span class="badge bg-danger">Đã hết hạn</span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-warning">Sắp hết hạn</span>
+                        }
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+}
+
+<div class="row g-3">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-lightning"></i> Truy cập nhanh</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-6"><a asp-controller="Employee" asp-action="Create" class="btn btn-outline-primary w-100"><i class="bi bi-person-plus"></i> Thêm nhân viên</a></div>
+                    <div class="col-6"><a asp-controller="Request" asp-action="Create" class="btn btn-outline-success w-100"><i class="bi bi-send-plus"></i> Tạo đơn từ</a></div>
+                    <div class="col-6"><a asp-controller="Leave" asp-action="Create" class="btn btn-outline-info w-100"><i class="bi bi-calendar-plus"></i> Nghỉ phép</a></div>
+                    <div class="col-6"><a asp-controller="Ticket" asp-action="Create" class="btn btn-outline-warning w-100"><i class="bi bi-ticket-plus"></i> Tạo ticket</a></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-bar-chart"></i> Thống kê</div>
+            <div class="card-body">
+                <canvas id="statsChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    var ctx = document.getElementById('statsChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Nhân viên', 'Yêu cầu chờ', 'Ticket mở', 'Tài sản'],
+            datasets: [{
+                data: [@Model.TotalEmployees, @Model.PendingRequests, @Model.ActiveTickets, @Model.TotalAssets],
+                backgroundColor: ['#0d6efd', '#ffc107', '#dc3545', '#0dcaf0']
+            }]
+        },
+        options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+</script>
+}

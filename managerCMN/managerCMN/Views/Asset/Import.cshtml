@@ -1,0 +1,32 @@
+@{
+    ViewData["Title"] = "Import Tài sản";
+}
+
+<div class="card">
+    <div class="card-header"><i class="bi bi-upload"></i> Import tài sản từ Excel</div>
+    <div class="card-body">
+        <form asp-action="Import" method="post" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <div class="mb-3">
+                <label class="form-label">Chọn file Excel</label>
+                <input name="excelFile" class="form-control" type="file" accept=".xlsx,.xls" required />
+            </div>
+
+            <div class="alert alert-info">
+                <h6><i class="bi bi-info-circle"></i> Định dạng file:</h6>
+                <ul class="mb-0">
+                    <li>Cột A: Mã tài sản</li>
+                    <li>Cột B: Tên tài sản</li>
+                    <li>Cột C: Danh mục</li>
+                    <li>Cột D: Hãng</li>
+                    <li>Cột E: Nhà cung cấp</li>
+                    <li>Cột F: Ngày mua</li>
+                    <li>Cột G: Giá mua</li>
+                </ul>
+            </div>
+
+            <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> Import</button>
+            <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+        </form>
+    </div>
+</div>

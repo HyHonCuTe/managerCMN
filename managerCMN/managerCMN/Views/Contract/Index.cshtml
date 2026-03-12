@@ -1,0 +1,63 @@
+@model IEnumerable<Contract>
+@{
+    ViewData["Title"] = "Quản lý Hợp đồng";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-file-earmark-text"></i> Danh sách Hợp đồng</h4>
+    <div>
+        <a asp-action="Expiring" class="btn btn-outline-warning"><i class="bi bi-exclamation-triangle"></i> Sắp hết hạn</a>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Thêm hợp đồng</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover data-table">
+            <thead class="table-light">
+                <tr>
+                    <th>Nhân viên</th>
+                    <th>Loại HĐ</th>
+                    <th>Ngày bắt đầu</th>
+                    <th>Ngày kết thúc</th>
+                    <th>Lương</th>
+                    <th>Trạng thái</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var contract in Model)
+                {
+                <tr>
+                    <td>@contract.Employee?.FullName</td>
+                    <td>@contract.ContractType</td>
+                    <td>@contract.StartDate.ToString("dd/MM/yyyy")</td>
+                    <td>@contract.EndDate?.ToString("dd/MM/yyyy")</td>
+                    <td>@contract.Salary.ToString("N0") ₫</td>
+                    <td>
+                        @switch (contract.Status)
+                        {
+                            case ContractStatus.Active:
+                                <span class="badge bg-success">Hiệu lực</span>
+                                break;
+                            case ContractStatus.Expired:
+                                <span class="badge bg-danger">Hết hạn</span>
+                                break;
+                            case ContractStatus.Terminated:
+                                <span class="badge bg-secondary">Thanh lý</span>
+                                break;
+                        }
+                    </td>
+                    <td>
+                        <a asp-action="Edit" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                        @if (!string.IsNullOrEmpty(contract.FilePath))
+                        {
+                            <a href="@contract.FilePath" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-download"></i></a>
+                        }
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

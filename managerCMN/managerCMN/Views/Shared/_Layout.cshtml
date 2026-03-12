@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Quản lý Công ty</title>
+
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+    <!-- DataTables -->
+    <link href="https://cdn.datatables.net/1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="~/css/site.css" />
+
+    <style>
+        :root {
+            --sidebar-width: 260px;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; }
+        .sidebar {
+            position: fixed; top: 0; left: 0; width: var(--sidebar-width); height: 100vh;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2c5f8a 100%);
+            color: #fff; overflow-y: auto; z-index: 1040; transition: all 0.3s;
+        }
+        .sidebar-header { padding: 1.2rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header h4 { margin: 0; font-weight: 700; font-size: 1.1rem; }
+        .sidebar .nav-link { color: rgba(255,255,255,0.8); padding: 0.7rem 1.2rem; display: flex; align-items: center; gap: 0.6rem; transition: all 0.2s; border-radius: 0; }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { background: rgba(255,255,255,0.15); color: #fff; }
+        .sidebar .nav-link i { font-size: 1.1rem; width: 24px; text-align: center; }
+        .sidebar .nav-section { padding: 0.8rem 1.2rem 0.3rem; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.4); }
+        .content-wrapper { margin-left: var(--sidebar-width); min-height: 100vh; }
+        .top-navbar { background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.08); padding: 0.6rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+        .main-content { padding: 1.5rem; }
+        .card { border: none; box-shadow: 0 0 15px rgba(0,0,0,0.05); border-radius: 8px; }
+        .card-header { background: #fff; border-bottom: 1px solid #eee; font-weight: 600; }
+        .stat-card { border-left: 4px solid; }
+        .stat-card.primary { border-left-color: #0d6efd; }
+        .stat-card.success { border-left-color: #198754; }
+        .stat-card.warning { border-left-color: #ffc107; }
+        .stat-card.danger { border-left-color: #dc3545; }
+        .stat-card.info { border-left-color: #0dcaf0; }
+        .stat-card .stat-value { font-size: 1.8rem; font-weight: 700; }
+        .stat-card .stat-label { font-size: 0.85rem; color: #6c757d; text-transform: uppercase; }
+        .btn-sm { font-size: 0.8rem; }
+        @@media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.show { transform: translateX(0); }
+            .content-wrapper { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h4><i class="bi bi-building"></i> CMS</h4>
+            <small>Company Management</small>
+        </div>
+        <ul class="nav flex-column mt-2">
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Dashboard" ? "active" : "")" asp-controller="Dashboard" asp-action="Index">
+                    <i class="bi bi-speedometer2"></i> Dashboard
+                </a>
+            </li>
+
+            <li class="nav-section">Nhân sự</li>
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Employee" ? "active" : "")" asp-controller="Employee" asp-action="Index">
+                    <i class="bi bi-people"></i> Nhân viên
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Department" ? "active" : "")" asp-controller="Department" asp-action="Index">
+                    <i class="bi bi-diagram-3"></i> Phòng ban
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Contract" ? "active" : "")" asp-controller="Contract" asp-action="Index">
+                    <i class="bi bi-file-earmark-text"></i> Hợp đồng
+                </a>
+            </li>
+
+            <li class="nav-section">Chấm công & Nghỉ phép</li>
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Attendance" ? "active" : "")" asp-controller="Attendance" asp-action="Index">
+                    <i class="bi bi-clock-history"></i> Chấm công
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Leave" ? "active" : "")" asp-controller="Leave" asp-action="Index">
+                    <i class="bi bi-calendar-check"></i> Nghỉ phép
+                </a>
+            </li>
+
+            <li class="nav-section">Yêu cầu & Ticket</li>
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Request" ? "active" : "")" asp-controller="Request" asp-action="Index">
+                    <i class="bi bi-send"></i> Đơn từ
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Ticket" ? "active" : "")" asp-controller="Ticket" asp-action="Index">
+                    <i class="bi bi-ticket-detailed"></i> Ticket
+                </a>
+            </li>
+
+            <li class="nav-section">Tài sản</li>
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Asset" ? "active" : "")" asp-controller="Asset" asp-action="Index">
+                    <i class="bi bi-laptop"></i> Tài sản
+                </a>
+            </li>
+
+            <li class="nav-section">Hệ thống</li>
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "Notification" ? "active" : "")" asp-controller="Notification" asp-action="Index">
+                    <i class="bi bi-bell"></i> Thông báo
+                </a>
+            </li>
+            @if (User.IsInRole("Admin"))
+            {
+            <li class="nav-item">
+                <a class="nav-link @(ViewContext.RouteData.Values["controller"]?.ToString() == "SystemLog" ? "active" : "")" asp-controller="SystemLog" asp-action="Index">
+                    <i class="bi bi-journal-text"></i> Nhật ký hệ thống
+                </a>
+            </li>
+            }
+        </ul>
+    </nav>
+
+    <!-- Content Wrapper -->
+    <div class="content-wrapper">
+        <!-- Top Navbar -->
+        <div class="top-navbar">
+            <div>
+                <button class="btn btn-link d-md-none" onclick="document.getElementById('sidebar').classList.toggle('show')">
+                    <i class="bi bi-list fs-4"></i>
+                </button>
+                <span class="fw-semibold">@ViewData["Title"]</span>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                @if (User.Identity?.IsAuthenticated == true)
+                {
+                    <a asp-controller="Notification" asp-action="Index" class="btn btn-link position-relative">
+                        <i class="bi bi-bell fs-5"></i>
+                        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge" style="display:none;">0</span>
+                    </a>
+                    <div class="dropdown">
+                        <a class="btn btn-link dropdown-toggle text-dark text-decoration-none" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i>
+                            @User.Identity.Name
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <form asp-controller="Account" asp-action="Logout" method="post">
+                                    <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right"></i> Đăng xuất</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle"></i> @TempData["Success"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="bi bi-exclamation-circle"></i> @TempData["Error"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+            @RenderBody()
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.11/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.11/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('.data-table').DataTable({
+                language: {
+                    url: '//cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json'
+                },
+                pageLength: 15,
+                responsive: true
+            });
+
+            // Load notification count
+            if ($('.notification-badge').length) {
+                $.get('/Notification/UnreadCount', function (data) {
+                    if (data.count > 0) {
+                        $('.notification-badge').text(data.count).show();
+                    }
+                });
+            }
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

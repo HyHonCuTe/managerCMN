@@ -1,0 +1,51 @@
+@model IEnumerable<LeaveRequest>
+@{
+    ViewData["Title"] = "Nghỉ phép";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-calendar-check"></i> Nghỉ phép của tôi</h4>
+    <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Tạo đơn nghỉ phép</a>
+</div>
+
+@if (ViewBag.Balance != null)
+{
+    var balance = (LeaveBalance)ViewBag.Balance;
+    <div class="row g-3 mb-3">
+        <div class="col-md-3"><div class="card stat-card primary"><div class="card-body"><div class="stat-label">Tổng phép</div><div class="stat-value text-primary">@balance.TotalLeave</div></div></div></div>
+        <div class="col-md-3"><div class="card stat-card success"><div class="card-body"><div class="stat-label">Đã dùng</div><div class="stat-value text-success">@balance.UsedLeave</div></div></div></div>
+        <div class="col-md-3"><div class="card stat-card info"><div class="card-body"><div class="stat-label">Còn lại</div><div class="stat-value text-info">@balance.RemainingLeave</div></div></div></div>
+        <div class="col-md-3"><div class="card stat-card warning"><div class="card-body"><div class="stat-label">Chuyển từ năm trước</div><div class="stat-value text-warning">@balance.CarryForward</div></div></div></div>
+    </div>
+}
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover data-table">
+            <thead class="table-light">
+                <tr><th>Từ ngày</th><th>Đến ngày</th><th>Số ngày</th><th>Lý do</th><th>Loại</th><th>Trạng thái</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var req in Model)
+                {
+                <tr>
+                    <td>@req.StartDate.ToString("dd/MM/yyyy")</td>
+                    <td>@req.EndDate.ToString("dd/MM/yyyy")</td>
+                    <td>@req.TotalDays</td>
+                    <td>@req.Reason</td>
+                    <td><span class="badge bg-@(req.PayType == LeavePayType.Paid ? "success" : "secondary")">@(req.PayType == LeavePayType.Paid ? "Có lương" : "Không lương")</span></td>
+                    <td>
+                        @switch (req.Status)
+                        {
+                            case RequestStatus.Pending: <span class="badge bg-warning">Chờ duyệt</span> break;
+                            case RequestStatus.HRApproved: <span class="badge bg-success">Đã duyệt</span> break;
+                            case RequestStatus.Rejected: <span class="badge bg-danger">Từ chối</span> break;
+                            default: <span class="badge bg-secondary">@req.Status</span> break;
+                        }
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

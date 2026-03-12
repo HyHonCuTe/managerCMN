@@ -1,0 +1,51 @@
+@model Request
+@{
+    ViewData["Title"] = "Chi tiết đơn từ";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-send"></i> Chi tiết đơn từ</h4>
+    <a asp-action="Index" class="btn btn-secondary">Quay lại</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">Thông tin đơn</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-4"><strong>Loại đơn:</strong></div><div class="col-8">@Model.RequestType</div>
+                    <div class="col-4"><strong>Thời gian:</strong></div><div class="col-8">@Model.StartTime.ToString("dd/MM/yyyy HH:mm") - @Model.EndTime.ToString("dd/MM/yyyy HH:mm")</div>
+                    <div class="col-4"><strong>Lý do:</strong></div><div class="col-8">@Model.Reason</div>
+                    <div class="col-4"><strong>Trạng thái:</strong></div>
+                    <div class="col-8">
+                        @switch (Model.Status)
+                        {
+                            case RequestStatus.Pending: <span class="badge bg-warning">Chờ duyệt</span> break;
+                            case RequestStatus.ManagerApproved: <span class="badge bg-info">Manager đã duyệt</span> break;
+                            case RequestStatus.HRApproved: <span class="badge bg-success">Đã duyệt</span> break;
+                            case RequestStatus.Rejected: <span class="badge bg-danger">Từ chối</span> break;
+                        }
+                    </div>
+                    <div class="col-4"><strong>Ngày tạo:</strong></div><div class="col-8">@Model.CreatedDate.ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        @if (Model.Attachments?.Any() == true)
+        {
+        <div class="card">
+            <div class="card-header">File đính kèm</div>
+            <div class="list-group list-group-flush">
+                @foreach (var att in Model.Attachments)
+                {
+                    <a href="@att.FilePath" target="_blank" class="list-group-item list-group-item-action">
+                        <i class="bi bi-paperclip"></i> @att.FileName
+                    </a>
+                }
+            </div>
+        </div>
+        }
+    </div>
+</div>

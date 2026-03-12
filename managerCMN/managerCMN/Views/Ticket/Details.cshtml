@@ -1,0 +1,92 @@
+@model Ticket
+@{
+    ViewData["Title"] = "Chi tiết Ticket";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-ticket-detailed"></i> Ticket #@Model.TicketId: @Model.Title</h4>
+    <a asp-action="Index" class="btn btn-secondary">Quay lại</a>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">Mô tả</div>
+            <div class="card-body">
+                <p>@Model.Description</p>
+            </div>
+        </div>
+
+        @if (Model.Status == TicketStatus.InProgress)
+        {
+        <div class="card mt-3">
+            <div class="card-header">Giải quyết</div>
+            <div class="card-body">
+                <form asp-action="Resolve" asp-route-id="@Model.TicketId" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <textarea name="resolution" class="form-control" rows="3" placeholder="Mô tả cách giải quyết..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Đánh dấu đã giải quyết</button>
+                </form>
+            </div>
+        </div>
+        }
+
+        @if (!string.IsNullOrEmpty(Model.Resolution))
+        {
+        <div class="card mt-3">
+            <div class="card-header text-success"><i class="bi bi-check-circle"></i> Giải pháp</div>
+            <div class="card-body">@Model.Resolution</div>
+        </div>
+        }
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Thông tin</div>
+            <div class="card-body">
+                <p><strong>Trạng thái:</strong>
+                    @switch (Model.Status)
+                    {
+                        case TicketStatus.Open: <span class="badge bg-primary">Mở</span> break;
+                        case TicketStatus.InProgress: <span class="badge bg-info">Đang xử lý</span> break;
+                        case TicketStatus.Resolved: <span class="badge bg-success">Đã giải quyết</span> break;
+                        case TicketStatus.Closed: <span class="badge bg-secondary">Đóng</span> break;
+                    }
+                </p>
+                <p><strong>Độ ưu tiên:</strong>
+                    @switch (Model.Priority)
+                    {
+                        case TicketPriority.Low: <span class="badge bg-secondary">Thấp</span> break;
+                        case TicketPriority.Medium: <span class="badge bg-info">Trung bình</span> break;
+                        case TicketPriority.High: <span class="badge bg-warning">Cao</span> break;
+                        case TicketPriority.Critical: <span class="badge bg-danger">Khẩn cấp</span> break;
+                    }
+                </p>
+                <p><strong>Người tạo:</strong> @Model.Creator?.FullName</p>
+                <p><strong>Người xử lý:</strong> @(Model.Assignee?.FullName ?? "Chưa gán")</p>
+                <p><strong>Ngày tạo:</strong> @Model.CreatedDate.ToString("dd/MM/yyyy HH:mm")</p>
+                @if (Model.ResolvedDate.HasValue)
+                {
+                    <p><strong>Ngày giải quyết:</strong> @Model.ResolvedDate?.ToString("dd/MM/yyyy HH:mm")</p>
+                }
+            </div>
+        </div>
+
+        @if (User.IsInRole("Admin"))
+        {
+        <div class="card mt-3">
+            <div class="card-body">
+                @if (Model.Status == TicketStatus.Resolved)
+                {
+                    <form asp-action="Close" asp-route-id="@Model.TicketId" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-secondary w-100"><i class="bi bi-x-circle"></i> Đóng ticket</button>
+                    </form>
+                }
+            </div>
+        </div>
+        }
+    </div>
+</div>

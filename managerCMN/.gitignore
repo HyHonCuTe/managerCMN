@@ -1,0 +1,73 @@
+# ── Build outputs ──
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+build/
+bld/
+
+# ── NuGet ──
+*.nupkg
+**/packages/*
+*.nuget.props
+*.nuget.targets
+project.lock.json
+project.fragment.lock.json
+
+# ── User-specific files ──
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# ── VS / VS Code ──
+.vs/
+.vscode/
+*.swp
+*~
+*.code-workspace
+
+# ── Rider / JetBrains ──
+.idea/
+*.sln.iml
+
+# ── OS files ──
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+
+# ── Sensitive / Secret files ──
+appsettings.Development.json
+appsettings.Production.json
+appsettings.*.json
+!appsettings.json
+appsettings.json
+secrets.json
+*.pfx
+*.key
+*.pem
+
+# ── Published output ──
+publish/
+PublishProfiles/
+
+# ── User uploads ──
+wwwroot/uploads/
+
+# ── Logs ──
+*.log
+logs/
+
+# ── EF Core ──
+# Keep migrations but ignore local DB files
+*.mdf
+*.ldf
+
+# ── Misc ──
+*.cache
+*.tmp
+StyleCopReport.xml

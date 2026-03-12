@@ -1,0 +1,96 @@
+@model Asset
+@{
+    ViewData["Title"] = "Cập nhật tài sản";
+}
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Cập nhật tài sản</h5>
+        <a asp-action="Index" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> Quay lại</a>
+    </div>
+    <div class="card-body">
+        <form asp-action="Edit" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" asp-for="AssetId" />
+            <input type="hidden" asp-for="CreatedAt" />
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="AssetCode" class="form-label">Mã tài sản</label>
+                    <input asp-for="AssetCode" class="form-control" readonly />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="AssetName" class="form-label">Tên tài sản</label>
+                    <input asp-for="AssetName" class="form-control" />
+                    <span asp-validation-for="AssetName" class="text-danger"></span>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Status" class="form-label">Trạng thái</label>
+                    <select asp-for="Status" asp-items="Html.GetEnumSelectList<AssetStatus>()" class="form-select"></select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Category" class="form-label">Danh mục</label>
+                    <input asp-for="Category" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Brand" class="form-label">Thương hiệu</label>
+                    <input asp-for="Brand" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="Supplier" class="form-label">Nhà cung cấp</label>
+                    <input asp-for="Supplier" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="PurchaseDate" class="form-label">Ngày mua</label>
+                    <input asp-for="PurchaseDate" class="form-control" type="date" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="PurchasePrice" class="form-label">Giá mua</label>
+                    <input asp-for="PurchasePrice" class="form-control" type="number" step="0.01" />
+                </div>
+            </div>
+
+            @if (Model.Configuration != null)
+            {
+                <hr />
+                <h6><i class="bi bi-cpu"></i> Cấu hình</h6>
+                <div class="row g-3">
+                    <input type="hidden" name="Configuration.AssetId" value="@Model.AssetId" />
+                    <div class="col-md-3">
+                        <label class="form-label">CPU</label>
+                        <input name="Configuration.CPU" value="@Model.Configuration.CPU" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Mainboard</label>
+                        <input name="Configuration.Mainboard" value="@Model.Configuration.Mainboard" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">RAM</label>
+                        <input name="Configuration.RAM" value="@Model.Configuration.RAM" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">SSD</label>
+                        <input name="Configuration.SSD" value="@Model.Configuration.SSD" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">HDD</label>
+                        <input name="Configuration.HDD" value="@Model.Configuration.HDD" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">VGA</label>
+                        <input name="Configuration.VGA" value="@Model.Configuration.VGA" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Hệ điều hành</label>
+                        <input name="Configuration.OS" value="@Model.Configuration.OS" class="form-control" />
+                    </div>
+                </div>
+            }
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Cập nhật</button>
+                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>

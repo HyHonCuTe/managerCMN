@@ -1,0 +1,660 @@
+Tôi muốn xây dựng **Hệ thống Quản lý Công ty (Company Management System)** sử dụng:
+
+* Backend: **ASP.NET MVC (C#)**
+* Database: **Microsoft SQL Server**
+* Frontend: Razor View / Bootstrap
+* Authentication: **Google OAuth 2.0**
+* Architecture: **MVC + Repository Pattern + Service Layer**
+
+Hệ thống phải đảm bảo:
+
+* Quản lý **nhân sự**
+* Quản lý **tài sản công ty**
+* Quản lý **chấm công**
+* Quản lý **ngày phép**
+* Quản lý **đơn từ**
+* **ticket xử lý sự cố**
+* **log toàn bộ hoạt động hệ thống**
+* **phân quyền rõ ràng**
+
+Hệ thống cần **mở rộng dễ dàng, bảo mật cao, chuẩn doanh nghiệp**.
+
+---
+
+# 1. KIẾN TRÚC HỆ THỐNG
+
+Thiết kế hệ thống theo kiến trúc:
+
+```
+Presentation Layer
+    ASP.NET MVC (Controller + View)
+
+Business Layer
+    Service Layer
+
+Data Layer
+    Repository + Entity Framework
+
+Database
+    SQL Server
+```
+
+Áp dụng:
+
+* **Entity Framework**
+* **Code First hoặc Database First**
+* **Dependency Injection**
+
+---
+
+# 2. PHÂN QUYỀN HỆ THỐNG
+
+Hệ thống có 3 cấp quyền:
+
+### 1️⃣ User (Nhân viên)
+
+* Xem thông tin cá nhân
+* Tạo đơn từ
+* Xem ngày phép
+* Xem tài sản được cấp
+* Xem lịch sử chấm công
+
+---
+
+### 2️⃣ Manager (Quản lý)
+
+* Duyệt đơn từ
+* Xem nhân viên phòng ban
+* Xem báo cáo chấm công
+* Xem tài sản nhân viên
+
+---
+
+### 3️⃣ Admin
+
+* Quản lý toàn bộ hệ thống
+* Quản lý nhân sự
+* Quản lý phòng ban
+* Quản lý tài sản
+* Import chấm công
+* Quản lý ticket
+* Xem log hệ thống
+* Phân quyền user
+
+---
+
+# 3. ĐĂNG NHẬP HỆ THỐNG
+
+Hệ thống sử dụng:
+
+**Google Login OAuth**
+
+Người dùng đăng nhập bằng Gmail.
+
+Sau khi login:
+
+```
+Nếu email tồn tại trong database
+    -> load role
+Nếu chưa tồn tại
+    -> tạo user mới với role = User
+```
+
+Các bảng:
+
+```
+Users
+Roles
+UserRoles
+```
+
+---
+
+# 4. MODULE QUẢN LÝ NHÂN SỰ (HRM)
+
+### Bảng Employees
+
+Thông tin nhân sự:
+
+```
+EmployeeId
+EmployeeCode
+FullName
+DateOfBirth
+Gender
+Email
+Phone
+PermanentAddress
+TemporaryAddress
+TaxCode
+BankAccount
+BankName
+DepartmentId
+Bằng cấp chỉ cần có chỗ để nhập nội dung là ok
+Position
+StartWorkingDate
+Status
+CreatedAt
+```
+
+---
+
+### Người liên hệ khẩn cấp
+
+```
+EmployeeContacts
+
+Id
+EmployeeId
+FullName
+Relationship
+Phone
+Address
+```
+
+# 5. QUẢN LÝ HỢP ĐỒNG LAO ĐỘNG
+
+### Bảng Contracts
+
+```
+ContractId
+EmployeeId
+ContractType
+StartDate
+EndDate
+Salary
+Status
+File
+```
+
+---
+
+### Chức năng:
+
+* Cảnh báo hợp đồng sắp hết hạn
+
+Logic:
+
+```
+Nếu EndDate - Today <= 30 days
+    -> gửi thông báo cho Admin
+```
+
+---
+
+# 6. QUẢN LÝ NGÀY PHÉP
+
+Quy tắc:
+
+* 1 năm = 12 ngày phép
+* mỗi quý cấp **3 ngày phép**
+* cấp vào **ngày 26 của khi bắt đầu 1 quý mới**
+* nếu không dùng → cộng dồn
+* thâm niên:
+
+```
+5 năm +1 ngày
+10 năm +2 ngày
+15 năm +3 ngày
+```
+
+nếu năm cũ vẫn còn ngày phép thì được giữ thêm ngày phép đến hết ngày 25 của quý 1 năm sau, nếu ko sd thì xoá toàn bộ phép năm cũ
+
+---
+
+### Bảng LeaveBalance
+
+```
+LeaveId
+EmployeeId
+Year
+TotalLeave
+UsedLeave
+RemainingLeave
+CarryForward
+```
+
+---
+
+### Bảng LeaveRequests
+
+```
+RequestId
+EmployeeId
+StartDate
+EndDate
+Reason
+Status
+ApprovedBy
+ApprovedDate
+```
+
+---
+
+# 7. MODULE ĐƠN TỪ
+
+Có 4 loại đơn:
+
+1️⃣ Nghỉ phép
+2️⃣ Checkin / Checkout
+3️⃣ Vắng mặt
+4️⃣ Work From Home
+
+---
+
+### Bảng Requests
+
+```
+RequestId
+EmployeeId
+RequestType
+StartTime
+EndTime
+Reason
+Status
+ApproverId
+CreatedDate
+ApprovedDate
+```
+
+---
+
+### Workflow
+
+```
+Employee tạo đơn
+     ↓
+Manager duyệt
+     ↓
+HR xác nhận thêm lần nữa thì mới tính
+
+khi tạo đơn từ thì có thêm minh chứng nhưng có những thứ sẽ bắt buộc nộp hoặc là ko buộc
+
+```
+và xin nghĩ thì có 2 loại là tính công và ko tính công, nếu tính công thì sẽ trừ ngày phép, ko tính công thì sẽ ko trừ phép. khi tính công thì auto trừ ngày phép còn, nếu hết ngày phép khi nghĩ thì auto ko tính công, khi nghĩ phép tính công, đã trừ rồi, nhưng HR ko duyệt thì ngày phép có thể hoàn loại
+---
+
+# 8. CHẤM CÔNG
+
+Chấm công từ máy → xuất **Excel**
+
+Admin import vào hệ thống.
+
+---
+
+### Bảng Attendance
+
+```
+AttendanceId
+EmployeeId
+Date
+CheckIn
+CheckOut
+WorkingHours
+Note
+```
+
+---
+
+### Chức năng
+
+* Import Excel
+* Thống kê tháng
+* Báo cáo đi trễ
+* Báo cáo OT
+
+---
+
+# 9. QUẢN LÝ TÀI SẢN
+
+Mỗi nhân viên được cấp nhiều tài sản.
+
+---
+
+### Bảng Assets
+
+```
+AssetId
+AssetCode
+AssetName
+Category
+Brand
+Supplier
+PurchaseDate
+Status
+```
+
+---
+
+### Bảng AssetAssignment
+
+```
+AssignmentId
+AssetId
+EmployeeId
+AssignedDate
+ReturnDate
+Status
+Condition
+```
+
+---
+
+### Ví dụ tài sản
+
+* Laptop
+* PC
+* Monitor
+* UPS
+* Printer
+* Mouse
+* Keyboard
+
+---
+
+### Cấu hình máy
+
+```
+AssetConfigurations
+
+CPU
+Mainboard
+RAM
+SSD
+HDD
+VGA
+OS
+```
+
+---
+
+# 10. MODULE TICKET
+
+Dùng khi có sự cố.
+
+Ví dụ:
+
+* Laptop hư
+* Không login được
+* Lỗi hệ thống
+
+---
+
+### Bảng Tickets
+
+```
+TicketId
+Title
+Description
+Priority
+Status
+CreatedBy
+AssignedTo
+CreatedDate
+ResolvedDate
+```
+
+---
+
+# 11. LOG HỆ THỐNG
+
+Tất cả action phải log.
+
+---
+
+### Bảng SystemLogs
+
+```
+LogId
+UserId
+Action
+Module
+DataBefore
+DataAfter
+IP
+CreatedDate
+```
+
+---
+
+# 12. THÔNG BÁO
+
+Các thông báo:
+
+* Hợp đồng sắp hết hạn
+* Đơn từ mới
+* Ticket mới
+* Tài sản hỏng
+
+---
+
+### Bảng Notifications
+
+```
+NotificationId
+UserId
+Title
+Message
+IsRead
+CreatedDate
+```
+
+---
+
+# 13. PHÒNG BAN
+
+### Bảng Departments
+
+```
+DepartmentId
+DepartmentName
+ManagerId
+Description
+```
+
+---
+
+# 14. BÁO CÁO HỆ THỐNG
+
+Các báo cáo:
+
+### HR
+
+* tổng nhân sự
+* nhân sự theo phòng ban
+* nhân sự nghỉ việc
+
+---
+
+### Attendance
+
+* chấm công tháng
+* đi trễ
+* OT
+
+---
+
+### Asset
+
+* tài sản theo nhân viên
+* tài sản hỏng
+* tài sản tồn kho
+
+---
+
+# 15. BẢO MẬT
+
+Hệ thống phải có:
+
+* Role Based Access Control
+* JWT hoặc Cookie Authentication
+* CSRF Protection
+* SQL Injection Protection
+* Logging
+
+---
+
+# 16. DASHBOARD
+
+Dashboard hiển thị:
+
+* Tổng nhân viên
+* Đơn chờ duyệt
+* Ticket đang xử lý
+* Tài sản
+* Hợp đồng sắp hết hạn
+
+---
+
+# 17. IMPORT EXCEL
+
+Import:
+
+* chấm công
+* tài sản
+
+Thư viện:
+
+```
+EPPlus
+ClosedXML
+```
+
+---
+
+# 18. API
+
+Hệ thống nên có API để mở rộng mobile.
+
+```
+/api/employees
+/api/assets
+/api/attendance
+/api/requests
+/api/tickets
+```
+
+---
+
+# 19. GIAO DIỆN
+
+UI sử dụng:
+
+* Bootstrap
+* AdminLTE
+* DataTables
+* ChartJS
+
+---
+
+# 20. TÍNH NĂNG NÂNG CAO (ĐỀ XUẤT)
+
+### 1️⃣ Workflow engine
+
+Duyệt nhiều cấp.
+
+---
+
+### 2️⃣ Email Notification
+
+* gửi mail khi có đơn
+* gửi mail khi hợp đồng hết hạn
+* hoặc tạo 1 bot telegram để nhân sự có thể chọn gửi đơn nhanh cho bot và tự cập nhật data lên web. HR và quản lí thì cũng nhận đc thông báo và có thể duyệt hoặc deny ở tele và toàn bộ thông tin thì vẫn đc cập nhật lên web tự ĐỘNG
+---
+
+### 3️⃣ File Storage
+
+Lưu:
+
+* hợp đồng
+* bằng cấp
+
+---
+
+### 4️⃣ Audit Trail
+
+Theo dõi chỉnh sửa dữ liệu.
+
+---
+
+# 21. CẤU TRÚC PROJECT
+
+```
+CompanyManagementSystem
+
+Controllers
+    EmployeeController
+    AssetController
+    AttendanceController
+    LeaveController
+    TicketController
+
+Models
+    Employee
+    Contract
+    Asset
+    Attendance
+
+Services
+    EmployeeService
+    AssetService
+
+Repositories
+    EmployeeRepository
+
+Views
+    Employee
+    Asset
+    Dashboard
+```
+
+---
+
+# 22. DATABASE DỰ KIẾN
+
+Khoảng:
+
+```
+25 - 35 tables
+```
+
+---
+
+# 23. MỤC TIÊU HỆ THỐNG
+
+Hệ thống phải:
+
+✔ quản lý toàn bộ nhân sự
+✔ quản lý tài sản
+✔ quản lý chấm công
+✔ quản lý ngày phép
+✔ quản lý ticket
+✔ có log hệ thống
+✔ phân quyền rõ ràng
+✔ bảo mật cao
+✔ mở rộng dễ dàng
+
+---
+
+# GỢI Ý QUAN TRỌNG (KINH NGHIỆM THỰC TẾ)
+
+Nên thêm:
+
+### 1️⃣ Organization Tree
+
+sơ đồ công ty.
+
+---
+
+### 2️⃣ Salary Module
+
+sau này có thể thêm.
+
+---
+
+### 3️⃣ Device Tracking
+
+theo dõi thiết bị.
+
+---
+

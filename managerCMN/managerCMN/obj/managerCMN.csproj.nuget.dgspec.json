@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "E:\\Study\\C#\\managerCMN\\managerCMN\\managerCMN.csproj": {}
+    "E:\\Study\\C#\\managerCMN\\managerCMN\\managerCMN\\managerCMN.csproj": {}
   },
   "projects": {
-    "E:\\Study\\C#\\managerCMN\\managerCMN\\managerCMN.csproj": {
+    "E:\\Study\\C#\\managerCMN\\managerCMN\\managerCMN\\managerCMN.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "E:\\Study\\C#\\managerCMN\\managerCMN\\managerCMN.csproj",
+        "projectUniqueName": "E:\\Study\\C#\\managerCMN\\managerCMN\\managerCMN\\managerCMN.csproj",
         "projectName": "managerCMN",
-        "projectPath": "E:\\Study\\C#\\managerCMN\\managerCMN\\managerCMN.csproj",
+        "projectPath": "E:\\Study\\C#\\managerCMN\\managerCMN\\managerCMN\\managerCMN.csproj",
         "packagesPath": "C:\\Users\\VO DAO HUY HOANG\\.nuget\\packages\\",
-        "outputPath": "E:\\Study\\C#\\managerCMN\\managerCMN\\obj\\",
+        "outputPath": "E:\\Study\\C#\\managerCMN\\managerCMN\\managerCMN\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
@@ -49,6 +49,32 @@
       "frameworks": {
         "net9.0": {
           "targetAlias": "net9.0",
+          "dependencies": {
+            "ClosedXML": {
+              "target": "Package",
+              "version": "[0.104.*, )"
+            },
+            "Microsoft.AspNetCore.Authentication.Google": {
+              "target": "Package",
+              "version": "[9.0.*, )"
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[9.0.*, )"
+            },
+            "Microsoft.EntityFrameworkCore.SqlServer": {
+              "target": "Package",
+              "version": "[9.0.*, )"
+            },
+            "Microsoft.EntityFrameworkCore.Tools": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[9.0.*, )"
+            }
+          },
           "imports": [
             "net461",
             "net462",

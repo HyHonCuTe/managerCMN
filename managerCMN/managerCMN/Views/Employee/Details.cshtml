@@ -1,0 +1,66 @@
+@model Employee
+@{
+    ViewData["Title"] = "Chi tiết Nhân viên";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-person-badge"></i> @Model.FullName</h4>
+    <div>
+        <a asp-action="Edit" asp-route-id="@Model.EmployeeId" class="btn btn-warning"><i class="bi bi-pencil"></i> Sửa</a>
+        <a asp-action="Index" class="btn btn-secondary">Quay lại</a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">Thông tin cá nhân</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-4"><strong>Mã NV:</strong></div><div class="col-8">@Model.EmployeeCode</div>
+                    <div class="col-4"><strong>Họ tên:</strong></div><div class="col-8">@Model.FullName</div>
+                    <div class="col-4"><strong>Ngày sinh:</strong></div><div class="col-8">@Model.DateOfBirth?.ToString("dd/MM/yyyy")</div>
+                    <div class="col-4"><strong>Giới tính:</strong></div><div class="col-8">@Model.Gender</div>
+                    <div class="col-4"><strong>Email:</strong></div><div class="col-8">@Model.Email</div>
+                    <div class="col-4"><strong>Điện thoại:</strong></div><div class="col-8">@Model.Phone</div>
+                    <div class="col-4"><strong>Địa chỉ thường trú:</strong></div><div class="col-8">@Model.PermanentAddress</div>
+                    <div class="col-4"><strong>Địa chỉ tạm trú:</strong></div><div class="col-8">@Model.TemporaryAddress</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Thông tin công việc</div>
+            <div class="card-body">
+                <p><strong>Phòng ban:</strong> @Model.Department?.DepartmentName</p>
+                <p><strong>Chức vụ:</strong> @Model.Position</p>
+                <p><strong>Ngày vào làm:</strong> @Model.StartWorkingDate?.ToString("dd/MM/yyyy")</p>
+                <p><strong>Trạng thái:</strong>
+                    @switch (Model.Status)
+                    {
+                        case EmployeeStatus.Active:
+                            <span class="badge bg-success">Đang làm</span>
+                            break;
+                        case EmployeeStatus.Resigned:
+                            <span class="badge bg-secondary">Đã nghỉ</span>
+                            break;
+                        default:
+                            <span class="badge bg-warning">@Model.Status</span>
+                            break;
+                    }
+                </p>
+            </div>
+        </div>
+
+        <div class="card mt-3">
+            <div class="card-header">Tài chính</div>
+            <div class="card-body">
+                <p><strong>MST:</strong> @Model.TaxCode</p>
+                <p><strong>Tài khoản:</strong> @Model.BankAccount</p>
+                <p><strong>Ngân hàng:</strong> @Model.BankName</p>
+            </div>
+        </div>
+    </div>
+</div>

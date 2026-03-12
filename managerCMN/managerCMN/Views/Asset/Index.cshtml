@@ -1,0 +1,54 @@
+@model IEnumerable<Asset>
+@{
+    ViewData["Title"] = "Quản lý Tài sản";
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-laptop"></i> Danh sách Tài sản</h4>
+    <div>
+        <a asp-action="Import" class="btn btn-outline-success"><i class="bi bi-upload"></i> Import</a>
+        <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Thêm tài sản</a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table class="table table-hover data-table">
+            <thead class="table-light">
+                <tr><th>Mã TS</th><th>Tên</th><th>Danh mục</th><th>Hãng</th><th>Trạng thái</th><th>Thao tác</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var asset in Model)
+                {
+                <tr>
+                    <td><strong>@asset.AssetCode</strong></td>
+                    <td>@asset.AssetName</td>
+                    <td>@asset.Category</td>
+                    <td>@asset.Brand</td>
+                    <td>
+                        @switch (asset.Status)
+                        {
+                            case AssetStatus.Available: <span class="badge bg-success">Sẵn sàng</span> break;
+                            case AssetStatus.Assigned: <span class="badge bg-primary">Đang dùng</span> break;
+                            case AssetStatus.UnderRepair: <span class="badge bg-warning">Bảo trì</span> break;
+                            case AssetStatus.Disposed: <span class="badge bg-secondary">Thanh lý</span> break;
+                        }
+                    </td>
+                    <td>
+                        <a asp-action="Details" asp-route-id="@asset.AssetId" class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i></a>
+                        <a asp-action="Edit" asp-route-id="@asset.AssetId" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                        @if (asset.Status == AssetStatus.Available)
+                        {
+                            <a asp-action="Assign" asp-route-id="@asset.AssetId" class="btn btn-sm btn-outline-success"><i class="bi bi-person-plus"></i></a>
+                        }
+                        <form asp-action="Delete" asp-route-id="@asset.AssetId" method="post" class="d-inline" onsubmit="return confirm('Xóa tài sản này?')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

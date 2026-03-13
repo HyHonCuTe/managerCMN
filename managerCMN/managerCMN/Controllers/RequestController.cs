@@ -12,11 +12,13 @@ namespace managerCMN.Controllers;
 public class RequestController : Controller
 {
     private readonly IRequestService _requestService;
+    private readonly ILeaveService _leaveService;
     private readonly IWebHostEnvironment _env;
 
-    public RequestController(IRequestService requestService, IWebHostEnvironment env)
+    public RequestController(IRequestService requestService, ILeaveService leaveService, IWebHostEnvironment env)
     {
         _requestService = requestService;
+        _leaveService = leaveService;
         _env = env;
     }
 
@@ -24,6 +26,13 @@ public class RequestController : Controller
     {
         var employeeId = GetCurrentEmployeeId();
         var requests = await _requestService.GetByEmployeeAsync(employeeId);
+
+        if (employeeId > 0)
+        {
+            ViewBag.LeaveSummary = await _leaveService.GetBalanceSummaryAsync(employeeId);
+            ViewBag.LeaveRequests = (await _leaveService.GetRequestsByEmployeeAsync(employeeId)).ToList();
+        }
+
         return View(requests);
     }
 

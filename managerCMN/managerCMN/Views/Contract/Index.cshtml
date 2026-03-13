@@ -1,63 +1,175 @@
 @model IEnumerable<Contract>
 @{
     ViewData["Title"] = "Quản lý Hợp đồng";
+    var today = DateTime.Today;
+
+    string GetContractTypeText(ContractType ct) => ct switch
+    {
+        ContractType.Probation   => "Thử việc",
+        ContractType.FixedTerm   => "Xác định thời hạn",
+        ContractType.Indefinite  => "Không xác định thời hạn",
+        ContractType.Seasonal    => "Thời vụ",
+        _                        => ct.ToString()
+    };
+
+    bool IsLive(Contract c) => c.Status == ContractStatus.Active || c.Status == ContractStatus.Renewed;
+
+    bool IsNearExpiry(Contract c) =>
+        IsLive(c) && c.EndDate.HasValue && c.EndDate.Value.Date <= today.AddDays(30);
+
+    // Compute display status (NearExpiry is not stored in DB, derived here)
+    (string cssClass, string label) GetStatusDisplay(Contract c)
+    {
+        if (IsNearExpiry(c)) return ("bg-warning text-dark", "Sắp hết hạn");
+        return c.Status switch
+        {
+            ContractStatus.Active      => ("bg-success", "Hiệu lực"),
+            ContractStatus.Expired     => ("bg-danger",  "Hết hạn"),
+            ContractStatus.Terminated  => ("bg-secondary", "Thanh lý"),
+            ContractStatus.Renewed     => ("bg-info text-dark", "Đã gia hạn"),
+            _                          => ("bg-light text-dark", c.Status.ToString())
+        };
+    }
+
+    var activeList  = Model.Where(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.Renewed).ToList();
+    var expiredList = Model.Where(c => c.Status == ContractStatus.Expired || c.Status == ContractStatus.Terminated).ToList();
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0"><i class="bi bi-file-earmark-text"></i> Danh sách Hợp đồng</h4>
     <div>
-        <a asp-action="Expiring" class="btn btn-outline-warning"><i class="bi bi-exclamation-triangle"></i> Sắp hết hạn</a>
         <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Thêm hợp đồng</a>
     </div>
 </div>
 
-<div class="card">
-    <div class="card-body">
-        <table class="table table-hover data-table">
-            <thead class="table-light">
-                <tr>
-                    <th>Nhân viên</th>
-                    <th>Loại HĐ</th>
-                    <th>Ngày bắt đầu</th>
-                    <th>Ngày kết thúc</th>
-                    <th>Lương</th>
-                    <th>Trạng thái</th>
-                    <th>Thao tác</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var contract in Model)
-                {
-                <tr>
-                    <td>@contract.Employee?.FullName</td>
-                    <td>@contract.ContractType</td>
-                    <td>@contract.StartDate.ToString("dd/MM/yyyy")</td>
-                    <td>@contract.EndDate?.ToString("dd/MM/yyyy")</td>
-                    <td>@contract.Salary.ToString("N0") ₫</td>
-                    <td>
-                        @switch (contract.Status)
+<ul class="nav nav-tabs mb-0" id="contractTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="tab-active" data-bs-toggle="tab" data-bs-target="#pane-active" type="button" role="tab">
+            <i class="bi bi-check-circle"></i> Đang hiệu lực / Sắp hết hạn
+            <span class="badge bg-primary ms-1">@activeList.Count</span>
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="tab-expired" data-bs-toggle="tab" data-bs-target="#pane-expired" type="button" role="tab">
+            <i class="bi bi-x-circle"></i> Đã hết hạn / Thanh lý
+            <span class="badge bg-secondary ms-1">@expiredList.Count</span>
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <!-- Tab: Active / NearExpiry -->
+    <div class="tab-pane fade show active" id="pane-active" role="tabpanel">
+        <div class="card border-top-0 rounded-0 rounded-bottom">
+            <div class="card-body">
+                <div class="mb-2 small text-muted">
+                    <span class="badge bg-warning text-dark me-1">&nbsp;&nbsp;</span> Sắp hết hạn (&le;30 ngày)
+                    <span class="badge bg-success ms-2 me-1">&nbsp;&nbsp;</span> Đang hiệu lực
+                </div>
+                <table id="activeTable" class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nhân viên</th>
+                            <th>Loại HĐ</th>
+                            <th>Ngày bắt đầu</th>
+                            <th>Ngày kết thúc</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in activeList)
                         {
-                            case ContractStatus.Active:
-                                <span class="badge bg-success">Hiệu lực</span>
-                                break;
-                            case ContractStatus.Expired:
-                                <span class="badge bg-danger">Hết hạn</span>
-                                break;
-                            case ContractStatus.Terminated:
-                                <span class="badge bg-secondary">Thanh lý</span>
-                                break;
+                            var (css, label) = GetStatusDisplay(c);
+                            var rowClass = IsNearExpiry(c) ? "table-warning" : "";
+                        <tr class="@rowClass">
+                            <td>@c.Employee?.FullName</td>
+                            <td>@GetContractTypeText(c.ContractType)</td>
+                            <td>@c.StartDate.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                @c.EndDate?.ToString("dd/MM/yyyy")
+                                @if (IsNearExpiry(c))
+                                {
+                                    <span class="ms-1 badge bg-warning text-dark" title="Sắp hết hạn">
+                                        <i class="bi bi-clock"></i> @((c.EndDate!.Value.Date - today).Days) ngày
+                                    </span>
+                                }
+                            </td>
+                            <td><span class="badge @css">@label</span></td>
+                            <td>
+                                <a asp-action="Edit" asp-route-id="@c.ContractId" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                                @if (!string.IsNullOrEmpty(c.FilePath))
+                                {
+                                    <a href="@c.FilePath" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-download"></i></a>
+                                }
+                            </td>
+                        </tr>
                         }
-                    </td>
-                    <td>
-                        <a asp-action="Edit" asp-route-id="@contract.ContractId" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
-                        @if (!string.IsNullOrEmpty(contract.FilePath))
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Expired / Terminated -->
+    <div class="tab-pane fade" id="pane-expired" role="tabpanel">
+        <div class="card border-top-0 rounded-0 rounded-bottom">
+            <div class="card-body">
+                <table id="expiredTable" class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Nhân viên</th>
+                            <th>Loại HĐ</th>
+                            <th>Ngày bắt đầu</th>
+                            <th>Ngày kết thúc</th>
+                            <th>Trạng thái</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in expiredList)
                         {
-                            <a href="@contract.FilePath" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-download"></i></a>
+                            var (css, label) = GetStatusDisplay(c);
+                        <tr>
+                            <td>@c.Employee?.FullName</td>
+                            <td>@GetContractTypeText(c.ContractType)</td>
+                            <td>@c.StartDate.ToString("dd/MM/yyyy")</td>
+                            <td>@c.EndDate?.ToString("dd/MM/yyyy")</td>
+                            <td><span class="badge @css">@label</span></td>
+                            <td>
+                                <a asp-action="Edit" asp-route-id="@c.ContractId" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                                @if (!string.IsNullOrEmpty(c.FilePath))
+                                {
+                                    <a href="@c.FilePath" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-download"></i></a>
+                                }
+                            </td>
+                        </tr>
                         }
-                    </td>
-                </tr>
-                }
-            </tbody>
-        </table>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    $(document).ready(function () {
+        var dtOptions = {
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json' },
+            paging: false,
+            scrollY: '480px',
+            scrollCollapse: true,
+            info: true,
+            order: []
+        };
+        $('#activeTable').DataTable(dtOptions);
+        $('#expiredTable').DataTable(dtOptions);
+
+        // Re-adjust columns when switching tabs (DataTables needs this inside hidden tabs)
+        $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function () {
+            $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
+        });
+    });
+</script>
+}

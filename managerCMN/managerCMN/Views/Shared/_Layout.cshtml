@@ -86,15 +86,10 @@
             </li>
             }
 
-            <li class="nav-section">Chấm công & Nghỉ phép</li>
+            <li class="nav-section">Chấm công</li>
             <li class="nav-item">
                 <a class="nav-link @(ctrl == "Attendance" ? "active" : "")" asp-controller="Attendance" asp-action="Index">
                     <i class="bi bi-clock-history"></i> Chấm công
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link @(ctrl == "Leave" ? "active" : "")" asp-controller="Leave" asp-action="Index">
-                    <i class="bi bi-calendar-check"></i> Nghỉ phép
                 </a>
             </li>
 
@@ -210,8 +205,10 @@
                 language: {
                     url: '//cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json'
                 },
-                pageLength: 15,
-                responsive: true
+                paging: false,
+                scrollY: '520px',
+                scrollCollapse: true,
+                order: []
             });
 
             // Load notification count

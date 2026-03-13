@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
@@ -25,7 +26,8 @@ public class EmployeeService : IEmployeeService
 
     public async Task CreateAsync(Employee employee)
     {
-        employee.EmployeeCode = await GenerateEmployeeCodeAsync();
+        if (string.IsNullOrWhiteSpace(employee.EmployeeCode))
+            employee.EmployeeCode = await GenerateEmployeeCodeAsync();
         await _unitOfWork.Employees.AddAsync(employee);
         await _unitOfWork.SaveChangesAsync();
     }
@@ -49,7 +51,15 @@ public class EmployeeService : IEmployeeService
 
     public async Task<string> GenerateEmployeeCodeAsync()
     {
-        var count = await _unitOfWork.Employees.CountAsync();
-        return $"EMP{(count + 1):D5}";
+        var allEmployees = await _unitOfWork.Employees.GetAllAsync();
+        int maxNumber = 0;
+        var regex = new Regex(@"^A(\d{5})$", RegexOptions.IgnoreCase);
+        foreach (var emp in allEmployees)
+        {
+            var match = regex.Match(emp.EmployeeCode ?? "");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int num) && num > maxNumber)
+                maxNumber = num;
+        }
+        return $"A{(maxNumber + 1):D5}";
     }
 }

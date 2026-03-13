@@ -1,4 +1,5 @@
 using managerCMN.Models.Entities;
+using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
 
@@ -42,5 +43,20 @@ public class ContractService : IContractService
             _unitOfWork.Contracts.Remove(contract);
             await _unitOfWork.SaveChangesAsync();
         }
+    }
+
+    public async Task SyncExpiredAsync()
+    {
+        var today = DateTime.Today;
+        var expired = await _unitOfWork.Contracts.FindAsync(c =>
+            c.Status == ContractStatus.Active &&
+            c.EndDate != null &&
+            c.EndDate.Value.Date < today);
+
+        foreach (var c in expired)
+            c.Status = ContractStatus.Expired;
+
+        if (expired.Any())
+            await _unitOfWork.SaveChangesAsync();
     }
 }

@@ -21,6 +21,7 @@ public class ContractController : Controller
 
     public async Task<IActionResult> Index()
     {
+        await _contractService.SyncExpiredAsync();
         var contracts = await _contractService.GetAllAsync();
         return View(contracts);
     }
@@ -78,18 +79,38 @@ public class ContractController : Controller
         var contract = await _contractService.GetByIdAsync(id);
         if (contract == null) return NotFound();
         await PopulateEmployees();
-        return View(contract);
+        var vm = new ContractEditViewModel
+        {
+            ContractId   = contract.ContractId,
+            EmployeeId   = contract.EmployeeId,
+            ContractType = contract.ContractType,
+            StartDate    = contract.StartDate,
+            EndDate      = contract.EndDate,
+            Salary       = contract.Salary,
+            Status       = contract.Status
+        };
+        return View(vm);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(Contract contract)
+    public async Task<IActionResult> Edit(ContractEditViewModel model)
     {
         if (!ModelState.IsValid)
         {
             await PopulateEmployees();
-            return View(contract);
+            return View(model);
         }
+
+        var contract = await _contractService.GetByIdAsync(model.ContractId);
+        if (contract == null) return NotFound();
+
+        contract.EmployeeId   = model.EmployeeId;
+        contract.ContractType = model.ContractType;
+        contract.StartDate    = model.StartDate;
+        contract.EndDate      = model.EndDate;
+        contract.Salary       = model.Salary;
+        contract.Status       = model.Status;
 
         await _contractService.UpdateAsync(contract);
         return RedirectToAction(nameof(Index));

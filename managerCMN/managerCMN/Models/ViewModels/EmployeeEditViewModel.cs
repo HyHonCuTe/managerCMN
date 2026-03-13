@@ -22,6 +22,9 @@ public class EmployeeEditViewModel
     [MaxLength(20)]
     public string? Phone { get; set; }
 
+    [MaxLength(50)]
+    public string? AttendanceName { get; set; }
+
     [MaxLength(20)]
     public string? AttendanceCode { get; set; }
 
@@ -42,12 +45,42 @@ public class EmployeeEditViewModel
 
     public int? DepartmentId { get; set; }
 
+    public int? JobTitleId { get; set; }
+
     public int? PositionId { get; set; }
+
+    [MaxLength(50)]
+    public string? Ethnicity { get; set; }
+
+    [MaxLength(50)]
+    public string? Nationality { get; set; }
+
+    [MaxLength(20)]
+    public string? IdCardNumber { get; set; }
+
+    public DateTime? IdCardIssueDate { get; set; }
+
+    [MaxLength(200)]
+    public string? IdCardIssuePlace { get; set; }
 
     [MaxLength(2000)]
     public string? Qualifications { get; set; }
 
     public DateTime? StartWorkingDate { get; set; }
+
+    [MaxLength(20)]
+    public string? InsuranceCode { get; set; }
+
+    public DateTime? ResignationDate { get; set; }
+
+    [MaxLength(500)]
+    public string? ResignationReason { get; set; }
+
+    [MaxLength(100)]
+    public string? VehiclePlate { get; set; }
+
+    [MaxLength(500)]
+    public string? FacebookUrl { get; set; }
 
     public EmployeeStatus Status { get; set; }
 }

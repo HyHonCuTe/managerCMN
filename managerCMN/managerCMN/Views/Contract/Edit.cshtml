@@ -1,55 +1,173 @@
-@model Contract
+@model ContractEditViewModel
 @{
     ViewData["Title"] = "Cập nhật hợp đồng";
+    var today = DateTime.Today;
+    var isExpired = Model.Status == ContractStatus.Expired;
+    var isNearExpiry = Model.Status == ContractStatus.Active
+        && Model.EndDate.HasValue
+        && Model.EndDate.Value.Date <= today.AddDays(30);
+    var daysLeft = Model.EndDate.HasValue ? (Model.EndDate.Value.Date - today).Days : (int?)null;
 }
 
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h5 class="mb-0"><i class="bi bi-pencil-square"></i> Cập nhật hợp đồng</h5>
-        <a asp-action="Index" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> Quay lại</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-pencil-square"></i> Cập nhật hợp đồng</h4>
+    <a asp-action="Index" class="btn btn-sm btn-secondary"><i class="bi bi-arrow-left"></i> Quay lại</a>
+</div>
+
+@if (isExpired)
+{
+    <div class="alert alert-danger mb-3">
+        <i class="bi bi-x-circle-fill me-1"></i>
+        <strong>Hợp đồng đã hết hạn.</strong> Hãy gia hạn hoặc chuyển sang trạng thái thanh lý.
     </div>
-    <div class="card-body">
-        <form asp-action="Edit" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" asp-for="ContractId" />
-            <input type="hidden" asp-for="CreatedAt" />
+}
+else if (isNearExpiry)
+{
+    <div class="alert alert-warning mb-3">
+        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+        <strong>Sắp hết hạn!</strong> Còn <strong>@daysLeft ngày</strong> (@Model.EndDate?.ToString("dd/MM/yyyy")). Hãy gia hạn kịp thời.
+    </div>
+}
 
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label asp-for="EmployeeId" class="form-label">Nhân viên</label>
-                    <select asp-for="EmployeeId" asp-items="@ViewBag.Employees" class="form-select">
-                        <option value="">-- Chọn nhân viên --</option>
-                    </select>
-                    <span asp-validation-for="EmployeeId" class="text-danger"></span>
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="ContractType" class="form-label">Loại hợp đồng</label>
-                    <select asp-for="ContractType" asp-items="Html.GetEnumSelectList<ContractType>()" class="form-select"></select>
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="StartDate" class="form-label">Ngày bắt đầu</label>
-                    <input asp-for="StartDate" class="form-control" type="date" />
-                    <span asp-validation-for="StartDate" class="text-danger"></span>
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="EndDate" class="form-label">Ngày kết thúc</label>
-                    <input asp-for="EndDate" class="form-control" type="date" />
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="Salary" class="form-label">Lương</label>
-                    <input asp-for="Salary" class="form-control" type="number" step="0.01" />
-                    <span asp-validation-for="Salary" class="text-danger"></span>
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="Status" class="form-label">Trạng thái</label>
-                    <select asp-for="Status" asp-items="Html.GetEnumSelectList<ContractStatus>()" class="form-select"></select>
-                </div>
-            </div>
+<div class="row g-3 align-items-start">
 
-            <div class="mt-4">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Cập nhật</button>
-                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+    <!-- Main Edit Form -->
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="bi bi-file-text me-1"></i> Thông tin hợp đồng</div>
+            <div class="card-body">
+                <form asp-action="Edit" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="ContractId" />
+
+                    <div class="mb-3">
+                        <label asp-for="EmployeeId" class="form-label fw-semibold">Nhân viên</label>
+                        <select asp-for="EmployeeId" asp-items="@ViewBag.Employees" class="form-select">
+                            <option value="">-- Chọn nhân viên --</option>
+                        </select>
+                        <span asp-validation-for="EmployeeId" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="ContractType" class="form-label fw-semibold">Loại hợp đồng</label>
+                        <select asp-for="ContractType" asp-items="Html.GetEnumSelectList<ContractType>()" class="form-select"></select>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <label asp-for="StartDate" class="form-label fw-semibold">Ngày bắt đầu</label>
+                            <input asp-for="StartDate" class="form-control" type="date" />
+                            <span asp-validation-for="StartDate" class="text-danger small"></span>
+                        </div>
+                        <div class="col-sm-6">
+                            <label asp-for="EndDate" class="form-label fw-semibold">Ngày kết thúc</label>
+                            <input asp-for="EndDate" id="endDateInput" class="form-control" type="date" />
+                            <div class="form-text">Để trống nếu không xác định thời hạn</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Salary" class="form-label fw-semibold">Lương (VNĐ)</label>
+                        <input asp-for="Salary" class="form-control" type="number" step="500000" min="0" />
+                        <span asp-validation-for="Salary" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-4">
+                        <label asp-for="Status" class="form-label fw-semibold">Trạng thái</label>
+                        <select asp-for="Status" id="statusSelect" asp-items="Html.GetEnumSelectList<ContractStatus>()" class="form-select"></select>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Lưu thay đổi
+                        </button>
+                        <a asp-action="Index" class="btn btn-outline-secondary">Hủy</a>
+                    </div>
+                </form>
             </div>
-        </form>
+        </div>
+    </div>
+
+    <!-- Renewal Panel -->
+    <div class="col-lg-5">
+        <div class="card border-warning">
+            <div class="card-header bg-warning bg-opacity-10 fw-semibold">
+                <i class="bi bi-arrow-clockwise me-1"></i> Gia hạn hợp đồng
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Chọn thời gian gia hạn. Ngày kết thúc và trạng thái sẽ được cập nhật tự động — nhớ nhấn <strong>Lưu thay đổi</strong> để xác nhận.
+                </p>
+
+                <div class="d-grid gap-2 mb-3">
+                    <button type="button" class="btn btn-outline-primary" onclick="renew(1)">
+                        <i class="bi bi-plus-circle"></i> Gia hạn thêm 1 năm
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" onclick="renew(2)">
+                        <i class="bi bi-plus-circle"></i> Gia hạn thêm 2 năm
+                    </button>
+                </div>
+
+                <hr />
+
+                <label class="form-label fw-semibold small">Tùy chỉnh ngày kết thúc mới</label>
+                <div class="input-group">
+                    <input type="date" id="customEndDate" class="form-control" />
+                    <button type="button" class="btn btn-warning" onclick="renewCustom()">
+                        <i class="bi bi-check2"></i> Áp dụng
+                    </button>
+                </div>
+
+                <div id="renewInfo" class="alert alert-success small py-2 mt-3 d-none"></div>
+            </div>
+        </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    var endInput  = document.getElementById('endDateInput');
+    var statusSel = document.getElementById('statusSelect');
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+
+    function toIso(d) {
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+
+    function toDisplay(iso) {
+        if (!iso) return '—';
+        var p = iso.split('-');
+        return p[2] + '/' + p[1] + '/' + p[0];
+    }
+
+    function applyRenewal(newIso) {
+        endInput.value = newIso;
+
+        // Set status to Renewed (value = 3)
+        for (var i = 0; i < statusSel.options.length; i++) {
+            if (statusSel.options[i].value === '3') {
+                statusSel.selectedIndex = i;
+                break;
+            }
+        }
+
+        var info = document.getElementById('renewInfo');
+        info.innerHTML = '<i class="bi bi-check-circle me-1"></i>Ngày kết thúc mới: <strong>' + toDisplay(newIso) + '</strong>. Nhấn <strong>Lưu thay đổi</strong> để xác nhận.';
+        info.classList.remove('d-none');
+    }
+
+    function renew(years) {
+        // Renew from current EndDate; if empty, renew from today
+        var base = endInput.value ? new Date(endInput.value) : new Date();
+        base.setFullYear(base.getFullYear() + years);
+        applyRenewal(toIso(base));
+    }
+
+    function renewCustom() {
+        var val = document.getElementById('customEndDate').value;
+        if (!val) { alert('Vui lòng chọn ngày kết thúc mới.'); return; }
+        applyRenewal(val);
+    }
+</script>
+}

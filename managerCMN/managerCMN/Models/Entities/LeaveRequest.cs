@@ -30,5 +30,9 @@ public class LeaveRequest
 
     public bool IsLeaveDeducted { get; set; }
 
+    public decimal DeductedFromCurrentYear { get; set; }
+
+    public decimal DeductedFromCarryForward { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

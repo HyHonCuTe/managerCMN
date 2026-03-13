@@ -1,0 +1,60 @@
+Tiếp tới phần đơn từ
+hiện tại có 4 loại đơn 
+xin nghĩ, checkin/out, vắng mặt, xin làm ở nhà,
+mỗi đơn đều cần 2 người duyệt đơn,  người đầu tiên là quản lí hoặc trưởng phòng của phòng ban đó, người thứ 2 những người tôi sẽ chọn để thêm vào danh sách người dueyẹt duyệt
+ở view của các quản lí  và trưởng phòng thì có thêm view để duyệt đơn từ
+
+Tạo đơn xin nghỉ
+
+Tiêu đề *
+Từ ngày *
+2026-03-13
+
+Nửa ca đầu
+Đến ngày *
+2026-03-13
+
+Nửa ca đầu
+Người duyệt 1 *
+
+Chọn
+Người duyệt 2 *
+
+Chọn
+Lý do *
+
+Chọn
+Tệp
+Tệp đính kèm
+Chọn file 
+Mô tả
+
+
+
+
+
+
+
+
+
+
+
+p
+Powered by Tiny
+
+cấu trúc from đơn xin nghĩ. lsi do 
+Chọn
+
+Nghỉ tính phép -> Tính công
+
+Nghỉ không phép -> Không tính công
+
+Nghỉ ốm có giấy -> Tính công
+
+Nghỉ tang / tối đa 3 ngày -> Tính công
+
+Nghỉ thai sản -> Tính công
+
+Khác -> Tính công
+
+Nghỉ kết hôn tối đa 3 ngày -> Tính công

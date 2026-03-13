@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using managerCMN.Data;
 
@@ -11,9 +12,11 @@ using managerCMN.Data;
 namespace managerCMN.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260313063522_ReplaceFaceRegisteredWithFacebookUrl")]
+    partial class ReplaceFaceRegisteredWithFacebookUrl
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -327,6 +330,9 @@ namespace managerCMN.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<bool>("BaoMinhInsurance")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -373,12 +379,11 @@ namespace managerCMN.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<string>("InsuranceCode")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
                     b.Property<int?>("JobTitleId")
                         .HasColumnType("int");
+
+                    b.Property<bool>("MandatoryInsurance")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Nationality")
                         .HasMaxLength(50)
@@ -421,8 +426,8 @@ namespace managerCMN.Migrations
                         .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("VehiclePlate")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
 
                     b.HasKey("EmployeeId");
 

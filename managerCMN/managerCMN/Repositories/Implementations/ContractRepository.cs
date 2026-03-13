@@ -10,6 +10,14 @@ public class ContractRepository : Repository<Contract>, IContractRepository
 {
     public ContractRepository(ApplicationDbContext context) : base(context) { }
 
+    public new async Task<IEnumerable<Contract>> GetAllAsync()
+        => await _dbSet
+            .Include(c => c.Employee)
+            .OrderBy(c => c.EndDate.HasValue ? 0 : 1)
+            .ThenBy(c => c.EndDate)
+            .ThenByDescending(c => c.StartDate)
+            .ToListAsync();
+
     public async Task<IEnumerable<Contract>> GetExpiringContractsAsync(int daysBeforeExpiry = 30)
     {
         var threshold = DateTime.UtcNow.AddDays(daysBeforeExpiry);
@@ -23,7 +31,9 @@ public class ContractRepository : Repository<Contract>, IContractRepository
     }
 
     public async Task<IEnumerable<Contract>> GetByEmployeeAsync(int employeeId)
-        => await _dbSet.Where(c => c.EmployeeId == employeeId)
+        => await _dbSet
+            .Include(c => c.Employee)
+            .Where(c => c.EmployeeId == employeeId)
             .OrderByDescending(c => c.StartDate)
             .ToListAsync();
 }

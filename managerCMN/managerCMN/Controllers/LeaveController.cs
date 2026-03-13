@@ -14,16 +14,9 @@ public class LeaveController : Controller
 
     public LeaveController(ILeaveService leaveService) => _leaveService = leaveService;
 
-    public async Task<IActionResult> Index()
+    public IActionResult Index()
     {
-        var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return RedirectToAction("Login", "Account");
-
-        var balance = await _leaveService.GetBalanceAsync(employeeId, DateTime.UtcNow.Year);
-        var requests = await _leaveService.GetRequestsByEmployeeAsync(employeeId);
-
-        ViewBag.Balance = balance;
-        return View(requests);
+        return RedirectToAction("Index", "Request");
     }
 
     public IActionResult Create() => View();
@@ -47,7 +40,7 @@ public class LeaveController : Controller
         };
 
         await _leaveService.CreateRequestAsync(request);
-        return RedirectToAction(nameof(Index));
+        return RedirectToAction("Index", "Request");
     }
 
     [Authorize(Policy = "ManagerOrAdmin")]

@@ -1,6 +1,30 @@
 @model Employee?
 @{
     ViewData["Title"] = "Hồ sơ cá nhân";
+    var today = DateTime.Today;
+
+    string ContractTypeText(ContractType ct) => ct switch
+    {
+        ContractType.Probation  => "Thử việc",
+        ContractType.FixedTerm  => "Xác định thời hạn",
+        ContractType.Indefinite => "Không xác định thời hạn",
+        ContractType.Seasonal   => "Thời vụ",
+        _                       => ct.ToString()
+    };
+
+    (string css, string label) ContractStatusDisplay(Contract c)
+    {
+        var near = c.EndDate.HasValue && c.EndDate.Value.Date <= today.AddDays(30);
+        if (near) return ("bg-warning text-dark", "Sắp hết hạn");
+        return c.Status switch
+        {
+            ContractStatus.Active     => ("bg-success", "Đang hiệu lực"),
+            ContractStatus.Renewed    => ("bg-info text-dark", "Đã gia hạn"),
+            ContractStatus.Expired    => ("bg-danger", "Hết hạn"),
+            ContractStatus.Terminated => ("bg-secondary", "Thanh lý"),
+            _                         => ("bg-light text-dark", c.Status.ToString())
+        };
+    }
 }
 
 <div class="mb-4">
@@ -19,6 +43,12 @@
 }
 else
 {
+    var employee = Model!;
+    var leaveSummary = ViewBag.LeaveSummary as LeaveBalanceSummaryViewModel;
+    var currentContract = employee.Contracts
+        .Where(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.Renewed)
+        .OrderByDescending(c => c.StartDate)
+        .FirstOrDefault();
 
 <div class="row g-4">
     <!-- Profile Card -->
@@ -28,19 +58,19 @@ else
                 <div class="rounded-circle bg-primary bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3" style="width:80px;height:80px;">
                     <i class="bi bi-person-fill text-primary" style="font-size:2.5rem"></i>
                 </div>
-                <h5 class="mb-1">@Model.FullName</h5>
-                <p class="text-muted mb-1">@Model.Position?.PositionName</p>
-                <p class="text-muted mb-2"><small>@Model.Department?.DepartmentName</small></p>
-                <span class="badge bg-@(Model.Status == EmployeeStatus.Active ? "success" : "secondary")">
-                    @(Model.Status == EmployeeStatus.Active ? "Đang làm" : Model.Status.ToString())
+                <h5 class="mb-1">@employee.FullName</h5>
+                <p class="text-muted mb-1">@(employee.JobTitle?.JobTitleName ?? employee.Position?.PositionName)</p>
+                <p class="text-muted mb-2"><small>@employee.Department?.DepartmentName</small></p>
+                <span class="badge bg-@(employee.Status == EmployeeStatus.Active ? "success" : "secondary")">
+                    @(employee.Status == EmployeeStatus.Active ? "Đang làm" : employee.Status.ToString())
                 </span>
             </div>
             <ul class="list-group list-group-flush text-start">
-                <li class="list-group-item"><i class="bi bi-envelope me-2 text-muted"></i>@Model.Email</li>
-                <li class="list-group-item"><i class="bi bi-telephone me-2 text-muted"></i>@Model.Phone</li>
-                <li class="list-group-item"><i class="bi bi-hash me-2 text-muted"></i>Mã NV: @Model.EmployeeCode</li>
-                <li class="list-group-item"><i class="bi bi-fingerprint me-2 text-muted"></i>Mã CC: @Model.AttendanceCode</li>
-                <li class="list-group-item"><i class="bi bi-calendar-event me-2 text-muted"></i>Vào làm: @Model.StartWorkingDate?.ToString("dd/MM/yyyy")</li>
+                <li class="list-group-item"><i class="bi bi-envelope me-2 text-muted"></i>@employee.Email</li>
+                <li class="list-group-item"><i class="bi bi-telephone me-2 text-muted"></i>@employee.Phone</li>
+                <li class="list-group-item"><i class="bi bi-hash me-2 text-muted"></i>Mã NV: @employee.EmployeeCode</li>
+                <li class="list-group-item"><i class="bi bi-fingerprint me-2 text-muted"></i>Chấm công: @(employee.AttendanceName) @(employee.AttendanceCode != null ? $"(#{employee.AttendanceCode})" : "")</li>
+                <li class="list-group-item"><i class="bi bi-calendar-event me-2 text-muted"></i>Vào làm: @employee.StartWorkingDate?.ToString("dd/MM/yyyy")</li>
             </ul>
             <div class="card-body">
                 <a asp-action="Edit" class="btn btn-outline-primary w-100"><i class="bi bi-pencil"></i> Cập nhật thông tin</a>
@@ -54,14 +84,35 @@ else
             <div class="card-header"><i class="bi bi-person"></i> Thông tin cá nhân</div>
             <div class="card-body">
                 <div class="row g-2">
-                    <div class="col-sm-4"><strong>Họ tên:</strong></div><div class="col-sm-8">@Model.FullName</div>
-                    <div class="col-sm-4"><strong>Ngày sinh:</strong></div><div class="col-sm-8">@Model.DateOfBirth?.ToString("dd/MM/yyyy")</div>
-                    <div class="col-sm-4"><strong>Giới tính:</strong></div><div class="col-sm-8">@(Model.Gender == Gender.Male ? "Nam" : Model.Gender == Gender.Female ? "Nữ" : "Khác")</div>
-                    <div class="col-sm-4"><strong>Email:</strong></div><div class="col-sm-8">@Model.Email</div>
-                    <div class="col-sm-4"><strong>Số điện thoại:</strong></div><div class="col-sm-8">@Model.Phone</div>
-                    <div class="col-sm-4"><strong>Địa chỉ thường trú:</strong></div><div class="col-sm-8">@Model.PermanentAddress</div>
-                    <div class="col-sm-4"><strong>Địa chỉ tạm trú:</strong></div><div class="col-sm-8">@Model.TemporaryAddress</div>
-                    <div class="col-sm-4"><strong>Bằng cấp:</strong></div><div class="col-sm-8">@Model.Qualifications</div>
+                    <div class="col-sm-4"><strong>Họ tên:</strong></div><div class="col-sm-8">@employee.FullName</div>
+                    <div class="col-sm-4"><strong>Ngày sinh:</strong></div><div class="col-sm-8">@employee.DateOfBirth?.ToString("dd/MM/yyyy")</div>
+                    <div class="col-sm-4"><strong>Giới tính:</strong></div><div class="col-sm-8">@(employee.Gender == Gender.Male ? "Nam" : employee.Gender == Gender.Female ? "Nữ" : "Khác")</div>
+                    <div class="col-sm-4"><strong>Dân tộc:</strong></div><div class="col-sm-8">@(employee.Ethnicity ?? "—")</div>
+                    <div class="col-sm-4"><strong>Quốc tịch:</strong></div><div class="col-sm-8">@(employee.Nationality ?? "—")</div>
+                    <div class="col-sm-4"><strong>Email:</strong></div><div class="col-sm-8">@employee.Email</div>
+                    <div class="col-sm-4"><strong>Số điện thoại:</strong></div><div class="col-sm-8">@employee.Phone</div>
+                    <div class="col-sm-4"><strong>Bằng cấp:</strong></div><div class="col-sm-8">@(employee.Qualifications ?? "—")</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-card-text"></i> CCCD</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-sm-4"><strong>Số CCCD:</strong></div><div class="col-sm-8">@(employee.IdCardNumber ?? "—")</div>
+                    <div class="col-sm-4"><strong>Ngày cấp:</strong></div><div class="col-sm-8">@(employee.IdCardIssueDate?.ToString("dd/MM/yyyy") ?? "—")</div>
+                    <div class="col-sm-4"><strong>Nơi cấp:</strong></div><div class="col-sm-8">@(employee.IdCardIssuePlace ?? "—")</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-geo-alt"></i> Địa chỉ</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-sm-4"><strong>Thường trú:</strong></div><div class="col-sm-8">@(employee.PermanentAddress ?? "—")</div>
+                    <div class="col-sm-4"><strong>Liên hệ:</strong></div><div class="col-sm-8">@(employee.TemporaryAddress ?? "—")</div>
                 </div>
             </div>
         </div>
@@ -70,28 +121,131 @@ else
             <div class="card-header"><i class="bi bi-briefcase"></i> Thông tin công việc</div>
             <div class="card-body">
                 <div class="row g-2">
-                    <div class="col-sm-4"><strong>Chức vụ:</strong></div><div class="col-sm-8">@(Model.Position?.PositionName ?? "Chưa có")</div>
-                    <div class="col-sm-4"><strong>Phòng ban:</strong></div><div class="col-sm-8">@(Model.Department?.DepartmentName ?? "Chưa có")</div>
-                    <div class="col-sm-4"><strong>Mã nhân viên:</strong></div><div class="col-sm-8">@Model.EmployeeCode</div>
-                    <div class="col-sm-4"><strong>Mã chấm công:</strong></div><div class="col-sm-8">@Model.AttendanceCode</div>
-                    <div class="col-sm-4"><strong>Ngày vào làm:</strong></div><div class="col-sm-8">@Model.StartWorkingDate?.ToString("dd/MM/yyyy")</div>
+                    <div class="col-sm-4"><strong>Phòng ban:</strong></div><div class="col-sm-8">@(employee.Department?.DepartmentName ?? "—")</div>
+                    <div class="col-sm-4"><strong>Chức vụ:</strong></div><div class="col-sm-8">@(employee.JobTitle?.JobTitleName ?? "—")</div>
+                    <div class="col-sm-4"><strong>Vị trí:</strong></div><div class="col-sm-8">@(employee.Position?.PositionName ?? "—")</div>
+                    <div class="col-sm-4"><strong>Mã nhân viên:</strong></div><div class="col-sm-8">@employee.EmployeeCode</div>
+                    <div class="col-sm-4"><strong>Chấm công:</strong></div><div class="col-sm-8">@(employee.AttendanceName) @(employee.AttendanceCode != null ? $"(#{employee.AttendanceCode})" : "")</div>
+                    <div class="col-sm-4"><strong>Ngày vào làm:</strong></div><div class="col-sm-8">@employee.StartWorkingDate?.ToString("dd/MM/yyyy")</div>
                     <div class="col-sm-4"><strong>Trạng thái:</strong></div>
                     <div class="col-sm-8">
-                        <span class="badge bg-@(Model.Status == EmployeeStatus.Active ? "success" : "secondary")">
-                            @(Model.Status == EmployeeStatus.Active ? "Đang làm" : Model.Status.ToString())
-                        </span>
+                        @switch (employee.Status)
+                        {
+                            case EmployeeStatus.Active:
+                                <span class="badge bg-success">Đang làm</span>
+                                break;
+                            case EmployeeStatus.OnLeave:
+                                <span class="badge bg-info text-dark">Tạm nghỉ</span>
+                                break;
+                            case EmployeeStatus.Resigned:
+                                <span class="badge bg-secondary">Đã nghỉ</span>
+                                break;
+                            case EmployeeStatus.Terminated:
+                                <span class="badge bg-dark">Nghỉ việc</span>
+                                break;
+                        }
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-shield-check"></i> BHXH & Khác</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-sm-4"><strong>Mã BHXH:</strong></div><div class="col-sm-8">@(employee.InsuranceCode ?? "—")</div>
+                    <div class="col-sm-4"><strong>Số xe:</strong></div><div class="col-sm-8">@(employee.VehiclePlate ?? "—")</div>
+                    <div class="col-sm-4"><strong>Facebook:</strong></div>
+                    <div class="col-sm-8">
+                        @if (!string.IsNullOrEmpty(employee.FacebookUrl))
+                        {
+                            <a href="@employee.FacebookUrl" target="_blank" rel="noopener">@employee.FacebookUrl</a>
+                        }
+                        else { <span>—</span> }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contract Card -->
+        @{
+            var nearExpiry = currentContract != null && currentContract.EndDate.HasValue
+                && currentContract.EndDate.Value.Date <= today.AddDays(30);
+            var daysLeft   = currentContract?.EndDate.HasValue == true
+                ? (currentContract.EndDate.Value.Date - today).Days : (int?)null;
+        }
+        <div class="card mb-3 @(nearExpiry ? "border-warning" : "")">
+            <div class="card-header @(nearExpiry ? "bg-warning bg-opacity-10" : "")">
+                <i class="bi bi-file-earmark-text me-1"></i> Hợp đồng lao động
+            </div>
+            <div class="card-body">
+            @if (currentContract == null)
+            {
+                <p class="text-muted mb-0"><i class="bi bi-exclamation-circle me-1"></i>Chưa có hợp đồng đang hiệu lực.</p>
+            }
+            else
+            {
+                var (css, label) = ContractStatusDisplay(currentContract);
+                if (nearExpiry)
+                {
+                    <div class="alert alert-warning py-2 small mb-3">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Hợp đồng của bạn sắp hết hạn!</strong> Còn <strong>@daysLeft ngày</strong> (@currentContract.EndDate!.Value.ToString("dd/MM/yyyy")).
+                        Vui lòng liên hệ quản lý để gia hạn.
+                    </div>
+                }
+                <div class="row g-2">
+                    <div class="col-sm-4"><strong>Loại HĐ:</strong></div>
+                    <div class="col-sm-8">@ContractTypeText(currentContract.ContractType)</div>
+                    <div class="col-sm-4"><strong>Ngày bắt đầu:</strong></div>
+                    <div class="col-sm-8">@currentContract.StartDate.ToString("dd/MM/yyyy")</div>
+                    <div class="col-sm-4"><strong>Ngày kết thúc:</strong></div>
+                    <div class="col-sm-8">
+                        @if (currentContract.EndDate.HasValue)
+                        {
+                            @currentContract.EndDate.Value.ToString("dd/MM/yyyy")
+                            if (nearExpiry)
+                            {
+                                <span class="badge bg-warning text-dark ms-1"><i class="bi bi-clock"></i> @daysLeft ngày</span>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-muted">Không xác định thời hạn</span>
+                        }
+                    </div>
+                    <div class="col-sm-4"><strong>Trạng thái:</strong></div>
+                    <div class="col-sm-8"><span class="badge @css">@label</span></div>
+                </div>
+            }
+            </div>
+        </div>
+
+        @if (leaveSummary != null)
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-calendar-check"></i> Số ngày phép hiện có</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3"><div class="border rounded p-3 h-100"><div class="text-muted small">Phép năm đã cấp</div><div class="fs-4 fw-semibold text-primary">@leaveSummary.CurrentYearAllocated</div></div></div>
+                        <div class="col-md-3"><div class="border rounded p-3 h-100"><div class="text-muted small">Đã dùng</div><div class="fs-4 fw-semibold text-danger">@leaveSummary.PaidLeaveTaken</div></div></div>
+                        <div class="col-md-3"><div class="border rounded p-3 h-100"><div class="text-muted small">Bảo lưu năm cũ</div><div class="fs-4 fw-semibold text-warning">@leaveSummary.CarryForwardRemaining</div></div></div>
+                        <div class="col-md-3"><div class="border rounded p-3 h-100"><div class="text-muted small">Còn dùng được</div><div class="fs-4 fw-semibold text-success">@leaveSummary.TotalRemaining</div></div></div>
+                    </div>
+                    <div class="mt-3 small text-muted">
+                        Đã cấp @leaveSummary.GrantedQuarters/4 đợt phép của năm @leaveSummary.Year. Phép bảo lưu năm cũ chỉ dùng đến hết ngày @leaveSummary.CarryForwardExpiryDate?.ToString("dd/MM/yyyy").
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="card mb-3">
             <div class="card-header"><i class="bi bi-wallet2"></i> Tài chính</div>
             <div class="card-body">
                 <div class="row g-2">
-                    <div class="col-sm-4"><strong>Mã số thuế:</strong></div><div class="col-sm-8">@Model.TaxCode</div>
-                    <div class="col-sm-4"><strong>Số tài khoản:</strong></div><div class="col-sm-8">@Model.BankAccount</div>
-                    <div class="col-sm-4"><strong>Ngân hàng:</strong></div><div class="col-sm-8">@Model.BankName</div>
+                    <div class="col-sm-4"><strong>Mã số thuế:</strong></div><div class="col-sm-8">@(employee.TaxCode ?? "—")</div>
+                    <div class="col-sm-4"><strong>Số tài khoản:</strong></div><div class="col-sm-8">@(employee.BankAccount ?? "—")</div>
+                    <div class="col-sm-4"><strong>Ngân hàng:</strong></div><div class="col-sm-8">@(employee.BankName ?? "—")</div>
                 </div>
             </div>
         </div>
@@ -100,14 +254,14 @@ else
         <div class="card">
             <div class="card-header"><i class="bi bi-telephone"></i> Liên hệ người thân</div>
             <div class="card-body">
-                @if (Model.EmergencyContacts?.Any() == true)
+                @if (employee.EmergencyContacts?.Any() == true)
                 {
                     <table class="table table-sm table-bordered mb-0">
                         <thead class="table-light">
                             <tr><th>Họ tên</th><th>Mối quan hệ</th><th>SĐT</th><th>Địa chỉ</th></tr>
                         </thead>
                         <tbody>
-                            @foreach (var c in Model.EmergencyContacts)
+                            @foreach (var c in employee.EmergencyContacts)
                             {
                                 <tr><td>@c.FullName</td><td>@c.Relationship</td><td>@c.Phone</td><td>@c.Address</td></tr>
                             }

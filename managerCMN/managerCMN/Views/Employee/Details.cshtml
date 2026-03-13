@@ -1,6 +1,39 @@
 @model Employee
 @{
     ViewData["Title"] = "Chi tiết Nhân viên";
+    var leaveSummary = ViewBag.LeaveSummary as LeaveBalanceSummaryViewModel;
+    var leaveRequests = ViewBag.LeaveRequests as List<LeaveRequest> ?? new List<LeaveRequest>();
+
+    var today = DateTime.Today;
+    var currentContract = Model.Contracts
+        .Where(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.Renewed)
+        .OrderByDescending(c => c.StartDate)
+        .FirstOrDefault();
+
+    bool IsNearExpiry(Contract c) =>
+        c.EndDate.HasValue && c.EndDate.Value.Date <= today.AddDays(30);
+
+    string ContractTypeText(ContractType ct) => ct switch
+    {
+        ContractType.Probation  => "Thử việc",
+        ContractType.FixedTerm  => "Xác định thời hạn",
+        ContractType.Indefinite => "Không xác định thời hạn",
+        ContractType.Seasonal   => "Thời vụ",
+        _                       => ct.ToString()
+    };
+
+    (string css, string label) ContractStatusDisplay(Contract c)
+    {
+        if (IsNearExpiry(c)) return ("bg-warning text-dark", "Sắp hết hạn");
+        return c.Status switch
+        {
+            ContractStatus.Active     => ("bg-success", "Đang hiệu lực"),
+            ContractStatus.Renewed    => ("bg-info text-dark", "Đã gia hạn"),
+            ContractStatus.Expired    => ("bg-danger", "Hết hạn"),
+            ContractStatus.Terminated => ("bg-secondary", "Thanh lý"),
+            _                         => ("bg-light text-dark", c.Status.ToString())
+        };
+    }
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -11,8 +44,17 @@
     </div>
 </div>
 
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success">@TempData["Success"]</div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger">@TempData["Error"]</div>
+}
+
 <div class="row g-3">
-    <!-- Left Col: personal + emergency -->
+    <!-- Left Col -->
     <div class="col-lg-8">
         <div class="card mb-3">
             <div class="card-header"><i class="bi bi-person"></i> Thông tin cá nhân</div>
@@ -22,12 +64,32 @@
                     <div class="col-sm-4"><strong>Họ tên:</strong></div><div class="col-sm-8">@Model.FullName</div>
                     <div class="col-sm-4"><strong>Ngày sinh:</strong></div><div class="col-sm-8">@Model.DateOfBirth?.ToString("dd/MM/yyyy")</div>
                     <div class="col-sm-4"><strong>Giới tính:</strong></div><div class="col-sm-8">@(Model.Gender == Gender.Male ? "Nam" : Model.Gender == Gender.Female ? "Nữ" : "Khác")</div>
+                    <div class="col-sm-4"><strong>Dân tộc:</strong></div><div class="col-sm-8">@(Model.Ethnicity ?? "—")</div>
+                    <div class="col-sm-4"><strong>Quốc tịch:</strong></div><div class="col-sm-8">@(Model.Nationality ?? "—")</div>
                     <div class="col-sm-4"><strong>Email:</strong></div><div class="col-sm-8"><a href="mailto:@Model.Email">@Model.Email</a></div>
                     <div class="col-sm-4"><strong>Điện thoại:</strong></div><div class="col-sm-8">@Model.Phone</div>
-                    <div class="col-sm-4"><strong>Mã chấm công:</strong></div><div class="col-sm-8">@Model.AttendanceCode</div>
-                    <div class="col-sm-4"><strong>Địa chỉ thường trú:</strong></div><div class="col-sm-8">@Model.PermanentAddress</div>
-                    <div class="col-sm-4"><strong>Địa chỉ tạm trú:</strong></div><div class="col-sm-8">@Model.TemporaryAddress</div>
-                    <div class="col-sm-4"><strong>Bằng cấp:</strong></div><div class="col-sm-8">@Model.Qualifications</div>
+                    <div class="col-sm-4"><strong>Bằng cấp:</strong></div><div class="col-sm-8">@(Model.Qualifications ?? "—")</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-card-text"></i> CCCD</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-sm-4"><strong>Số CCCD:</strong></div><div class="col-sm-8">@(Model.IdCardNumber ?? "—")</div>
+                    <div class="col-sm-4"><strong>Ngày cấp:</strong></div><div class="col-sm-8">@(Model.IdCardIssueDate?.ToString("dd/MM/yyyy") ?? "—")</div>
+                    <div class="col-sm-4"><strong>Nơi cấp:</strong></div><div class="col-sm-8">@(Model.IdCardIssuePlace ?? "—")</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-geo-alt"></i> Địa chỉ</div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-sm-4"><strong>Thường trú:</strong></div><div class="col-sm-8">@(Model.PermanentAddress ?? "—")</div>
+                    <div class="col-sm-4"><strong>Liên hệ:</strong></div><div class="col-sm-8">@(Model.TemporaryAddress ?? "—")</div>
                 </div>
             </div>
         </div>
@@ -58,38 +120,177 @@
         </div>
     </div>
 
-    <!-- Right Col: work info + finance -->
+    <!-- Right Col -->
     <div class="col-lg-4">
         <div class="card mb-3">
             <div class="card-header"><i class="bi bi-briefcase"></i> Thông tin công việc</div>
             <div class="card-body">
-                <p><strong>Phòng ban:</strong> @Model.Department?.DepartmentName</p>
-                <p><strong>Chức vụ:</strong> @Model.Position?.PositionName</p>
+                <p><strong>Phòng ban:</strong> @(Model.Department?.DepartmentName ?? "—")</p>
+                <p><strong>Chức vụ:</strong> @(Model.JobTitle?.JobTitleName ?? "—")</p>
+                <p><strong>Vị trí:</strong> @(Model.Position?.PositionName ?? "—")</p>
                 <p><strong>Ngày vào làm:</strong> @Model.StartWorkingDate?.ToString("dd/MM/yyyy")</p>
+                <p><strong>Chấm công:</strong> @(Model.AttendanceName) @(Model.AttendanceCode != null ? $"(#{Model.AttendanceCode})" : "")</p>
                 <p><strong>Trạng thái:</strong>
                     @switch (Model.Status)
                     {
                         case EmployeeStatus.Active:
                             <span class="badge bg-success">Đang làm</span>
                             break;
+                        case EmployeeStatus.OnLeave:
+                            <span class="badge bg-info text-dark">Tạm nghỉ</span>
+                            break;
                         case EmployeeStatus.Resigned:
                             <span class="badge bg-secondary">Đã nghỉ</span>
                             break;
-                        default:
-                            <span class="badge bg-warning">@Model.Status</span>
+                        case EmployeeStatus.Terminated:
+                            <span class="badge bg-dark">Nghỉ việc</span>
                             break;
                     }
+                </p>
+                @if (Model.ResignationDate.HasValue)
+                {
+                    <p class="text-danger"><strong>Ngày thôi việc:</strong> @Model.ResignationDate.Value.ToString("dd/MM/yyyy")</p>
+                    <p class="text-muted"><strong>Lý do:</strong> @(Model.ResignationReason ?? "—")</p>
+                }
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-shield-check"></i> BHXH & Khác</div>
+            <div class="card-body">
+                <p><strong>Mã BHXH:</strong> @(Model.InsuranceCode ?? "—")</p>
+                <p><strong>Số xe:</strong> @(Model.VehiclePlate ?? "—")</p>
+                <p class="mb-0"><strong>Facebook:</strong>
+                    @if (!string.IsNullOrEmpty(Model.FacebookUrl))
+                    {
+                        <a href="@Model.FacebookUrl" target="_blank" rel="noopener">@Model.FacebookUrl</a>
+                    }
+                    else { <span class="text-muted">—</span> }
                 </p>
             </div>
         </div>
 
-        <div class="card">
+        <!-- Contract Card -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-file-earmark-text"></i> Hợp đồng hiện tại</span>
+                @if (currentContract != null)
+                {
+                    <a asp-controller="Contract" asp-action="Edit" asp-route-id="@currentContract.ContractId"
+                       class="btn btn-sm btn-outline-warning py-0"><i class="bi bi-pencil"></i></a>
+                }
+            </div>
+            <div class="card-body">
+            @if (currentContract == null)
+            {
+                <p class="text-muted mb-0"><i class="bi bi-exclamation-circle me-1"></i>Chưa có hợp đồng đang hiệu lực.</p>
+            }
+            else
+            {
+                var (css, label) = ContractStatusDisplay(currentContract);
+                var nearExpiry    = IsNearExpiry(currentContract);
+                var daysLeft      = currentContract.EndDate.HasValue ? (currentContract.EndDate.Value.Date - today).Days : (int?)null;
+
+                if (nearExpiry)
+                {
+                    <div class="alert alert-warning py-2 small mb-2">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Sắp hết hạn!</strong> Còn <strong>@daysLeft ngày</strong>.
+                    </div>
+                }
+                <p class="mb-1"><strong>Loại HĐ:</strong> @ContractTypeText(currentContract.ContractType)</p>
+                <p class="mb-1"><strong>Ngày bắt đầu:</strong> @currentContract.StartDate.ToString("dd/MM/yyyy")</p>
+                <p class="mb-1">
+                    <strong>Ngày kết thúc:</strong>
+                    @if (currentContract.EndDate.HasValue)
+                    {
+                        @currentContract.EndDate.Value.ToString("dd/MM/yyyy")
+                        if (nearExpiry)
+                        {
+                            <span class="badge bg-warning text-dark ms-1"><i class="bi bi-clock"></i> @daysLeft ngày</span>
+                        }
+                    }
+                    else
+                    {
+                        <span class="text-muted">Không xác định</span>
+                    }
+                </p>
+                <p class="mb-0"><strong>Trạng thái:</strong> <span class="badge @css">@label</span></p>
+            }
+            </div>
+        </div>
+
+        @if (leaveSummary != null)
+        {
+            <div class="card mb-3">
+                <div class="card-header"><i class="bi bi-calendar-check"></i> Theo dõi phép</div>
+                <div class="card-body">
+                    <p><strong>Phép năm đã cấp:</strong> @leaveSummary.CurrentYearAllocated</p>
+                    <p><strong>Đã dùng có lương:</strong> @leaveSummary.PaidLeaveTaken</p>
+                    <p><strong>Nghỉ không phép:</strong> @leaveSummary.UnpaidLeaveTaken</p>
+                    <p><strong>Phép bảo lưu còn lại:</strong> @leaveSummary.CarryForwardRemaining</p>
+                    <p class="mb-0"><strong>Tổng còn dùng được:</strong> <span class="text-success fw-semibold">@leaveSummary.TotalRemaining</span></p>
+                    <div class="small text-muted mt-2">Đã cấp @leaveSummary.GrantedQuarters/4 đợt phép. Phép bảo lưu hết hạn sau ngày @leaveSummary.CarryForwardExpiryDate?.ToString("dd/MM/yyyy").</div>
+                </div>
+            </div>
+        }
+
+        <div class="card mb-3">
             <div class="card-header"><i class="bi bi-wallet2"></i> Tài chính</div>
             <div class="card-body">
-                <p><strong>MST:</strong> @Model.TaxCode</p>
-                <p><strong>Tài khoản:</strong> @Model.BankAccount</p>
-                <p class="mb-0"><strong>Ngân hàng:</strong> @Model.BankName</p>
+                <p><strong>MST:</strong> @(Model.TaxCode ?? "—")</p>
+                <p><strong>Tài khoản:</strong> @(Model.BankAccount ?? "—")</p>
+                <p class="mb-0"><strong>Ngân hàng:</strong> @(Model.BankName ?? "—")</p>
+            </div>
+        </div>
+
+        @if (User.IsInRole("Admin") && leaveSummary != null)
+        {
+            <div class="card">
+                <div class="card-header"><i class="bi bi-sliders"></i> Điều chỉnh phép</div>
+                <div class="card-body">
+                    <form asp-action="AdjustLeaveBalance" asp-route-id="@Model.EmployeeId" method="post">
+                        @Html.AntiForgeryToken()
+                        <div class="mb-2">
+                            <label class="form-label">Điều chỉnh phép năm hiện tại</label>
+                            <input name="currentYearAdjustment" type="number" step="0.5" value="0" class="form-control" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Điều chỉnh phép bảo lưu</label>
+                            <input name="carryForwardAdjustment" type="number" step="0.5" value="0" class="form-control" />
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Cập nhật số phép</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@if (leaveRequests.Any())
+{
+    <div class="card mt-3">
+        <div class="card-header"><i class="bi bi-clock-history"></i> Lịch sử nghỉ phép gần đây</div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light">
+                        <tr><th>Từ ngày</th><th>Đến ngày</th><th>Số ngày</th><th>Loại</th><th>Trạng thái</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var req in leaveRequests)
+                        {
+                            <tr>
+                                <td>@req.StartDate.ToString("dd/MM/yyyy")</td>
+                                <td>@req.EndDate.ToString("dd/MM/yyyy")</td>
+                                <td>@req.TotalDays</td>
+                                <td>@(req.PayType == LeavePayType.Paid ? "Có lương" : "Không phép")</td>
+                                <td>@req.Status</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-</div>
+}

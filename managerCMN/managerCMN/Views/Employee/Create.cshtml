@@ -3,98 +3,281 @@
     ViewData["Title"] = "Thêm Nhân viên";
 }
 
-<div class="card">
-    <div class="card-header"><i class="bi bi-person-plus"></i> Thêm nhân viên mới</div>
-    <div class="card-body">
-        <form asp-action="Create" method="post">
-            @Html.AntiForgeryToken()
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label asp-for="FullName" class="form-label">Họ tên <span class="text-danger">*</span></label>
-                    <input asp-for="FullName" class="form-control" />
-                    <span asp-validation-for="FullName" class="text-danger"></span>
-                </div>
-                <div class="col-md-3">
-                    <label asp-for="DateOfBirth" class="form-label">Ngày sinh</label>
-                    <input asp-for="DateOfBirth" class="form-control" type="date" />
-                </div>
-                <div class="col-md-3">
-                    <label asp-for="Gender" class="form-label">Giới tính</label>
-                    <select asp-for="Gender" asp-items="Html.GetEnumSelectList<Gender>()" class="form-select">
-                        <option value="">-- Chọn --</option>
-                    </select>
-                </div>
-
-                <div class="col-md-6">
-                    <label asp-for="Email" class="form-label">Email <span class="text-danger">*</span></label>
-                    <input asp-for="Email" class="form-control" type="email" />
-                    <span asp-validation-for="Email" class="text-danger"></span>
-                </div>
-                <div class="col-md-3">
-                    <label asp-for="Phone" class="form-label">Số điện thoại</label>
-                    <input asp-for="Phone" class="form-control" />
-                </div>
-                <div class="col-md-3">
-                    <label asp-for="AttendanceCode" class="form-label">Mã chấm công</label>
-                    <input asp-for="AttendanceCode" class="form-control" />
-                </div>
-
-                <div class="col-md-6">
-                    <label asp-for="PermanentAddress" class="form-label">Địa chỉ thường trú</label>
-                    <input asp-for="PermanentAddress" class="form-control" />
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="TemporaryAddress" class="form-label">Địa chỉ tạm trú</label>
-                    <input asp-for="TemporaryAddress" class="form-control" />
-                </div>
-
-                <div class="col-md-4">
-                    <label asp-for="TaxCode" class="form-label">Mã số thuế</label>
-                    <input asp-for="TaxCode" class="form-control" />
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="BankAccount" class="form-label">Số tài khoản</label>
-                    <input asp-for="BankAccount" class="form-control" />
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="BankName" class="form-label">Ngân hàng</label>
-                    <input asp-for="BankName" class="form-control" />
-                </div>
-
-                <div class="col-md-4">
-                    <label asp-for="DepartmentId" class="form-label">Phòng ban <span class="text-danger">*</span></label>
-                    <select asp-for="DepartmentId" asp-items="@ViewBag.Departments" class="form-select">
-                        <option value="">-- Chọn phòng ban --</option>
-                    </select>
-                    <span asp-validation-for="DepartmentId" class="text-danger"></span>
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="PositionId" class="form-label">Chức vụ</label>
-                    <select asp-for="PositionId" asp-items="@ViewBag.Positions" class="form-select">
-                        <option value="">-- Chọn chức vụ --</option>
-                    </select>
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="StartWorkingDate" class="form-label">Ngày bắt đầu làm việc</label>
-                    <input asp-for="StartWorkingDate" class="form-control" type="date" />
-                </div>
-
-                <div class="col-12">
-                    <label asp-for="Qualifications" class="form-label">Bằng cấp / Chuyên ngành</label>
-                    <textarea asp-for="Qualifications" class="form-control" rows="2"></textarea>
-                </div>
-            </div>
-
-            <div class="mt-4">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
-                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
-            </div>
-        </form>
+@if (TempData["ImportError"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        @TempData["ImportError"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
+}
+
+<ul class="nav nav-tabs mb-3" id="createTabs" role="tablist">
+    <li class="nav-item">
+        <button class="nav-link active" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button">
+            <i class="bi bi-person-plus me-1"></i> Nhập thủ công
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="excel-tab" data-bs-toggle="tab" data-bs-target="#excel" type="button">
+            <i class="bi bi-file-earmark-excel me-1"></i> Nhập từ Excel
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+
+    <!-- Manual entry tab -->
+    <div class="tab-pane fade show active" id="manual" role="tabpanel">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-person-plus"></i> Thêm nhân viên mới</div>
+            <div class="card-body">
+                <form asp-action="Create" method="post" id="createForm">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+                    <h6 class="text-muted mb-2"><i class="bi bi-person"></i> Thông tin cá nhân</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <label asp-for="EmployeeCode" class="form-label">Mã NV</label>
+                            <input asp-for="EmployeeCode" class="form-control" placeholder="Để trống = tự sinh" />
+                            <small class="text-muted">VD: A00409</small>
+                        </div>
+                        <div class="col-md-5">
+                            <label asp-for="FullName" class="form-label">Họ tên <span class="text-danger">*</span></label>
+                            <input asp-for="FullName" class="form-control" />
+                            <span asp-validation-for="FullName" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="DateOfBirth" class="form-label">Ngày sinh</label>
+                            <input asp-for="DateOfBirth" class="form-control" type="date" />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="Gender" class="form-label">Giới tính</label>
+                            <select asp-for="Gender" asp-items="Html.GetEnumSelectList<Gender>()" class="form-select">
+                                <option value="">-- Chọn --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="Ethnicity" class="form-label">Dân tộc</label>
+                            <input asp-for="Ethnicity" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="Nationality" class="form-label">Quốc tịch</label>
+                            <input asp-for="Nationality" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="Email" class="form-label">Email <span class="text-danger">*</span></label>
+                            <input asp-for="Email" class="form-control" type="email" />
+                            <span asp-validation-for="Email" class="text-danger"></span>
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="Phone" class="form-label">Số điện thoại</label>
+                            <input asp-for="Phone" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="Qualifications" class="form-label">Bằng cấp</label>
+                            <input asp-for="Qualifications" class="form-control" />
+                        </div>
+                    </div>
+
+                    <h6 class="text-muted mb-2"><i class="bi bi-card-text"></i> CCCD / Giấy tờ</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label asp-for="IdCardNumber" class="form-label">Số CCCD</label>
+                            <input asp-for="IdCardNumber" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="IdCardIssueDate" class="form-label">Ngày cấp</label>
+                            <input asp-for="IdCardIssueDate" class="form-control" type="date" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="IdCardIssuePlace" class="form-label">Nơi cấp</label>
+                            <input asp-for="IdCardIssuePlace" class="form-control" />
+                        </div>
+                    </div>
+
+                    <h6 class="text-muted mb-2"><i class="bi bi-geo-alt"></i> Địa chỉ</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label asp-for="PermanentAddress" class="form-label">Địa chỉ thường trú</label>
+                            <input asp-for="PermanentAddress" class="form-control" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="TemporaryAddress" class="form-label">Địa chỉ liên hệ</label>
+                            <input asp-for="TemporaryAddress" class="form-control" />
+                        </div>
+                    </div>
+
+                    <h6 class="text-muted mb-2"><i class="bi bi-briefcase"></i> Thông tin công việc</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label asp-for="DepartmentId" class="form-label">Phòng ban</label>
+                            <select asp-for="DepartmentId" asp-items="@ViewBag.Departments" class="form-select">
+                                <option value="">-- Chọn phòng ban --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="JobTitleId" class="form-label">Chức vụ</label>
+                            <select asp-for="JobTitleId" asp-items="@ViewBag.JobTitles" class="form-select">
+                                <option value="">-- Chọn chức vụ --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="PositionId" class="form-label">Vị trí</label>
+                            <select asp-for="PositionId" asp-items="@ViewBag.Positions" class="form-select">
+                                <option value="">-- Chọn vị trí --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="StartWorkingDate" class="form-label">Ngày vào làm</label>
+                            <input asp-for="StartWorkingDate" class="form-control" type="date" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="AttendanceName" class="form-label">Chấm công - Tên</label>
+                            <input asp-for="AttendanceName" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="AttendanceCode" class="form-label">Chấm công - Mã số</label>
+                            <input asp-for="AttendanceCode" class="form-control" />
+                        </div>
+                    </div>
+
+                    <h6 class="text-muted mb-2"><i class="bi bi-bank"></i> Tài chính & Bảo hiểm</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3">
+                            <label asp-for="TaxCode" class="form-label">Mã số thuế</label>
+                            <input asp-for="TaxCode" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="BankAccount" class="form-label">Số tài khoản</label>
+                            <input asp-for="BankAccount" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="BankName" class="form-label">Ngân hàng</label>
+                            <input asp-for="BankName" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <label asp-for="InsuranceCode" class="form-label">Mã BHXH</label>
+                            <input asp-for="InsuranceCode" class="form-control" />
+                        </div>
+                    </div>
+
+                    <h6 class="text-muted mb-2"><i class="bi bi-car-front"></i> Khác</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label asp-for="VehiclePlate" class="form-label">Số xe</label>
+                            <input asp-for="VehiclePlate" class="form-control" />
+                        </div>
+                        <div class="col-md-8">
+                            <label asp-for="FacebookUrl" class="form-label">Facebook URL</label>
+                            <input asp-for="FacebookUrl" class="form-control" placeholder="https://facebook.com/..." />
+                        </div>
+                    </div>
+
+                    <h6 class="text-muted mb-2"><i class="bi bi-telephone"></i> Liên hệ người thân</h6>
+                    <div class="mb-4">
+                        <table class="table table-bordered table-sm" id="contactTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Họ tên <span class="text-danger">*</span></th>
+                                    <th>Mối quan hệ</th>
+                                    <th>Số điện thoại</th>
+                                    <th>Địa chỉ</th>
+                                    <th style="width:48px"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="contactRows">
+                                <!-- rows added by JS -->
+                            </tbody>
+                        </table>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="addContact">
+                            <i class="bi bi-plus-circle me-1"></i> Thêm người thân
+                        </button>
+                    </div>
+
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+                        <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Excel import tab -->
+    <div class="tab-pane fade" id="excel" role="tabpanel">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-file-earmark-excel text-success"></i> Nhập danh sách nhân viên từ Excel</div>
+            <div class="card-body">
+
+                <div class="alert alert-info d-flex gap-2 align-items-start">
+                    <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+                    <div>
+                        <strong>Hướng dẫn:</strong>
+                        <ol class="mb-0 mt-1">
+                            <li>Tải file mẫu về máy.</li>
+                            <li>Điền thông tin nhân viên (cột có dấu <strong>*</strong> là bắt buộc).</li>
+                            <li>Ngày tháng: <strong>dd/MM/yyyy</strong> (vd: 15/06/1995).</li>
+                            <li>Giới tính: <strong>Nam</strong>, <strong>Nữ</strong> hoặc <strong>Khác</strong>.</li>
+                            <li>Phòng ban, Chức vụ, Vị trí phải khớp tên đã có trong hệ thống.</li>
+                            <li>BH bắt buộc / Bảo Minh / Face: <strong>Có</strong> hoặc <strong>Không</strong>.</li>
+                        </ol>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <a asp-action="DownloadTemplate" class="btn btn-outline-success">
+                        <i class="bi bi-download me-1"></i> Tải file mẫu (.xlsx)
+                    </a>
+                </div>
+
+                <form asp-action="ImportExcel" method="post" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Chọn file Excel đã điền</label>
+                        <input type="file" name="file" accept=".xlsx,.xls" class="form-control" required />
+                        <div class="form-text">Chỉ hỗ trợ định dạng .xlsx / .xls</div>
+                    </div>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-upload me-1"></i> Nhập dữ liệu
+                    </button>
+                    <a asp-action="Index" class="btn btn-secondary ms-1">Hủy</a>
+                </form>
+            </div>
+        </div>
+    </div>
+
 </div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        let contactIndex = 0;
+
+        function addContactRow() {
+            const i = contactIndex++;
+            const row = `<tr>
+                <td><input type="text" name="EmergencyContacts[${i}].FullName" class="form-control form-control-sm" placeholder="Họ tên" /></td>
+                <td><input type="text" name="EmergencyContacts[${i}].Relationship" class="form-control form-control-sm" placeholder="Quan hệ" /></td>
+                <td><input type="text" name="EmergencyContacts[${i}].Phone" class="form-control form-control-sm" placeholder="SĐT" /></td>
+                <td><input type="text" name="EmergencyContacts[${i}].Address" class="form-control form-control-sm" placeholder="Địa chỉ" /></td>
+                <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+            </tr>`;
+            document.getElementById('contactRows').insertAdjacentHTML('beforeend', row);
+        }
+
+        document.getElementById('addContact').addEventListener('click', addContactRow);
+        // Start with one empty row
+        addContactRow();
+
+        // Re-index before submit so MVC binder gets consecutive indices
+        document.getElementById('createForm')?.addEventListener('submit', function () {
+            const rows = document.querySelectorAll('#contactRows tr');
+            rows.forEach((row, idx) => {
+                row.querySelectorAll('input').forEach(inp => {
+                    inp.name = inp.name.replace(/\[\d+\]/, `[${idx}]`);
+                });
+            });
+        });
+    </script>
 }

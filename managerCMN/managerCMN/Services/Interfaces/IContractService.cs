@@ -11,4 +11,5 @@ public interface IContractService
     Task CreateAsync(Contract contract);
     Task UpdateAsync(Contract contract);
     Task DeleteAsync(int id);
+    Task SyncExpiredAsync();
 }

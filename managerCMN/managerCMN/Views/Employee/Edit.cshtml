@@ -4,7 +4,7 @@
 }
 
 <div class="card">
-    <div class="card-header"><i class="bi bi-pencil"></i> Chỉnh sửa nhân viên: @Model.FullName</div>
+    <div class="card-header"><i class="bi bi-pencil"></i> Chỉnh sửa nhân viên: @Model.FullName <span class="badge bg-secondary ms-1">@Model.EmployeeCode</span></div>
     <div class="card-body">
         <form asp-action="Edit" method="post">
             @Html.AntiForgeryToken()
@@ -12,8 +12,13 @@
             <input type="hidden" asp-for="EmployeeCode" />
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
-            <div class="row g-3">
-                <div class="col-md-6">
+            <h6 class="text-muted mb-2"><i class="bi bi-person"></i> Thông tin cá nhân</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
+                    <label class="form-label">Mã NV</label>
+                    <input value="@Model.EmployeeCode" class="form-control" readonly disabled />
+                </div>
+                <div class="col-md-5">
                     <label asp-for="FullName" class="form-label">Họ tên <span class="text-danger">*</span></label>
                     <input asp-for="FullName" class="form-control" />
                     <span asp-validation-for="FullName" class="text-danger"></span>
@@ -28,7 +33,14 @@
                         <option value="">-- Chọn --</option>
                     </select>
                 </div>
-
+                <div class="col-md-3">
+                    <label asp-for="Ethnicity" class="form-label">Dân tộc</label>
+                    <input asp-for="Ethnicity" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                    <label asp-for="Nationality" class="form-label">Quốc tịch</label>
+                    <input asp-for="Nationality" class="form-control" />
+                </div>
                 <div class="col-md-6">
                     <label asp-for="Email" class="form-label">Email <span class="text-danger">*</span></label>
                     <input asp-for="Email" class="form-control" type="email" />
@@ -38,58 +50,119 @@
                     <label asp-for="Phone" class="form-label">Số điện thoại</label>
                     <input asp-for="Phone" class="form-control" />
                 </div>
-
                 <div class="col-md-3">
-                    <label asp-for="AttendanceCode" class="form-label">Mã chấm công</label>
+                    <label asp-for="Qualifications" class="form-label">Bằng cấp</label>
+                    <input asp-for="Qualifications" class="form-control" />
+                </div>
+            </div>
+
+            <h6 class="text-muted mb-2"><i class="bi bi-card-text"></i> CCCD / Giấy tờ</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label asp-for="IdCardNumber" class="form-label">Số CCCD</label>
+                    <input asp-for="IdCardNumber" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="IdCardIssueDate" class="form-label">Ngày cấp</label>
+                    <input asp-for="IdCardIssueDate" class="form-control" type="date" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="IdCardIssuePlace" class="form-label">Nơi cấp</label>
+                    <input asp-for="IdCardIssuePlace" class="form-control" />
+                </div>
+            </div>
+
+            <h6 class="text-muted mb-2"><i class="bi bi-geo-alt"></i> Địa chỉ</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label asp-for="PermanentAddress" class="form-label">Địa chỉ thường trú</label>
+                    <input asp-for="PermanentAddress" class="form-control" />
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="TemporaryAddress" class="form-label">Địa chỉ liên hệ</label>
+                    <input asp-for="TemporaryAddress" class="form-control" />
+                </div>
+            </div>
+
+            <h6 class="text-muted mb-2"><i class="bi bi-briefcase"></i> Thông tin công việc</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label asp-for="DepartmentId" class="form-label">Phòng ban</label>
+                    <select asp-for="DepartmentId" asp-items="@ViewBag.Departments" class="form-select">
+                        <option value="">-- Chọn phòng ban --</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="JobTitleId" class="form-label">Chức vụ</label>
+                    <select asp-for="JobTitleId" asp-items="@ViewBag.JobTitles" class="form-select">
+                        <option value="">-- Chọn chức vụ --</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="PositionId" class="form-label">Vị trí</label>
+                    <select asp-for="PositionId" asp-items="@ViewBag.Positions" class="form-select">
+                        <option value="">-- Chọn vị trí --</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="StartWorkingDate" class="form-label">Ngày vào làm</label>
+                    <input asp-for="StartWorkingDate" class="form-control" type="date" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="AttendanceName" class="form-label">Chấm công - Tên</label>
+                    <input asp-for="AttendanceName" class="form-control" />
+                </div>
+                <div class="col-md-4">
+                    <label asp-for="AttendanceCode" class="form-label">Chấm công - Mã số</label>
                     <input asp-for="AttendanceCode" class="form-control" />
                 </div>
                 <div class="col-md-3">
                     <label asp-for="Status" class="form-label">Trạng thái</label>
                     <select asp-for="Status" asp-items="Html.GetEnumSelectList<EmployeeStatus>()" class="form-select"></select>
                 </div>
+            </div>
 
-                <div class="col-md-6">
-                    <label asp-for="PermanentAddress" class="form-label">Địa chỉ thường trú</label>
-                    <input asp-for="PermanentAddress" class="form-control" />
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="TemporaryAddress" class="form-label">Địa chỉ tạm trú</label>
-                    <input asp-for="TemporaryAddress" class="form-control" />
-                </div>
-
-                <div class="col-md-4">
+            <h6 class="text-muted mb-2"><i class="bi bi-bank"></i> Tài chính & Bảo hiểm</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-md-3">
                     <label asp-for="TaxCode" class="form-label">Mã số thuế</label>
                     <input asp-for="TaxCode" class="form-control" />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label asp-for="BankAccount" class="form-label">Số tài khoản</label>
                     <input asp-for="BankAccount" class="form-control" />
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <label asp-for="BankName" class="form-label">Ngân hàng</label>
                     <input asp-for="BankName" class="form-control" />
                 </div>
+                <div class="col-md-3">
+                    <label asp-for="InsuranceCode" class="form-label">Mã BHXH</label>
+                    <input asp-for="InsuranceCode" class="form-control" />
+                </div>
+            </div>
 
+            <h6 class="text-muted mb-2"><i class="bi bi-car-front"></i> Khác</h6>
+            <div class="row g-3 mb-4">
                 <div class="col-md-4">
-                    <label asp-for="DepartmentId" class="form-label">Phòng ban <span class="text-danger">*</span></label>
-                    <select asp-for="DepartmentId" asp-items="@ViewBag.Departments" class="form-select">
-                        <option value="">-- Chọn --</option>
-                    </select>
+                    <label asp-for="VehiclePlate" class="form-label">Số xe</label>
+                    <input asp-for="VehiclePlate" class="form-control" />
                 </div>
-                <div class="col-md-4">
-                    <label asp-for="PositionId" class="form-label">Chức vụ</label>
-                    <select asp-for="PositionId" asp-items="@ViewBag.Positions" class="form-select">
-                        <option value="">-- Chọn chức vụ --</option>
-                    </select>
+                <div class="col-md-8">
+                    <label asp-for="FacebookUrl" class="form-label">Facebook URL</label>
+                    <input asp-for="FacebookUrl" class="form-control" placeholder="https://facebook.com/..." />
                 </div>
-                <div class="col-md-4">
-                    <label asp-for="StartWorkingDate" class="form-label">Ngày bắt đầu làm việc</label>
-                    <input asp-for="StartWorkingDate" class="form-control" type="date" />
-                </div>
+            </div>
 
-                <div class="col-12">
-                    <label asp-for="Qualifications" class="form-label">Bằng cấp / Chuyên ngành</label>
-                    <textarea asp-for="Qualifications" class="form-control" rows="2"></textarea>
+            <h6 class="text-muted mb-2"><i class="bi bi-box-arrow-right"></i> Thôi việc</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <label asp-for="ResignationDate" class="form-label">Ngày thôi việc</label>
+                    <input asp-for="ResignationDate" class="form-control" type="date" />
+                </div>
+                <div class="col-md-8">
+                    <label asp-for="ResignationReason" class="form-label">Lý do</label>
+                    <input asp-for="ResignationReason" class="form-control" />
                 </div>
             </div>
 

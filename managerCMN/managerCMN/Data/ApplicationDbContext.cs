@@ -17,6 +17,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<EmployeeContact> EmployeeContacts => Set<EmployeeContact>();
     public DbSet<Department> Departments => Set<Department>();
+    public DbSet<JobTitle> JobTitles => Set<JobTitle>();
     public DbSet<Position> Positions => Set<Position>();
     public DbSet<Contract> Contracts => Set<Contract>();
 
@@ -106,6 +107,13 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(e => e.PositionId)
             .OnDelete(DeleteBehavior.SetNull);
 
+        // Employee -> JobTitle
+        modelBuilder.Entity<Employee>()
+            .HasOne(e => e.JobTitle)
+            .WithMany(j => j.Employees)
+            .HasForeignKey(e => e.JobTitleId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         // Contract
         modelBuilder.Entity<Contract>()
             .Property(c => c.Salary)
@@ -128,6 +136,10 @@ public class ApplicationDbContext : DbContext
         // LeaveRequest
         modelBuilder.Entity<LeaveRequest>()
             .Property(lr => lr.TotalDays).HasColumnType("decimal(5,1)");
+        modelBuilder.Entity<LeaveRequest>()
+            .Property(lr => lr.DeductedFromCurrentYear).HasColumnType("decimal(5,1)");
+        modelBuilder.Entity<LeaveRequest>()
+            .Property(lr => lr.DeductedFromCarryForward).HasColumnType("decimal(5,1)");
 
         // Attendance unique constraint
         modelBuilder.Entity<Attendance>()
@@ -176,6 +188,15 @@ public class ApplicationDbContext : DbContext
             new Role { RoleId = 1, RoleName = "Admin", Description = "System administrator" },
             new Role { RoleId = 2, RoleName = "Manager", Description = "Department manager" },
             new Role { RoleId = 3, RoleName = "User", Description = "Regular employee" }
+        );
+
+        // Seed job titles (Chức vụ)
+        modelBuilder.Entity<JobTitle>().HasData(
+            new JobTitle { JobTitleId = 1, JobTitleName = "Ban Giám Đốc", SortOrder = 1 },
+            new JobTitle { JobTitleId = 2, JobTitleName = "Trưởng phòng", SortOrder = 2 },
+            new JobTitle { JobTitleId = 3, JobTitleName = "Manager", SortOrder = 3 },
+            new JobTitle { JobTitleId = 4, JobTitleName = "Nhân viên", SortOrder = 4 },
+            new JobTitle { JobTitleId = 5, JobTitleName = "Thực tập", SortOrder = 5 }
         );
     }
 }

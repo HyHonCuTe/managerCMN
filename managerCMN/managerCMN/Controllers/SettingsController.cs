@@ -27,6 +27,7 @@ public class SettingsController : Controller
         ViewBag.ActiveTab = tab;
         ViewBag.Departments = await _departmentService.GetAllAsync();
         ViewBag.Positions = await _db.Positions.OrderBy(p => p.SortOrder).ToListAsync();
+        ViewBag.JobTitles = await _db.JobTitles.OrderBy(j => j.SortOrder).ToListAsync();
         ViewBag.AssetCategories = await _db.AssetCategories.OrderBy(c => c.CategoryName).ToListAsync();
         ViewBag.Brands = await _db.Brands.OrderBy(b => b.BrandName).ToListAsync();
         ViewBag.Suppliers = await _db.Suppliers.OrderBy(s => s.SupplierName).ToListAsync();
@@ -81,14 +82,14 @@ public class SettingsController : Controller
         return RedirectToAction(nameof(Index), new { tab = "departments" });
     }
 
-    // === POSITIONS ===
+    // === POSITIONS (Vị trí) ===
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> CreatePosition(string positionName, string? description, int sortOrder)
     {
         if (string.IsNullOrWhiteSpace(positionName))
         {
-            TempData["Error"] = "Tên chức vụ không được để trống.";
+            TempData["Error"] = "Tên vị trí không được để trống.";
             return RedirectToAction(nameof(Index), new { tab = "positions" });
         }
 
@@ -100,7 +101,7 @@ public class SettingsController : Controller
             IsActive = true
         });
         await _db.SaveChangesAsync();
-        TempData["Success"] = "Thêm chức vụ thành công!";
+        TempData["Success"] = "Thêm vị trí thành công!";
         return RedirectToAction(nameof(Index), new { tab = "positions" });
     }
 
@@ -115,7 +116,7 @@ public class SettingsController : Controller
         pos.SortOrder = sortOrder;
         pos.IsActive = isActive;
         await _db.SaveChangesAsync();
-        TempData["Success"] = "Cập nhật chức vụ thành công!";
+        TempData["Success"] = "Cập nhật vị trí thành công!";
         return RedirectToAction(nameof(Index), new { tab = "positions" });
     }
 
@@ -128,8 +129,59 @@ public class SettingsController : Controller
             _db.Positions.Remove(pos);
             await _db.SaveChangesAsync();
         }
-        TempData["Success"] = "Xóa chức vụ thành công!";
+        TempData["Success"] = "Xóa vị trí thành công!";
         return RedirectToAction(nameof(Index), new { tab = "positions" });
+    }
+
+    // === JOB TITLES (Chức vụ) ===
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateJobTitle(string jobTitleName, string? description, int sortOrder)
+    {
+        if (string.IsNullOrWhiteSpace(jobTitleName))
+        {
+            TempData["Error"] = "Tên chức vụ không được để trống.";
+            return RedirectToAction(nameof(Index), new { tab = "jobtitles" });
+        }
+
+        _db.JobTitles.Add(new JobTitle
+        {
+            JobTitleName = jobTitleName.Trim(),
+            Description = description?.Trim(),
+            SortOrder = sortOrder,
+            IsActive = true
+        });
+        await _db.SaveChangesAsync();
+        TempData["Success"] = "Thêm chức vụ thành công!";
+        return RedirectToAction(nameof(Index), new { tab = "jobtitles" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditJobTitle(int jobTitleId, string jobTitleName, string? description, int sortOrder, bool isActive)
+    {
+        var jt = await _db.JobTitles.FindAsync(jobTitleId);
+        if (jt == null) return NotFound();
+
+        jt.JobTitleName = jobTitleName.Trim();
+        jt.Description = description?.Trim();
+        jt.SortOrder = sortOrder;
+        jt.IsActive = isActive;
+        await _db.SaveChangesAsync();
+        TempData["Success"] = "Cập nhật chức vụ thành công!";
+        return RedirectToAction(nameof(Index), new { tab = "jobtitles" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteJobTitle(int id)
+    {
+        var jt = await _db.JobTitles.FindAsync(id);
+        if (jt != null)
+        {
+            _db.JobTitles.Remove(jt);
+            await _db.SaveChangesAsync();
+        }
+        TempData["Success"] = "Xóa chức vụ thành công!";
+        return RedirectToAction(nameof(Index), new { tab = "jobtitles" });
     }
 
     // === ASSET CATEGORIES ===

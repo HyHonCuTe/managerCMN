@@ -1,6 +1,15 @@
 @model IEnumerable<Contract>
 @{
     ViewData["Title"] = "Hợp đồng sắp hết hạn";
+
+    string GetContractTypeText(ContractType contractType) => contractType switch
+    {
+        ContractType.Probation => "Thử việc",
+        ContractType.FixedTerm => "Xác định thời hạn",
+        ContractType.Indefinite => "Không xác định thời hạn",
+        ContractType.Seasonal => "Thời vụ",
+        _ => contractType.ToString()
+    };
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -26,7 +35,7 @@
                     var daysLeft = (c.EndDate!.Value - DateTime.UtcNow).Days;
                 <tr class="@(daysLeft < 0 ? "table-danger" : daysLeft < 7 ? "table-warning" : "")">
                     <td>@c.Employee?.FullName</td>
-                    <td>@c.ContractType</td>
+                    <td>@GetContractTypeText(c.ContractType)</td>
                     <td>@c.EndDate?.ToString("dd/MM/yyyy")</td>
                     <td>
                         @if (daysLeft < 0) { <span class="text-danger fw-bold">Đã hết hạn @Math.Abs(daysLeft) ngày</span> }

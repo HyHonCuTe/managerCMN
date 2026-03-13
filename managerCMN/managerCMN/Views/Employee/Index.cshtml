@@ -1,6 +1,29 @@
 @model IEnumerable<Employee>
 @{
     ViewData["Title"] = "Quản lý Nhân viên";
+    var leaveSummaries = ViewBag.LeaveSummaries as IReadOnlyDictionary<int, LeaveBalanceSummaryViewModel>;
+    var departments    = ViewBag.Departments as List<string> ?? new List<string>();
+    var today = DateTime.Today;
+
+    (string badgeCss, string text) GetEffectiveStatus(Employee emp)
+    {
+        if (emp.Status == EmployeeStatus.OnLeave)    return ("bg-info text-dark", "Tạm nghỉ");
+        if (emp.Status == EmployeeStatus.Resigned)   return ("bg-secondary",      "Đã nghỉ");
+        if (emp.Status == EmployeeStatus.Terminated) return ("bg-dark",           "Nghỉ việc");
+
+        var activeContract = emp.Contracts
+            .Where(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.Renewed)
+            .OrderByDescending(c => c.StartDate)
+            .FirstOrDefault();
+
+        if (activeContract == null)
+            return ("bg-danger", "Hết hợp đồng");
+
+        if (activeContract.EndDate.HasValue && activeContract.EndDate.Value.Date <= today.AddDays(30))
+            return ("bg-warning text-dark", "Sắp hết HĐ");
+
+        return ("bg-success", "Đang làm");
+    }
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -8,17 +31,76 @@
     <a asp-action="Create" class="btn btn-primary"><i class="bi bi-person-plus"></i> Thêm nhân viên</a>
 </div>
 
+@if (TempData["ImportSuccess"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        @TempData["ImportSuccess"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["ImportErrors"] != null)
+{
+    var importErrors = (TempData["ImportErrors"] as string ?? "").Split('|');
+    <div class="alert alert-warning alert-dismissible fade show">
+        <strong>Một số dòng bị lỗi:</strong>
+        <ul class="mb-0 mt-1">
+            @foreach (var err in importErrors)
+            {
+                <li>@err</li>
+            }
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+<!-- Filter bar -->
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <div class="row g-2 align-items-end">
+            <div class="col-sm-4 col-md-3">
+                <label class="form-label small mb-1 text-muted">Phòng ban</label>
+                <select id="filterDept" class="form-select form-select-sm">
+                    <option value="">-- Tất cả phòng ban --</option>
+                    @foreach (var dept in departments)
+                    {
+                        <option value="@dept">@dept</option>
+                    }
+                </select>
+            </div>
+            <div class="col-sm-4 col-md-3">
+                <label class="form-label small mb-1 text-muted">Trạng thái</label>
+                <select id="filterStatus" class="form-select form-select-sm">
+                    <option value="">-- Tất cả trạng thái --</option>
+                    <option value="Đang làm">Đang làm</option>
+                    <option value="Sắp hết HĐ">Sắp hết HĐ</option>
+                    <option value="Hết hợp đồng">Hết hợp đồng</option>
+                    <option value="Tạm nghỉ">Tạm nghỉ</option>
+                    <option value="Đã nghỉ">Đã nghỉ</option>
+                    <option value="Nghỉ việc">Nghỉ việc</option>
+                </select>
+            </div>
+            <div class="col-sm-auto">
+                <button id="clearFilters" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-x-circle"></i> Xóa lọc
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-body">
-        <table class="table table-hover data-table">
+        <table id="employeeTable" class="table table-hover">
             <thead class="table-light">
                 <tr>
                     <th>Mã NV</th>
-                    <th>Mã chấm công</th>
+                    <th>Mã CC</th>
                     <th>Họ tên</th>
-                    <th>Email</th>
                     <th>Phòng ban</th>
                     <th>Chức vụ</th>
+                    <th>Vị trí</th>
+                    <th>Phép còn</th>
+                    <th>Đã dùng</th>
                     <th>Trạng thái</th>
                     <th>Thao tác</th>
                 </tr>
@@ -26,34 +108,36 @@
             <tbody>
                 @foreach (var emp in Model)
                 {
-                <tr>
+                    var leave = leaveSummaries != null && leaveSummaries.TryGetValue(emp.EmployeeId, out var summary)
+                        ? summary : null;
+                    var (badgeCss, statusText) = GetEffectiveStatus(emp);
+                <tr data-dept="@emp.Department?.DepartmentName" data-status="@statusText">
                     <td><strong>@emp.EmployeeCode</strong></td>
                     <td>@emp.AttendanceCode</td>
                     <td>@emp.FullName</td>
-                    <td>@emp.Email</td>
                     <td>@emp.Department?.DepartmentName</td>
+                    <td>@emp.JobTitle?.JobTitleName</td>
                     <td>@emp.Position?.PositionName</td>
                     <td>
-                        @switch (emp.Status)
+                        @if (leave != null)
                         {
-                            case EmployeeStatus.Active:
-                                <span class="badge bg-success">Đang làm</span>
-                                break;
-                            case EmployeeStatus.Resigned:
-                                <span class="badge bg-secondary">Đã nghỉ</span>
-                                break;
-                            case EmployeeStatus.OnLeave:
-                                <span class="badge bg-warning">Tạm nghỉ</span>
-                                break;
-                            default:
-                                <span class="badge bg-dark">@emp.Status</span>
-                                break;
+                            <div class="fw-semibold text-success">@leave.TotalRemaining</div>
+                            <div class="small text-muted">Bảo lưu: @leave.CarryForwardRemaining</div>
                         }
                     </td>
                     <td>
+                        @if (leave != null)
+                        {
+                            <div class="fw-semibold text-danger">@leave.PaidLeaveTaken</div>
+                            <div class="small text-muted">Không phép: @leave.UnpaidLeaveTaken</div>
+                        }
+                    </td>
+                    <td><span class="badge @badgeCss">@statusText</span></td>
+                    <td>
                         <a asp-action="Details" asp-route-id="@emp.EmployeeId" class="btn btn-sm btn-outline-info" title="Chi tiết"><i class="bi bi-eye"></i></a>
-                        <a asp-action="Edit" asp-route-id="@emp.EmployeeId" class="btn btn-sm btn-outline-warning" title="Sửa"><i class="bi bi-pencil"></i></a>
-                        <form asp-action="Delete" asp-route-id="@emp.EmployeeId" method="post" class="d-inline" onsubmit="return confirm('Bạn chắc chắn muốn xóa?')">
+                        <a asp-action="Edit"    asp-route-id="@emp.EmployeeId" class="btn btn-sm btn-outline-warning" title="Sửa"><i class="bi bi-pencil"></i></a>
+                        <form asp-action="Delete" asp-route-id="@emp.EmployeeId" method="post" class="d-inline"
+                              onsubmit="return confirm('Bạn chắc chắn muốn xóa nhân viên này?')">
                             @Html.AntiForgeryToken()
                             <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa"><i class="bi bi-trash"></i></button>
                         </form>
@@ -64,3 +148,34 @@
         </table>
     </div>
 </div>
+
+@section Scripts {
+<script>
+$(document).ready(function () {
+    $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+        if (settings.nTable.id !== 'employeeTable') return true;
+        var dept   = $('#filterDept').val();
+        var status = $('#filterStatus').val();
+        var row    = $(settings.aoData[dataIndex].nTr);
+        if (dept   && row.data('dept')   !== dept)   return false;
+        if (status && row.data('status') !== status) return false;
+        return true;
+    });
+
+    var table = $('#employeeTable').DataTable({
+        language: { url: '//cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json' },
+        paging: false,
+        scrollY: '520px',
+        scrollCollapse: true,
+        order: []
+    });
+
+    $('#filterDept, #filterStatus').on('change', function () { table.draw(); });
+
+    $('#clearFilters').on('click', function () {
+        $('#filterDept, #filterStatus').val('');
+        table.draw();
+    });
+});
+</script>
+}

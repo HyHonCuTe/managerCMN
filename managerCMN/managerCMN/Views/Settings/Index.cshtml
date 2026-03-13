@@ -3,6 +3,7 @@
     var activeTab = ViewBag.ActiveTab as string ?? "departments";
     var departments = ViewBag.Departments as IEnumerable<Department> ?? Enumerable.Empty<Department>();
     var positions = ViewBag.Positions as IEnumerable<Position> ?? Enumerable.Empty<Position>();
+    var jobTitles = ViewBag.JobTitles as IEnumerable<JobTitle> ?? Enumerable.Empty<JobTitle>();
     var employeeList = ViewBag.EmployeeList as Microsoft.AspNetCore.Mvc.Rendering.SelectList;
     var assetCategories = ViewBag.AssetCategories as IEnumerable<AssetCategory> ?? Enumerable.Empty<AssetCategory>();
     var brands = ViewBag.Brands as IEnumerable<Brand> ?? Enumerable.Empty<Brand>();
@@ -36,8 +37,13 @@
         </a>
     </li>
     <li class="nav-item">
-        <a class="nav-link @(activeTab == "positions" ? "active" : "")" href="?tab=positions">
+        <a class="nav-link @(activeTab == "jobtitles" ? "active" : "")" href="?tab=jobtitles">
             <i class="bi bi-person-badge"></i> Chức vụ
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "positions" ? "active" : "")" href="?tab=positions">
+            <i class="bi bi-briefcase"></i> Vị trí
         </a>
     </li>
     <li class="nav-item">
@@ -196,21 +202,21 @@
 }
 }
 
-@* ========== POSITIONS TAB ========== *@
+@* ========== POSITIONS TAB (Vị trí) ========== *@
 @if (activeTab == "positions")
 {
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-person-badge"></i> Danh sách chức vụ</span>
+        <span><i class="bi bi-briefcase"></i> Danh sách vị trí</span>
         <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addPosModal">
-            <i class="bi bi-plus-lg"></i> Thêm chức vụ
+            <i class="bi bi-plus-lg"></i> Thêm vị trí
         </button>
     </div>
     <div class="card-body p-0">
         <table class="table table-hover mb-0">
             <thead class="table-light">
                 <tr>
-                    <th>Tên chức vụ</th>
+                    <th>Tên vị trí</th>
                     <th>Mô tả</th>
                     <th>Thứ tự</th>
                     <th>Trạng thái</th>
@@ -231,7 +237,7 @@
                         <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editPosModal-@pos.PositionId">
                             <i class="bi bi-pencil"></i>
                         </button>
-                        <form asp-action="DeletePosition" asp-route-id="@pos.PositionId" method="post" class="d-inline" onsubmit="return confirm('Xóa chức vụ này?')">
+                        <form asp-action="DeletePosition" asp-route-id="@pos.PositionId" method="post" class="d-inline" onsubmit="return confirm('Xóa vị trí này?')">
                             @Html.AntiForgeryToken()
                             <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
                         </form>
@@ -240,7 +246,7 @@
                 }
                 @if (!positions.Any())
                 {
-                <tr><td colspan="5" class="text-center text-muted py-3">Chưa có chức vụ nào.</td></tr>
+                <tr><td colspan="5" class="text-center text-muted py-3">Chưa có vị trí nào.</td></tr>
                 }
             </tbody>
         </table>
@@ -253,12 +259,12 @@
         <form asp-action="CreatePosition" method="post" class="modal-content">
             @Html.AntiForgeryToken()
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Thêm chức vụ</h5>
+                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Thêm vị trí</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label">Tên chức vụ <span class="text-danger">*</span></label>
+                    <label class="form-label">Tên vị trí <span class="text-danger">*</span></label>
                     <input name="positionName" class="form-control" required />
                 </div>
                 <div class="mb-3">
@@ -287,12 +293,12 @@
             @Html.AntiForgeryToken()
             <input type="hidden" name="positionId" value="@pos.PositionId" />
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-pencil"></i> Sửa chức vụ</h5>
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Sửa vị trí</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <div class="mb-3">
-                    <label class="form-label">Tên chức vụ <span class="text-danger">*</span></label>
+                    <label class="form-label">Tên vị trí <span class="text-danger">*</span></label>
                     <input name="positionName" class="form-control" value="@pos.PositionName" required />
                 </div>
                 <div class="mb-3">
@@ -305,6 +311,127 @@
                 </div>
                 <div class="form-check">
                     <input name="isActive" type="checkbox" class="form-check-input" value="true" @(pos.IsActive ? "checked" : "") />
+                    <input name="isActive" type="hidden" value="false" />
+                    <label class="form-check-label">Hoạt động</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+}
+}
+
+@* ========== JOB TITLES TAB (Chức vụ) ========== *@
+@if (activeTab == "jobtitles")
+{
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-person-badge"></i> Danh sách chức vụ</span>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addJtModal">
+            <i class="bi bi-plus-lg"></i> Thêm chức vụ
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Tên chức vụ</th>
+                    <th>Mô tả</th>
+                    <th>Thứ tự</th>
+                    <th>Trạng thái</th>
+                    <th style="width:120px">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var jt in jobTitles)
+                {
+                <tr>
+                    <td><strong>@jt.JobTitleName</strong></td>
+                    <td class="text-muted">@jt.Description</td>
+                    <td>@jt.SortOrder</td>
+                    <td>
+                        <span class="badge bg-@(jt.IsActive ? "success" : "secondary")">@(jt.IsActive ? "Hoạt động" : "Ẩn")</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editJtModal-@jt.JobTitleId">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form asp-action="DeleteJobTitle" asp-route-id="@jt.JobTitleId" method="post" class="d-inline" onsubmit="return confirm('Xóa chức vụ này?')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                }
+                @if (!jobTitles.Any())
+                {
+                <tr><td colspan="5" class="text-center text-muted py-3">Chưa có chức vụ nào.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="modal fade" id="addJtModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="CreateJobTitle" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Thêm chức vụ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên chức vụ <span class="text-danger">*</span></label>
+                    <input name="jobTitleName" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mô tả</label>
+                    <textarea name="description" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Thứ tự hiển thị</label>
+                    <input name="sortOrder" type="number" class="form-control" value="0" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Thêm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@foreach (var jt in jobTitles)
+{
+<div class="modal fade" id="editJtModal-@jt.JobTitleId" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="EditJobTitle" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="jobTitleId" value="@jt.JobTitleId" />
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Sửa chức vụ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tên chức vụ <span class="text-danger">*</span></label>
+                    <input name="jobTitleName" class="form-control" value="@jt.JobTitleName" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mô tả</label>
+                    <textarea name="description" class="form-control" rows="2">@jt.Description</textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Thứ tự hiển thị</label>
+                    <input name="sortOrder" type="number" class="form-control" value="@jt.SortOrder" />
+                </div>
+                <div class="form-check">
+                    <input name="isActive" type="checkbox" class="form-check-input" value="true" @(jt.IsActive ? "checked" : "") />
                     <input name="isActive" type="hidden" value="false" />
                     <label class="form-check-label">Hoạt động</label>
                 </div>

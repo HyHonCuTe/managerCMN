@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using managerCMN.Data;
 
@@ -11,9 +12,11 @@ using managerCMN.Data;
 namespace managerCMN.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260313014510_RefineQuarterlyLeavePolicy")]
+    partial class RefineQuarterlyLeavePolicy
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -315,10 +318,6 @@ namespace managerCMN.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<string>("AttendanceName")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
                     b.Property<string>("BankAccount")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -346,14 +345,6 @@ namespace managerCMN.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
-                    b.Property<string>("Ethnicity")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("FacebookUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<string>("FullName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -361,28 +352,6 @@ namespace managerCMN.Migrations
 
                     b.Property<int>("Gender")
                         .HasColumnType("int");
-
-                    b.Property<DateTime?>("IdCardIssueDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("IdCardIssuePlace")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<string>("IdCardNumber")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("InsuranceCode")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<int?>("JobTitleId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Nationality")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("PermanentAddress")
                         .HasMaxLength(500)
@@ -399,13 +368,6 @@ namespace managerCMN.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
-                    b.Property<DateTime?>("ResignationDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ResignationReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<DateTime?>("StartWorkingDate")
                         .HasColumnType("datetime2");
 
@@ -420,10 +382,6 @@ namespace managerCMN.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("VehiclePlate")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
                     b.HasKey("EmployeeId");
 
                     b.HasIndex("AttendanceCode")
@@ -437,8 +395,6 @@ namespace managerCMN.Migrations
 
                     b.HasIndex("EmployeeCode")
                         .IsUnique();
-
-                    b.HasIndex("JobTitleId");
 
                     b.HasIndex("PositionId");
 
@@ -478,71 +434,6 @@ namespace managerCMN.Migrations
                     b.HasIndex("EmployeeId");
 
                     b.ToTable("EmployeeContacts");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.JobTitle", b =>
-                {
-                    b.Property<int>("JobTitleId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("JobTitleId"));
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<string>("JobTitleName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("int");
-
-                    b.HasKey("JobTitleId");
-
-                    b.ToTable("JobTitles");
-
-                    b.HasData(
-                        new
-                        {
-                            JobTitleId = 1,
-                            IsActive = true,
-                            JobTitleName = "Ban Giám Đốc",
-                            SortOrder = 1
-                        },
-                        new
-                        {
-                            JobTitleId = 2,
-                            IsActive = true,
-                            JobTitleName = "Trưởng phòng",
-                            SortOrder = 2
-                        },
-                        new
-                        {
-                            JobTitleId = 3,
-                            IsActive = true,
-                            JobTitleName = "Manager",
-                            SortOrder = 3
-                        },
-                        new
-                        {
-                            JobTitleId = 4,
-                            IsActive = true,
-                            JobTitleName = "Nhân viên",
-                            SortOrder = 4
-                        },
-                        new
-                        {
-                            JobTitleId = 5,
-                            IsActive = true,
-                            JobTitleName = "Thực tập",
-                            SortOrder = 5
-                        });
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.LeaveBalance", b =>
@@ -1105,19 +996,12 @@ namespace managerCMN.Migrations
                         .HasForeignKey("DepartmentId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.HasOne("managerCMN.Models.Entities.JobTitle", "JobTitle")
-                        .WithMany("Employees")
-                        .HasForeignKey("JobTitleId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("managerCMN.Models.Entities.Position", "Position")
                         .WithMany("Employees")
                         .HasForeignKey("PositionId")
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Department");
-
-                    b.Navigation("JobTitle");
 
                     b.Navigation("Position");
                 });
@@ -1278,11 +1162,6 @@ namespace managerCMN.Migrations
                     b.Navigation("Requests");
 
                     b.Navigation("User");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.JobTitle", b =>
-                {
-                    b.Navigation("Employees");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Position", b =>

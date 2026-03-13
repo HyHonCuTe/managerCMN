@@ -11,11 +11,13 @@ namespace managerCMN.Controllers;
 public class ProfileController : Controller
 {
     private readonly ApplicationDbContext _db;
+    private readonly ILeaveService _leaveService;
     private readonly INotificationService _notificationService;
 
-    public ProfileController(ApplicationDbContext db, INotificationService notificationService)
+    public ProfileController(ApplicationDbContext db, ILeaveService leaveService, INotificationService notificationService)
     {
         _db = db;
+        _leaveService = leaveService;
         _notificationService = notificationService;
     }
 
@@ -43,7 +45,9 @@ public class ProfileController : Controller
         var employee = await _db.Employees
             .Include(e => e.Department)
             .Include(e => e.Position)
+            .Include(e => e.JobTitle)
             .Include(e => e.EmergencyContacts)
+            .Include(e => e.Contracts)
             .FirstOrDefaultAsync(e => e.EmployeeId == empId.Value);
 
         if (employee == null)
@@ -51,6 +55,8 @@ public class ProfileController : Controller
             ViewBag.NoEmployee = true;
             return View("Index", null);
         }
+
+        ViewBag.LeaveSummary = await _leaveService.GetBalanceSummaryAsync(employee.EmployeeId);
 
         return View(employee);
     }

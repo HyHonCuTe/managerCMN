@@ -8,14 +8,17 @@
     <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg"></i> Tạo đơn nghỉ phép</a>
 </div>
 
-@if (ViewBag.Balance != null)
+@if (ViewBag.LeaveSummary is LeaveBalanceSummaryViewModel summary)
 {
-    var balance = (LeaveBalance)ViewBag.Balance;
     <div class="row g-3 mb-3">
-        <div class="col-md-3"><div class="card stat-card primary"><div class="card-body"><div class="stat-label">Tổng phép</div><div class="stat-value text-primary">@balance.TotalLeave</div></div></div></div>
-        <div class="col-md-3"><div class="card stat-card success"><div class="card-body"><div class="stat-label">Đã dùng</div><div class="stat-value text-success">@balance.UsedLeave</div></div></div></div>
-        <div class="col-md-3"><div class="card stat-card info"><div class="card-body"><div class="stat-label">Còn lại</div><div class="stat-value text-info">@balance.RemainingLeave</div></div></div></div>
-        <div class="col-md-3"><div class="card stat-card warning"><div class="card-body"><div class="stat-label">Chuyển từ năm trước</div><div class="stat-value text-warning">@balance.CarryForward</div></div></div></div>
+        <div class="col-md-3"><div class="card stat-card primary"><div class="card-body"><div class="stat-label">Phép năm đã cấp</div><div class="stat-value text-primary">@summary.CurrentYearAllocated</div></div></div></div>
+        <div class="col-md-3"><div class="card stat-card success"><div class="card-body"><div class="stat-label">Đã dùng có lương</div><div class="stat-value text-success">@summary.PaidLeaveTaken</div></div></div></div>
+        <div class="col-md-3"><div class="card stat-card info"><div class="card-body"><div class="stat-label">Còn lại</div><div class="stat-value text-info">@summary.TotalRemaining</div></div></div></div>
+        <div class="col-md-3"><div class="card stat-card warning"><div class="card-body"><div class="stat-label">Bảo lưu năm trước</div><div class="stat-value text-warning">@summary.CarryForwardRemaining</div></div></div></div>
+    </div>
+
+    <div class="alert alert-light border mb-3">
+        Đã cấp @summary.GrantedQuarters/4 đợt phép cho năm @summary.Year. Phần phép bảo lưu còn lại chỉ dùng đến hết ngày @summary.CarryForwardExpiryDate?.ToString("dd/MM/yyyy"). Nếu hết phép của đợt hiện tại thì đơn mới sẽ tự chuyển thành nghỉ không phép.
     </div>
 }
 

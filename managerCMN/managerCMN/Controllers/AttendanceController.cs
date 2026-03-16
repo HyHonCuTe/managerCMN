@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
 
@@ -11,11 +12,16 @@ public class AttendanceController : Controller
 {
     private readonly IAttendanceService _attendanceService;
     private readonly IEmployeeService _employeeService;
+    private readonly IRequestService _requestService;
 
-    public AttendanceController(IAttendanceService attendanceService, IEmployeeService employeeService)
+    public AttendanceController(
+        IAttendanceService attendanceService,
+        IEmployeeService employeeService,
+        IRequestService requestService)
     {
         _attendanceService = attendanceService;
         _employeeService = employeeService;
+        _requestService = requestService;
     }
 
     public async Task<IActionResult> Index(int? year, int? month, int? employeeId)
@@ -47,7 +53,6 @@ public class AttendanceController : Controller
         }
         else
         {
-            // Regular user: only see their own attendance
             employeeId = myEmployeeId;
             empList = employees
                 .Where(e => e.EmployeeId == myEmployeeId)
@@ -60,12 +65,17 @@ public class AttendanceController : Controller
                 }).ToList();
         }
 
+        // Period: 26th prev month → 25th this month
+        var (periodStart, periodEnd) = AttendanceCalendarViewModel.GetPeriodDates(year.Value, month.Value);
+
         var model = new AttendanceCalendarViewModel
         {
             Year = year.Value,
             Month = month.Value,
             SelectedEmployeeId = employeeId,
             Employees = empList,
+            PeriodStart = periodStart,
+            PeriodEnd = periodEnd,
         };
 
         if (employeeId.HasValue)
@@ -77,54 +87,185 @@ public class AttendanceController : Controller
                 model.EmployeeCode = emp.EmployeeCode;
             }
 
-            var attendances = await _attendanceService.GetByEmployeeAndMonthAsync(employeeId.Value, year.Value, month.Value);
+            // Get attendance for the period (26 prev → 25 current)
+            var attendances = await _attendanceService.GetByEmployeeAndDateRangeAsync(
+                employeeId.Value, periodStart, periodEnd);
             model.AttendanceByDate = attendances.ToDictionary(a => a.Date);
 
-            // Calculate standard work days: Mon-Fri = 2 shifts, Sat = 1 shift
-            var firstDay = new DateOnly(year.Value, month.Value, 1);
-            var daysInMonth = DateTime.DaysInMonth(year.Value, month.Value);
-            decimal standardDays = 0;
-            for (int i = 0; i < daysInMonth; i++)
+            // Get all active requests for this employee overlapping the period
+            var allRequests = await _requestService.GetByEmployeeAsync(employeeId.Value);
+            var activeRequests = allRequests
+                .Where(r => r.Status != RequestStatus.Rejected
+                         && r.Status != RequestStatus.Cancelled)
+                .ToList();
+
+            // Build date → request info mapping
+            foreach (var req in activeRequests)
             {
-                var d = firstDay.AddDays(i);
-                if (d.DayOfWeek == DayOfWeek.Saturday) standardDays += 1;
-                else if (d.DayOfWeek != DayOfWeek.Sunday) standardDays += 2;
+                var reqStart = DateOnly.FromDateTime(req.StartTime);
+                var reqEnd = DateOnly.FromDateTime(req.EndTime);
+                var totalReqDays = reqEnd.DayNumber - reqStart.DayNumber + 1;
+                var isApproved = req.Status == RequestStatus.FullyApproved;
+
+                for (var d = reqStart; d <= reqEnd; d = d.AddDays(1))
+                {
+                    if (d >= periodStart && d <= periodEnd)
+                    {
+                        if (!model.RequestsByDate.ContainsKey(d))
+                            model.RequestsByDate[d] = new List<RequestDayInfo>();
+
+                        // Determine half-day info for this specific date
+                        bool? isHalfDayMorning = null; // null = full day
+                        if (d == reqStart && req.IsHalfDayStart)
+                            isHalfDayMorning = req.IsHalfDayStartMorning; // true=morning, false=afternoon
+                        else if (d == reqEnd && req.IsHalfDayEnd)
+                            isHalfDayMorning = req.IsHalfDayEndMorning; // true=morning, false=afternoon
+
+                        model.RequestsByDate[d].Add(new RequestDayInfo
+                        {
+                            RequestId = req.RequestId,
+                            RequestType = req.RequestType,
+                            CountsAsWork = req.CountsAsWork,
+                            IsHalfDayMorning = isHalfDayMorning,
+                            IsApproved = isApproved
+                        });
+                    }
+                }
+            }
+
+            // Calculate standard work days for the period
+            decimal standardDays = 0;
+            for (var d = periodStart; d <= periodEnd; d = d.AddDays(1))
+            {
+                if (AttendanceCalendarViewModel.IsWorkingDay(d))
+                    standardDays += 1m;
             }
             model.StandardWorkDays = standardDays;
 
-            // Calculate summary with shift-based work points
+            // Shift constants
+            var morningStart = AttendanceCalendarViewModel.MorningStart;
+            var morningEnd = AttendanceCalendarViewModel.MorningEnd;
+            var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
+            var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
+
+            // Calculate summary with 2-shift logic
             decimal totalDeductionMinutes = 0;
+            decimal requestWorkDays = 0;
+            var todayDate = DateOnly.FromDateTime(DateTime.Now);
+
             foreach (var att in attendances)
             {
-                if (att.WorkingHours.HasValue)
+                if (att.CheckIn.HasValue && att.CheckOut.HasValue)
                 {
-                    bool isSat = att.Date.DayOfWeek == DayOfWeek.Saturday;
-                    var wh = att.WorkingHours.Value;
-                    if (isSat)
-                        model.TotalWorkDays += wh >= 3 ? 1m : 0m;
-                    else
-                        model.TotalWorkDays += wh >= 8 ? 2m : (wh >= 6 ? 1.5m : (wh >= 3.5m ? 1m : 0m));
+                    // Check if covered both shifts: morning 8:30-12:00, afternoon 13:30-17:30
+                    var checkIn = att.CheckIn.Value;
+                    var checkOut = att.CheckOut.Value;
+                    bool hasMorning = checkIn <= morningEnd && checkOut >= morningStart;
+                    bool hasAfternoon = checkIn <= afternoonEnd && checkOut >= afternoonStart;
+
+                    if (hasMorning && hasAfternoon)
+                        model.TotalWorkDays += 1m;
+                    else if (hasMorning || hasAfternoon)
+                        model.TotalWorkDays += 0.5m;
                 }
+                else if (att.CheckIn.HasValue)
+                {
+                    // Only check-in, no check-out → count as half day (morning only)
+                    model.TotalWorkDays += 0.5m;
+                }
+
                 if (att.IsLate)
                 {
                     model.LateDays++;
                     if (att.CheckIn.HasValue)
                     {
-                        var lateMin = (att.CheckIn.Value.ToTimeSpan() - new TimeSpan(8, 30, 0)).TotalMinutes;
+                        var lateMin = (att.CheckIn.Value.ToTimeSpan() - morningStart.ToTimeSpan()).TotalMinutes;
                         if (lateMin > 0) totalDeductionMinutes += (decimal)lateMin;
                     }
                 }
-                if (att.OvertimeHours.HasValue) model.TotalOvertimeHours += att.OvertimeHours.Value;
             }
+
+            // Add công from FULLY APPROVED requests with CountsAsWork
+            foreach (var kvp in model.RequestsByDate)
+            {
+                var date = kvp.Key;
+                if (!AttendanceCalendarViewModel.IsWorkingDay(date)) continue;
+
+                // Only count approved requests for công calculation
+                var approvedReqs = kvp.Value.Where(r => r.IsApproved).ToList();
+                if (!approvedReqs.Any()) continue;
+
+                // Calculate request công for this date (don't double count with attendance)
+                bool hasAttendance = model.AttendanceByDate.ContainsKey(date);
+                decimal attCong = 0;
+                if (hasAttendance)
+                {
+                    var att = model.AttendanceByDate[date];
+                    if (att.CheckIn.HasValue && att.CheckOut.HasValue)
+                    {
+                        bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
+                        bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= afternoonStart;
+                        if (hasMorning && hasAfternoon) attCong = 1m;
+                        else if (hasMorning || hasAfternoon) attCong = 0.5m;
+                    }
+                    else if (att.CheckIn.HasValue)
+                    {
+                        attCong = 0.5m;
+                    }
+                }
+
+                // Check which shifts are covered by approved requests
+                bool morningCoveredByRequest = false;
+                bool afternoonCoveredByRequest = false;
+                foreach (var reqInfo in approvedReqs)
+                {
+                    if (!reqInfo.CountsAsWork) continue;
+                    if (reqInfo.IsHalfDayMorning == null) // full day
+                    {
+                        morningCoveredByRequest = true;
+                        afternoonCoveredByRequest = true;
+                    }
+                    else if (reqInfo.IsHalfDayMorning == true) // morning only
+                    {
+                        morningCoveredByRequest = true;
+                    }
+                    else // afternoon only
+                    {
+                        afternoonCoveredByRequest = true;
+                    }
+                }
+
+                decimal reqCong = 0;
+                if (morningCoveredByRequest && afternoonCoveredByRequest) reqCong = 1m;
+                else if (morningCoveredByRequest || afternoonCoveredByRequest) reqCong = 0.5m;
+
+                // Total for this day = min(attCong + reqCong, 1) — don't exceed 1 công
+                decimal dayCong = Math.Min(attCong + reqCong, 1m);
+                decimal extraFromRequest = dayCong - attCong;
+                if (extraFromRequest > 0)
+                    requestWorkDays += extraFromRequest;
+            }
+            model.RequestWorkDays = requestWorkDays;
             model.DeductionPoints = Math.Round(totalDeductionMinutes / 60m, 2);
 
-            // Count absent weekdays (Mon-Sat without attendance, up to today)
-            var todayDate = DateOnly.FromDateTime(DateTime.Now);
-            for (int i = 0; i < daysInMonth; i++)
+            // Count absent work days (up to today): no attendance AND no approved CountsAsWork request
+            for (var d = periodStart; d <= periodEnd && d <= todayDate; d = d.AddDays(1))
             {
-                var d = firstDay.AddDays(i);
-                if (d.DayOfWeek != DayOfWeek.Sunday && d <= todayDate && !model.AttendanceByDate.ContainsKey(d))
-                    model.AbsentDays++;
+                if (!AttendanceCalendarViewModel.IsWorkingDay(d)) continue;
+
+                bool hasAtt = model.AttendanceByDate.ContainsKey(d);
+                bool hasApprovedCountsAsWorkReq = model.RequestsByDate.ContainsKey(d)
+                    && model.RequestsByDate[d].Any(r => r.IsApproved && r.CountsAsWork);
+
+                if (!hasAtt && !hasApprovedCountsAsWorkReq)
+                {
+                    // Check if there's any approved request at all (non-counting-as-work like unpaid leave)
+                    bool hasAnyApprovedReq = model.RequestsByDate.ContainsKey(d)
+                        && model.RequestsByDate[d].Any(r => r.IsApproved);
+                    if (!hasAnyApprovedReq)
+                        model.AbsentDays++;
+                    // If there's a non-CountsAsWork approved request → not counted as absent, just 0 công
+                }
             }
         }
 

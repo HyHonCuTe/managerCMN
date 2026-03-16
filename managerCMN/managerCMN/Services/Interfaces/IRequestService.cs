@@ -7,11 +7,24 @@ public interface IRequestService
 {
     Task<IEnumerable<Request>> GetAllAsync();
     Task<Request?> GetByIdAsync(int id);
+    Task<Request?> GetWithDetailsAsync(int id);
     Task<Request?> GetWithAttachmentsAsync(int id);
     Task<IEnumerable<Request>> GetByEmployeeAsync(int employeeId);
     Task<IEnumerable<Request>> GetByStatusAsync(RequestStatus status);
-    Task CreateAsync(Request request);
-    Task ManagerApproveAsync(int requestId, int approverId);
-    Task HRApproveAsync(int requestId, int approverId);
-    Task RejectAsync(int requestId, int approverId);
+    Task<IEnumerable<Request>> GetPendingForApproverAsync(int approverEmployeeId);
+    Task<IEnumerable<Request>> GetAllForApproverAsync(int approverEmployeeId);
+    Task<IEnumerable<Request>> FilterAsync(RequestStatus? status, RequestType? type);
+
+    Task CreateAsync(Request request, int approver1Id, int approver2Id);
+    Task UpdateAsync(Request request);
+    Task ApproveAsync(int requestId, int approverEmployeeId, string? comment = null);
+    Task RejectAsync(int requestId, int approverEmployeeId, string? comment = null);
+    Task ForceApproveAsync(int requestId, int adminEmployeeId, string? comment = null);
+    Task ForceRejectAsync(int requestId, int adminEmployeeId, string? comment = null);
+    Task CancelAsync(int requestId, int employeeId);
+
+    Task<int?> GetDefaultApprover1Async(int employeeId);
+    Task<Employee?> GetByEmployeeIdAsync(int employeeId);
+    Task<IEnumerable<Employee>> GetAvailableApprover2ListAsync();
+    decimal CalculateTotalDays(DateTime start, DateTime end, bool halfDayStart, bool halfDayEnd);
 }

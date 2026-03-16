@@ -8,6 +8,7 @@ public interface IUnitOfWork : IDisposable
     ILeaveBalanceRepository LeaveBalances { get; }
     ILeaveRequestRepository LeaveRequests { get; }
     IRequestRepository Requests { get; }
+    IRequestApprovalRepository RequestApprovals { get; }
     IAttendanceRepository Attendances { get; }
     IAssetRepository Assets { get; }
     IAssetAssignmentRepository AssetAssignments { get; }

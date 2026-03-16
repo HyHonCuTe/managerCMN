@@ -84,7 +84,9 @@ public class LeaveService : ILeaveService
         var carryForwardRemaining = IsCarryForwardWindowOpen(request.StartDate) ? balance.CarryForward : 0m;
         var availableLeave = currentYearRemaining + carryForwardRemaining;
 
-        request.PayType = availableLeave >= request.TotalDays ? LeavePayType.Paid : LeavePayType.Unpaid;
+        // Only override PayType if not already set to Unpaid (from CountsAsWork=false)
+        if (request.PayType != LeavePayType.Unpaid)
+            request.PayType = availableLeave >= request.TotalDays ? LeavePayType.Paid : LeavePayType.Unpaid;
         request.IsLeaveDeducted = false;
         request.DeductedFromCarryForward = 0m;
         request.DeductedFromCurrentYear = 0m;
@@ -115,8 +117,8 @@ public class LeaveService : ILeaveService
         if (request == null) return;
 
         request.Status = request.Status == RequestStatus.Pending
-            ? RequestStatus.ManagerApproved
-            : RequestStatus.HRApproved;
+            ? RequestStatus.Approver1Approved
+            : RequestStatus.FullyApproved;
         request.ApprovedBy = approverId;
         request.ApprovedDate = DateTime.UtcNow;
 

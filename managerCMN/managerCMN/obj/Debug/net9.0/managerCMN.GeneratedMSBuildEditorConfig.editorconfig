@@ -150,6 +150,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZmlsZVxJbmRleC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
+[E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/Request/Approve.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVxdWVzdFxBcHByb3ZlLmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
 [E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/Request/Create.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVxdWVzdFxDcmVhdGUuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
@@ -158,12 +162,12 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVxdWVzdFxEZXRhaWxzLmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/Request/Index.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVxdWVzdFxJbmRleC5jc2h0bWw=
+[E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/Request/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVxdWVzdFxFZGl0LmNzaHRtbA==
 build_metadata.AdditionalFiles.CssScope = 
 
-[E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/Request/Pending.cshtml]
-build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVxdWVzdFxQZW5kaW5nLmNzaHRtbA==
+[E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/Request/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUmVxdWVzdFxJbmRleC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 
 
 [E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/Settings/Index.cshtml]

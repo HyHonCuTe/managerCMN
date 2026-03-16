@@ -28,6 +28,7 @@ public class ApplicationDbContext : DbContext
     // Requests
     public DbSet<Request> Requests => Set<Request>();
     public DbSet<RequestAttachment> RequestAttachments => Set<RequestAttachment>();
+    public DbSet<RequestApproval> RequestApprovals => Set<RequestApproval>();
 
     // Attendance
     public DbSet<Attendance> Attendances => Set<Attendance>();
@@ -140,6 +141,28 @@ public class ApplicationDbContext : DbContext
             .Property(lr => lr.DeductedFromCurrentYear).HasColumnType("decimal(5,1)");
         modelBuilder.Entity<LeaveRequest>()
             .Property(lr => lr.DeductedFromCarryForward).HasColumnType("decimal(5,1)");
+
+        // Request TotalDays precision
+        modelBuilder.Entity<Request>()
+            .Property(r => r.TotalDays)
+            .HasColumnType("decimal(5,1)");
+
+        // RequestApproval
+        modelBuilder.Entity<RequestApproval>()
+            .HasOne(ra => ra.Request)
+            .WithMany(r => r.Approvals)
+            .HasForeignKey(ra => ra.RequestId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RequestApproval>()
+            .HasOne(ra => ra.Approver)
+            .WithMany()
+            .HasForeignKey(ra => ra.ApproverId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<RequestApproval>()
+            .HasIndex(ra => new { ra.RequestId, ra.ApproverOrder })
+            .IsUnique();
 
         // Attendance unique constraint
         modelBuilder.Entity<Attendance>()

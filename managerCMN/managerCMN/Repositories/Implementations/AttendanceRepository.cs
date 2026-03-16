@@ -17,6 +17,12 @@ public class AttendanceRepository : Repository<Attendance>, IAttendanceRepositor
             .OrderBy(a => a.Date)
             .ToListAsync();
 
+    public async Task<IEnumerable<Attendance>> GetByEmployeeAndDateRangeAsync(int employeeId, DateOnly startDate, DateOnly endDate)
+        => await _dbSet
+            .Where(a => a.EmployeeId == employeeId && a.Date >= startDate && a.Date <= endDate)
+            .OrderBy(a => a.Date)
+            .ToListAsync();
+
     public async Task<IEnumerable<Attendance>> GetByDateRangeAsync(DateOnly startDate, DateOnly endDate)
         => await _dbSet
             .Include(a => a.Employee)

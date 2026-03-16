@@ -18,7 +18,7 @@ public class LeaveRequestRepository : Repository<LeaveRequest>, ILeaveRequestRep
     public async Task<IEnumerable<LeaveRequest>> GetPendingRequestsAsync()
         => await _dbSet
             .Include(lr => lr.Employee)
-            .Where(lr => lr.Status == RequestStatus.Pending || lr.Status == RequestStatus.ManagerApproved)
+            .Where(lr => lr.Status == RequestStatus.Pending || lr.Status == RequestStatus.Approver1Approved)
             .OrderBy(lr => lr.CreatedAt)
             .ToListAsync();
 }

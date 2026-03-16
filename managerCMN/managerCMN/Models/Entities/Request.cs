@@ -13,21 +13,43 @@ public class Request
 
     public RequestType RequestType { get; set; }
 
+    [Required, MaxLength(200)]
+    public string Title { get; set; } = string.Empty;
+
     public DateTime StartTime { get; set; }
 
     public DateTime EndTime { get; set; }
 
+    public LeaveReason? LeaveReason { get; set; }
+
+    public bool IsHalfDayStart { get; set; }
+
+    public bool IsHalfDayEnd { get; set; }
+
+    /// <summary>true = morning half, false = afternoon half (only relevant when IsHalfDayStart is true)</summary>
+    public bool IsHalfDayStartMorning { get; set; }
+
+    /// <summary>true = morning half, false = afternoon half (only relevant when IsHalfDayEnd is true)</summary>
+    public bool IsHalfDayEndMorning { get; set; }
+
     [MaxLength(1000)]
     public string? Reason { get; set; }
 
+    public string? Description { get; set; }
+
+    public bool CountsAsWork { get; set; } = true;
+
+    public decimal TotalDays { get; set; }
+
     public RequestStatus Status { get; set; } = RequestStatus.Pending;
 
+    // Deprecated - kept for backward compatibility
     public int? ApproverId { get; set; }
+    public DateTime? ApprovedDate { get; set; }
 
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
 
-    public DateTime? ApprovedDate { get; set; }
-
     // Navigation
     public ICollection<RequestAttachment> Attachments { get; set; } = new List<RequestAttachment>();
+    public ICollection<RequestApproval> Approvals { get; set; } = new List<RequestApproval>();
 }

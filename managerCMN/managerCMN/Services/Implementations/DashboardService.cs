@@ -16,7 +16,7 @@ public class DashboardService : IDashboardService
 
     public async Task<int> GetPendingRequestsCountAsync()
         => await _unitOfWork.Requests.CountAsync(r =>
-            r.Status == RequestStatus.Pending || r.Status == RequestStatus.ManagerApproved);
+            r.Status == RequestStatus.Pending || r.Status == RequestStatus.Approver1Approved);
 
     public async Task<int> GetActiveTicketsCountAsync()
         => await _unitOfWork.Tickets.CountAsync(t =>

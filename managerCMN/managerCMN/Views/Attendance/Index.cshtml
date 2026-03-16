@@ -1,39 +1,50 @@
 @model AttendanceCalendarViewModel
+@using managerCMN.Models.ViewModels
 @{
     ViewData["Title"] = "Bảng chấm công";
-    var firstDay = new DateOnly(Model.Year, Model.Month, 1);
-    var daysInMonth = DateTime.DaysInMonth(Model.Year, Model.Month);
-    var startDow = (int)firstDay.DayOfWeek;
-    var mondayOffset = startDow == 0 ? 6 : startDow - 1;
+    var periodStart = Model.PeriodStart;
+    var periodEnd = Model.PeriodEnd;
     var today = DateOnly.FromDateTime(DateTime.Now);
-    var prevMonth = firstDay.AddMonths(-1);
-    var nextMonth = firstDay.AddMonths(1);
-    var dayAbbrs = new[] { "SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT" };
+    var prevMonth = Model.Month == 1 ? 12 : Model.Month - 1;
+    var prevYear = Model.Month == 1 ? Model.Year - 1 : Model.Year;
+    var nextMonth = Model.Month == 12 ? 1 : Model.Month + 1;
+    var nextYear = Model.Month == 12 ? Model.Year + 1 : Model.Year;
 
-    decimal CalcPoints(decimal? wh, bool isSat)
-    {
-        if (!wh.HasValue) return 0;
-        if (isSat) return wh.Value >= 3 ? 1m : 0m;
-        return wh.Value >= 8 ? 2m : (wh.Value >= 6 ? 1.5m : (wh.Value >= 3.5m ? 1m : 0m));
-    }
+    // Shift constants
+    var morningStart = AttendanceCalendarViewModel.MorningStart;
+    var morningEnd = AttendanceCalendarViewModel.MorningEnd;
+    var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
+    var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
+
+    // Build grid: start from Monday of periodStart's week
+    var startDow = (int)periodStart.DayOfWeek;
+    var mondayOffset = startDow == 0 ? 6 : startDow - 1;
+    var gridStart = periodStart.AddDays(-mondayOffset);
+
+    // End at Sunday of periodEnd's week
+    var endDow = (int)periodEnd.DayOfWeek;
+    var gridEnd = endDow == 0 ? periodEnd : periodEnd.AddDays(7 - endDow);
+
+    var totalGridDays = gridEnd.DayNumber - gridStart.DayNumber + 1;
+    var totalCong = Model.TotalWorkDays + Model.RequestWorkDays;
 }
 
 <div class="att-page">
-    @* === CYCLE HEADER === *@
+    @* === HEADER === *@
     <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="d-flex align-items-center gap-3">
             <a asp-action="Index" asp-route-employeeId="@Model.SelectedEmployeeId"
-               asp-route-year="@prevMonth.Year" asp-route-month="@prevMonth.Month"
+               asp-route-year="@prevYear" asp-route-month="@prevMonth"
                class="att-nav-btn"><i class="bi bi-chevron-left"></i></a>
-            <h4 class="mb-0 fw-bold">Cycle: @Model.Month.ToString("00")/@Model.Year</h4>
+            <h4 class="mb-0 fw-bold">Tháng @Model.Month.ToString("00")/@Model.Year</h4>
             <a asp-action="Index" asp-route-employeeId="@Model.SelectedEmployeeId"
-               asp-route-year="@nextMonth.Year" asp-route-month="@nextMonth.Month"
+               asp-route-year="@nextYear" asp-route-month="@nextMonth"
                class="att-nav-btn"><i class="bi bi-chevron-right"></i></a>
         </div>
         @if (ViewBag.IsAdminOrManager == true)
         {
         <div class="d-flex gap-2">
-            <a asp-action="LateReport" class="btn btn-outline-warning btn-sm"><i class="bi bi-exclamation-triangle"></i> Danh s&#225;ch &#273;i mu&#7897;n</a>
+            <a asp-action="LateReport" class="btn btn-outline-warning btn-sm"><i class="bi bi-exclamation-triangle"></i> DS đi muộn</a>
             <a asp-action="Import" class="btn btn-success btn-sm"><i class="bi bi-upload"></i> Import Excel</a>
         </div>
         }
@@ -42,28 +53,25 @@
     @if (!string.IsNullOrEmpty(Model.EmployeeName))
     {
         <div class="text-muted small mb-2">
-            L&#7883;ch l&#224;m vi&#7879;c: @Model.EmployeeCode - @Model.EmployeeName &middot; Duration: 01/@Model.Month.ToString("00") - @daysInMonth/@Model.Month.ToString("00")/@Model.Year
+            <i class="bi bi-person"></i> @Model.EmployeeCode - @Model.EmployeeName
+            &middot; Kỳ công: @periodStart.ToString("dd/MM/yyyy") - @periodEnd.ToString("dd/MM/yyyy")
+            &middot; Ca: @morningStart.ToString("H\\:mm")-@morningEnd.ToString("H\\:mm") | @afternoonStart.ToString("H\\:mm")-@afternoonEnd.ToString("H\\:mm")
         </div>
     }
 
-    @* === FILTER BAR === *@
+    @* === FILTER === *@
     <form method="get" class="att-filter-bar mb-2">
         @if (ViewBag.IsAdminOrManager == true)
         {
         <div class="att-filter-group">
-            <label class="att-filter-label">Nh&#226;n vi&#234;n</label>
+            <label class="att-filter-label">Nhân viên</label>
             <select name="employeeId" class="form-select form-select-sm" onchange="this.form.submit()">
                 @foreach (var emp in Model.Employees)
                 {
                     var dept = !string.IsNullOrEmpty(emp.DepartmentName) ? $" [{emp.DepartmentName}]" : "";
-                    if (emp.EmployeeId == Model.SelectedEmployeeId)
-                    {
-                        <option value="@emp.EmployeeId" selected>@emp.EmployeeCode - @emp.FullName@dept</option>
-                    }
-                    else
-                    {
-                        <option value="@emp.EmployeeId">@emp.EmployeeCode - @emp.FullName@dept</option>
-                    }
+                    <option value="@emp.EmployeeId" selected="@(emp.EmployeeId == Model.SelectedEmployeeId)">
+                        @emp.EmployeeCode - @emp.FullName@dept
+                    </option>
                 }
             </select>
         </div>
@@ -73,97 +81,169 @@
             <input type="hidden" name="employeeId" value="@Model.SelectedEmployeeId" />
         }
         <div class="att-filter-group">
-            <label class="att-filter-label">Th&#225;ng</label>
+            <label class="att-filter-label">Tháng</label>
             <select name="month" class="form-select form-select-sm" onchange="this.form.submit()">
                 @for (int m = 1; m <= 12; m++)
                 {
-                    if (m == Model.Month)
-                    {
-                        <option value="@m" selected>Th&#225;ng @m</option>
-                    }
-                    else
-                    {
-                        <option value="@m">Th&#225;ng @m</option>
-                    }
+                    <option value="@m" selected="@(m == Model.Month)">Tháng @m</option>
                 }
             </select>
         </div>
         <div class="att-filter-group">
-            <label class="att-filter-label">N&#259;m</label>
-            <input name="year" type="number" class="form-control form-control-sm" value="@Model.Year" style="width:85px" />
+            <label class="att-filter-label">Năm</label>
+            <input name="year" type="number" class="form-control form-control-sm" value="@Model.Year" style="width:85px" onchange="this.form.submit()" />
         </div>
-        <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-search"></i></button>
     </form>
 
-    @* === SUMMARY BAR === *@
+    @* === SUMMARY === *@
     <div class="att-summary-bar mb-2">
-        <span class="att-stat att-stat-green"><i class="bi bi-check-circle-fill"></i> S&#7889; c&#244;ng: @Model.TotalWorkDays.ToString("0.00")/@Model.StandardWorkDays.ToString("0.00")</span>
-        <span class="att-stat att-stat-orange"><i class="bi bi-clock-fill"></i> Mu&#7897;n: @Model.LateDays</span>
-        <span class="att-stat att-stat-red"><i class="bi bi-dash-circle-fill"></i> Kh&#7845;u tr&#7915;: @Model.DeductionPoints.ToString("0.00")</span>
-        @if (Model.TotalOvertimeHours > 0)
+        <span class="att-stat att-stat-green">
+            <i class="bi bi-check-circle-fill"></i> Chấm công: @Model.TotalWorkDays.ToString("0.#")
+        </span>
+        @if (Model.RequestWorkDays > 0)
         {
-            <span class="att-stat att-stat-cyan"><i class="bi bi-lightning-fill"></i> OT: @Model.TotalOvertimeHours.ToString("0.0")h</span>
+            <span class="att-stat att-stat-info">
+                <i class="bi bi-file-earmark-check-fill"></i> Đơn tính công: +@Model.RequestWorkDays.ToString("0.#")
+            </span>
         }
+        <span class="att-stat att-stat-total">
+            <i class="bi bi-trophy-fill"></i> Tổng công: @totalCong.ToString("0.#")/@Model.StandardWorkDays.ToString("0.#")
+        </span>
+        <span class="att-stat att-stat-orange"><i class="bi bi-clock-fill"></i> Muộn: @Model.LateDays</span>
+        <span class="att-stat att-stat-red"><i class="bi bi-dash-circle-fill"></i> Vắng: @Model.AbsentDays</span>
+        <span class="att-stat att-stat-grey"><i class="bi bi-calculator"></i> Khấu trừ: @Model.DeductionPoints.ToString("0.##")h</span>
         <span class="att-separator">|</span>
-        <span class="att-legend"><span class="att-dot att-dot-rest"></span> Ng&#224;y ngh&#7881;</span>
-        <span class="att-legend"><span class="att-dot att-dot-late"></span> Ng&#224;y mu&#7897;n</span>
-        <span class="att-legend"><span class="att-dot att-dot-half"></span> M&#7845;t m&#7897;t ph&#7847;n c&#244;ng</span>
-        <span class="att-legend"><span class="att-dot att-dot-full"></span> Ng&#224;y &#273;&#7911; c&#244;ng</span>
-        <span class="att-legend"><span class="att-dot att-dot-shift-ok"></span> Ca &#273;&#7911; c&#244;ng</span>
-        <span class="att-legend"><span class="att-dot att-dot-shift-late"></span> Ca mu&#7897;n</span>
-        <span class="att-legend"><span class="att-dot att-dot-shift-off"></span> Ca ngh&#7881;</span>
-        <span class="att-legend"><span class="att-dot att-dot-absent"></span> V&#7855;ng</span>
+        <span class="att-legend"><span class="att-dot att-dot-full"></span> Đủ công</span>
+        <span class="att-legend"><span class="att-dot att-dot-half"></span> Nửa công</span>
+        <span class="att-legend"><span class="att-dot att-dot-late"></span> Đi muộn</span>
+        <span class="att-legend"><span class="att-dot att-dot-absent"></span> Vắng</span>
+        <span class="att-legend"><span class="att-dot att-dot-rest"></span> Nghỉ</span>
+        <span class="att-legend"><span class="att-dot att-dot-pending"></span> Đơn chờ duyệt</span>
+        <span class="att-legend"><span class="att-dot att-dot-approved"></span> Đơn đã duyệt</span>
     </div>
 
     @* === CALENDAR GRID === *@
     <div class="att-grid">
-        @* Day of week headers *@
-        <div class="att-hdr">TH&#7912; HAI</div>
-        <div class="att-hdr">TH&#7912; BA</div>
-        <div class="att-hdr">TH&#7912; T&#431;</div>
-        <div class="att-hdr">TH&#7912; N&#258;M</div>
-        <div class="att-hdr">TH&#7912; S&#193;U</div>
-        <div class="att-hdr att-hdr-sat">TH&#7912; B&#7842;Y</div>
-        <div class="att-hdr att-hdr-sun">CH&#7910; NH&#7852;T</div>
+        <div class="att-hdr">THỨ HAI</div>
+        <div class="att-hdr">THỨ BA</div>
+        <div class="att-hdr">THỨ TƯ</div>
+        <div class="att-hdr">THỨ NĂM</div>
+        <div class="att-hdr">THỨ SÁU</div>
+        <div class="att-hdr att-hdr-sat">THỨ BẢY</div>
+        <div class="att-hdr att-hdr-sun">CHỦ NHẬT</div>
 
-        @* Overflow from previous month *@
-        @for (int i = mondayOffset - 1; i >= 0; i--)
+        @for (int i = 0; i < totalGridDays; i++)
         {
-            var d = firstDay.AddDays(-(i + 1));
-            <div class="att-cell att-cell-overflow">
-                <div class="att-cell-hdr att-cell-hdr-grey">
-                    <span>@d.Day.ToString("00")/@d.Month.ToString("00")</span>
-                </div>
-            </div>
-        }
-
-        @* Days of current month *@
-        @for (int day = 1; day <= daysInMonth; day++)
-        {
-            var date = new DateOnly(Model.Year, Model.Month, day);
+            var date = gridStart.AddDays(i);
+            var inPeriod = date >= periodStart && date <= periodEnd;
             var dow = (int)date.DayOfWeek;
             var isSun = dow == 0;
             var isSat = dow == 6;
             var isFuture = date > today;
             var isToday = date == today;
-            var hasData = Model.AttendanceByDate.ContainsKey(date);
+            var isWorkDay = AttendanceCalendarViewModel.IsWorkingDay(date);
+            var hasData = inPeriod && Model.AttendanceByDate.ContainsKey(date);
             var att = hasData ? Model.AttendanceByDate[date] : null;
-            var abbr = dayAbbrs[dow];
+            var hasRequest = inPeriod && Model.RequestsByDate.ContainsKey(date);
+            var requestInfos = hasRequest ? Model.RequestsByDate[date] : null;
 
-            @* Determine header color class *@
+            if (!inPeriod)
+            {
+                <div class="att-cell att-cell-overflow">
+                    <div class="att-cell-hdr att-cell-hdr-grey">
+                        <span>@date.Day.ToString("00")/@date.Month.ToString("00")</span>
+                    </div>
+                </div>
+                continue;
+            }
+
+            @* Calculate attendance công for this cell *@
+            decimal attPoints = 0;
+            bool hasMorningAtt = false;
+            bool hasAfternoonAtt = false;
+            if (hasData && att!.CheckIn.HasValue)
+            {
+                if (att.CheckOut.HasValue)
+                {
+                    hasMorningAtt = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
+                    hasAfternoonAtt = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= afternoonStart;
+                    if (hasMorningAtt && hasAfternoonAtt) attPoints = 1m;
+                    else if (hasMorningAtt || hasAfternoonAtt) attPoints = 0.5m;
+                }
+                else
+                {
+                    hasMorningAtt = true;
+                    attPoints = 0.5m;
+                }
+            }
+
+            @* Calculate request công for this cell (only from APPROVED requests) *@
+            decimal reqPoints = 0;
+            bool morningReq = false;
+            bool afternoonReq = false;
+            if (hasRequest)
+            {
+                foreach (var rInfo in requestInfos!)
+                {
+                    if (!rInfo.CountsAsWork || !rInfo.IsApproved) continue;
+                    if (rInfo.IsHalfDayMorning == null) { morningReq = true; afternoonReq = true; }
+                    else if (rInfo.IsHalfDayMorning == true) { morningReq = true; }
+                    else { afternoonReq = true; }
+                }
+                if (morningReq && afternoonReq) reqPoints = 1m;
+                else if (morningReq || afternoonReq) reqPoints = 0.5m;
+            }
+
+            var totalPoints = Math.Min(attPoints + reqPoints, 1m);
+
+            @* Determine header color *@
             var hdrClass = "att-cell-hdr ";
-            if (isSun) { hdrClass += "att-cell-hdr-grey"; }
-            else if (isFuture) { hdrClass += "att-cell-hdr-future"; }
-            else if (!hasData) { hdrClass += "att-cell-hdr-absent"; }
-            else if (att!.CheckOut == null) { hdrClass += "att-cell-hdr-error"; }
-            else if (att.IsLate) { hdrClass += "att-cell-hdr-late"; }
-            else { hdrClass += "att-cell-hdr-ok"; }
+            if (isSun || (isSat && !isWorkDay))
+            {
+                hdrClass += "att-cell-hdr-grey";
+            }
+            else if (hasRequest && !hasData && reqPoints > 0)
+            {
+                hdrClass += "att-cell-hdr-request";
+            }
+            else if (hasRequest && !hasData && reqPoints == 0)
+            {
+                hdrClass += "att-cell-hdr-request-nowork";
+            }
+            else if (isFuture)
+            {
+                hdrClass += "att-cell-hdr-future";
+            }
+            else if (!hasData && !isFuture && !hasRequest)
+            {
+                hdrClass += "att-cell-hdr-absent";
+            }
+            else if (att != null && att.CheckOut == null && !hasRequest)
+            {
+                hdrClass += "att-cell-hdr-error";
+            }
+            else if (att != null && att.IsLate)
+            {
+                hdrClass += "att-cell-hdr-late";
+            }
+            else if (totalPoints >= 1m)
+            {
+                hdrClass += "att-cell-hdr-ok";
+            }
+            else if (totalPoints > 0)
+            {
+                hdrClass += "att-cell-hdr-late";
+            }
+            else
+            {
+                hdrClass += "att-cell-hdr-ok";
+            }
 
             var cellExtra = isToday ? " att-cell-today" : "";
 
             <div class="att-cell@(cellExtra)">
                 <div class="@hdrClass">
-                    <span>@day.ToString("00")/@Model.Month.ToString("00")</span>
+                    <span>@date.Day.ToString("00")/@date.Month.ToString("00")</span>
                     @if (hasData && att!.CheckIn.HasValue)
                     {
                         <span class="att-time-badge">
@@ -171,7 +251,11 @@
                             @att.CheckIn.Value.ToString("H\\:mm") - @(att.CheckOut.HasValue ? att.CheckOut.Value.ToString("H\\:mm") : "--:--")
                         </span>
                     }
-                    else if (!isSun && !isFuture && !hasData)
+                    else if (isSat && !isWorkDay)
+                    {
+                        <span class="att-time-badge">T7 Nghỉ</span>
+                    }
+                    else if (isWorkDay && !isFuture && !hasData && !hasRequest)
                     {
                         <span class="att-time-badge">
                             <i class="bi bi-clock"></i> --:-- - --:--
@@ -179,100 +263,78 @@
                     }
                 </div>
 
-                @if (!isSun)
+                @if (!isSun && (isWorkDay || hasData || hasRequest))
                 {
                     <div class="att-cell-body">
-                        @if (hasData)
+                        @* Show approved request TYPE badges (clickable) *@
+                        @if (hasRequest)
                         {
-                            var points = CalcPoints(att!.WorkingHours, isSat);
+                            <div class="att-request-tag">
+                                @foreach (var rInfo in requestInfos!)
+                                {
+                                    var halfLabel = rInfo.IsHalfDayMorning switch
+                                    {
+                                        true => " (S)",
+                                        false => " (C)",
+                                        _ => ""
+                                    };
+                                    var countsLabel = rInfo.CountsAsWork ? "" : " *";
+                                    var badgeClass = rInfo.IsApproved
+                                        ? "bg-secondary-subtle text-secondary"
+                                        : "bg-warning-subtle text-warning";
+                                    <a asp-controller="Request" asp-action="Details" asp-route-id="@rInfo.RequestId"
+                                       class="badge @badgeClass mb-1 d-block text-start text-truncate text-decoration-none"
+                                       style="max-width:100%;cursor:pointer"
+                                       title="@rInfo.TypeDisplayName@halfLabel@(rInfo.IsApproved ? " - Đã duyệt" : " - Chờ duyệt") - Bấm xem chi tiết">
+                                        <i class="bi @rInfo.TypeIcon"></i> @rInfo.TypeDisplayName@halfLabel@countsLabel
+                                    </a>
+                                }
+                            </div>
+                        }
+
+                        @* Show công points *@
+                        @if (hasData || (hasRequest && reqPoints > 0))
+                        {
                             var lateMin = 0;
-                            if (att.IsLate && att.CheckIn.HasValue)
+                            if (hasData && att!.IsLate && att.CheckIn.HasValue)
                             {
-                                lateMin = (int)(att.CheckIn.Value.ToTimeSpan() - new TimeSpan(8, 30, 0)).TotalMinutes;
+                                lateMin = (int)(att.CheckIn.Value.ToTimeSpan() - morningStart.ToTimeSpan()).TotalMinutes;
                                 if (lateMin < 0) lateMin = 0;
                             }
 
-                            @* Work points - large number *@
-                            <div class="att-points @(points >= 2 ? "att-pts-full" : points >= 1.5m ? "att-pts-late" : points >= 1 ? "att-pts-half" : "att-pts-zero")">
-                                @points.ToString("0.#")
+                            <div class="att-points @(totalPoints >= 1 ? "att-pts-full" : totalPoints > 0 ? "att-pts-half" : "att-pts-zero")">
+                                @totalPoints.ToString("0.#")
                             </div>
 
-                            @* Shift rows *@
-                            <div class="att-shifts">
-                                @* S1 - Morning shift *@
-                                @{
-                                    var s1Class = "att-dot ";
-                                    if (!att.CheckIn.HasValue) { s1Class += "att-dot-shift-off"; }
-                                    else if (att.IsLate) { s1Class += "att-dot-shift-late"; }
-                                    else { s1Class += "att-dot-shift-ok"; }
-                                }
-                                <div class="att-shift-row">
-                                    <span class="@s1Class"></span>
-                                    <span>@(abbr)-S1: 8:30-12:00</span>
-                                </div>
-
-                                @* S2 - Afternoon shift (Mon-Fri only) *@
-                                @if (!isSat)
-                                {
-                                    var s2Class = "att-dot ";
-                                    if (!att.CheckOut.HasValue || att.CheckOut.Value <= new TimeOnly(13, 30))
-                                    {
-                                        s2Class += "att-dot-shift-off";
-                                    }
-                                    else if (att.CheckOut.Value < new TimeOnly(17, 30))
-                                    {
-                                        s2Class += "att-dot-shift-late";
-                                    }
-                                    else
-                                    {
-                                        s2Class += "att-dot-shift-ok";
-                                    }
-                                    <div class="att-shift-row">
-                                        <span class="@s2Class"></span>
-                                        <span>@(abbr)-S2: 13:30-18:00</span>
-                                    </div>
-                                }
-                            </div>
-
-                            @* Late info *@
-                            @if (att.IsLate)
+                            @if (hasData && att!.IsLate)
                             {
-                                <div class="att-late-row att-late-warn">Mu&#7897;n: @lateMin ph&#250;t</div>
-                            }
-                            else
-                            {
-                                <div class="att-late-row att-late-ok">Mu&#7897;n: 0 ph&#250;t</div>
+                                <div class="att-late-row att-late-warn"><i class="bi bi-exclamation-triangle"></i> Muộn @lateMin phút</div>
                             }
 
-                            @* OT *@
-                            @if (att.OvertimeHours.HasValue && att.OvertimeHours > 0)
+                            @if (hasData && att!.CheckOut == null)
                             {
-                                <div class="att-ot">OT: @att.OvertimeHours.Value.ToString("0.0")h</div>
+                                <div class="att-late-row att-late-warn"><i class="bi bi-exclamation-circle"></i> Thiếu checkout</div>
                             }
                         }
-                        else if (!isFuture)
+                        else if (!isFuture && !hasRequest)
                         {
-                            @* Absent day *@
                             <div class="att-points att-pts-zero">0</div>
-                            <div class="att-absent-label">Ngh&#7881;</div>
+                            <div class="att-absent-label"><i class="bi bi-x-circle"></i> Vắng</div>
+                        }
+                        else if (hasRequest && reqPoints == 0)
+                        {
+                            @* Request exists but doesn't count as work *@
+                            <div class="att-points att-pts-zero">0</div>
+                            <div class="att-nowork-label"><i class="bi bi-info-circle"></i> Không tính công</div>
                         }
                     </div>
                 }
-            </div>
-        }
-
-        @* Overflow to next month *@
-        @{
-            var lastDow = (int)new DateOnly(Model.Year, Model.Month, daysInMonth).DayOfWeek;
-            var trailing = lastDow == 0 ? 0 : 7 - lastDow;
-        }
-        @for (int i = 1; i <= trailing; i++)
-        {
-            var d = new DateOnly(Model.Year, Model.Month, daysInMonth).AddDays(i);
-            <div class="att-cell att-cell-overflow">
-                <div class="att-cell-hdr att-cell-hdr-grey">
-                    <span>@d.Day.ToString("00")/@d.Month.ToString("00")</span>
-                </div>
+                else if (isSun || !isWorkDay)
+                {
+                    <div class="att-cell-body att-cell-rest">
+                        <span class="text-muted small">Nghỉ</span>
+                    </div>
+                }
             </div>
         }
     </div>
@@ -281,7 +343,6 @@
 <style>
     .att-page { max-width: 100%; }
 
-    /* Nav buttons */
     .att-nav-btn {
         display: inline-flex; align-items: center; justify-content: center;
         width: 32px; height: 32px; border-radius: 50%; background: #f0f0f0;
@@ -289,7 +350,6 @@
     }
     .att-nav-btn:hover { background: #ddd; color: #000; }
 
-    /* Filter bar */
     .att-filter-bar {
         display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
         background: #fff; padding: 10px 14px; border-radius: 8px;
@@ -298,7 +358,6 @@
     .att-filter-group { display: flex; flex-direction: column; gap: 2px; }
     .att-filter-label { font-size: .72rem; font-weight: 600; color: #6c757d; text-transform: uppercase; }
 
-    /* Summary bar */
     .att-summary-bar {
         display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
         background: #fff; padding: 8px 14px; border-radius: 8px;
@@ -306,13 +365,14 @@
     }
     .att-stat { font-weight: 600; display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; }
     .att-stat-green { background: #d1f5d3; color: #1a7a2e; }
+    .att-stat-info { background: #cff4fc; color: #055160; }
+    .att-stat-total { background: #cce5ff; color: #004085; }
     .att-stat-orange { background: #fff3cd; color: #856404; }
     .att-stat-red { background: #f8d7da; color: #842029; }
-    .att-stat-cyan { background: #cff4fc; color: #055160; }
+    .att-stat-grey { background: #e2e3e5; color: #41464b; }
     .att-separator { color: #ccc; }
     .att-legend { display: inline-flex; align-items: center; gap: 4px; color: #555; font-size: .72rem; }
 
-    /* Dots */
     .att-dot {
         display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
     }
@@ -321,21 +381,14 @@
     .att-dot-half { background: #ffc107; }
     .att-dot-absent { background: #dc3545; }
     .att-dot-rest { background: #adb5bd; }
-    .att-dot-shift-ok { background: #28a745; }
-    .att-dot-shift-late { background: #fd7e14; }
-    .att-dot-shift-off { background: #dc3545; }
+    .att-dot-pending { background: #ffc107; }
+    .att-dot-approved { background: #6c757d; }
 
-    /* Calendar grid */
     .att-grid {
-        display: grid;
-        grid-template-columns: repeat(7, 1fr);
-        gap: 1px;
-        background: #dee2e6;
-        border-radius: 6px;
-        overflow: hidden;
+        display: grid; grid-template-columns: repeat(7, 1fr);
+        gap: 1px; background: #dee2e6; border-radius: 6px; overflow: hidden;
     }
 
-    /* Headers */
     .att-hdr {
         background: #e9ecef; color: #495057; text-align: center;
         font-weight: 700; font-size: .72rem; padding: 8px 4px;
@@ -344,20 +397,15 @@
     .att-hdr-sat { color: #0d6efd; }
     .att-hdr-sun { color: #dc3545; }
 
-    /* Cells */
     .att-cell {
-        background: #fff; min-height: 140px;
+        background: #fff; min-height: 120px;
         display: flex; flex-direction: column;
-        font-size: .75rem; position: relative;
-        transition: box-shadow .15s;
+        font-size: .75rem; position: relative; transition: box-shadow .15s;
     }
-    .att-cell:hover:not(.att-cell-overflow) {
-        box-shadow: 0 0 0 2px #0d6efd inset; z-index: 2;
-    }
-    .att-cell-overflow { min-height: 60px; background: #f8f9fa; }
+    .att-cell:hover:not(.att-cell-overflow) { box-shadow: 0 0 0 2px #0d6efd inset; z-index: 2; }
+    .att-cell-overflow { min-height: 50px; background: #f8f9fa; }
     .att-cell-today { box-shadow: 0 0 0 2.5px #0d6efd inset !important; z-index: 3; }
 
-    /* Cell header (date bar) */
     .att-cell-hdr {
         display: flex; justify-content: space-between; align-items: center;
         padding: 4px 8px; font-weight: 600; font-size: .78rem;
@@ -369,52 +417,44 @@
     .att-cell-hdr-absent { background: linear-gradient(135deg, #dc3545, #e74c3c); }
     .att-cell-hdr-grey { background: #dee2e6; color: #6c757d; }
     .att-cell-hdr-future { background: #f8f9fa; color: #adb5bd; }
+    .att-cell-hdr-request { background: linear-gradient(135deg, #0dcaf0, #0d6efd); }
+    .att-cell-hdr-request-nowork { background: linear-gradient(135deg, #6c757d, #495057); }
 
     .att-time-badge { font-size: .68rem; opacity: .9; display: inline-flex; align-items: center; gap: 3px; }
     .att-time-badge i { font-size: .6rem; }
 
-    /* Cell body */
     .att-cell-body {
         flex: 1; padding: 4px 8px 6px; display: flex;
-        flex-direction: column; gap: 1px;
+        flex-direction: column; gap: 2px;
+    }
+    .att-cell-rest {
+        display: flex; align-items: center; justify-content: center;
     }
 
-    /* Work points */
     .att-points {
-        font-size: 1.5rem; font-weight: 800; line-height: 1.1;
-        margin-bottom: 2px;
+        font-size: 1.5rem; font-weight: 800; line-height: 1.1; margin-bottom: 2px;
     }
     .att-pts-full { color: #28a745; }
-    .att-pts-late { color: #fd7e14; }
     .att-pts-half { color: #ffc107; }
     .att-pts-zero { color: #dc3545; }
 
-    /* Shifts */
-    .att-shifts { display: flex; flex-direction: column; gap: 1px; }
-    .att-shift-row {
-        display: flex; align-items: center; gap: 5px;
-        font-size: .7rem; color: #555; line-height: 1.4;
-    }
-
-    /* Late info */
     .att-late-row { font-size: .68rem; margin-top: 2px; }
     .att-late-warn { color: #fd7e14; font-weight: 600; }
-    .att-late-ok { color: #28a745; }
 
-    /* OT badge */
-    .att-ot { font-size: .65rem; color: #0dcaf0; font-weight: 600; margin-top: auto; }
-
-    /* Absent label */
     .att-absent-label { color: #dc3545; font-weight: 600; font-size: .78rem; }
+    .att-nowork-label { color: #6c757d; font-weight: 600; font-size: .72rem; }
+
+    .att-request-tag { margin-bottom: 2px; }
+    .att-request-tag a.badge { transition: opacity .15s; }
+    .att-request-tag a.badge:hover { opacity: .8; }
 
     @@media (max-width: 1200px) {
-        .att-cell { min-height: 120px; font-size: .7rem; }
+        .att-cell { min-height: 100px; font-size: .7rem; }
         .att-points { font-size: 1.2rem; }
     }
     @@media (max-width: 768px) {
-        .att-cell { min-height: 90px; }
+        .att-cell { min-height: 80px; }
         .att-time-badge { display: none; }
-        .att-shift-row { font-size: .6rem; }
         .att-points { font-size: 1rem; }
     }
 </style>

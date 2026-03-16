@@ -15,6 +15,9 @@ public class AttendanceService : IAttendanceService
     public async Task<IEnumerable<Attendance>> GetByEmployeeAndMonthAsync(int employeeId, int year, int month)
         => await _unitOfWork.Attendances.GetByEmployeeAndMonthAsync(employeeId, year, month);
 
+    public async Task<IEnumerable<Attendance>> GetByEmployeeAndDateRangeAsync(int employeeId, DateOnly startDate, DateOnly endDate)
+        => await _unitOfWork.Attendances.GetByEmployeeAndDateRangeAsync(employeeId, startDate, endDate);
+
     public async Task<IEnumerable<Attendance>> GetByDateRangeAsync(DateOnly startDate, DateOnly endDate)
         => await _unitOfWork.Attendances.GetByDateRangeAsync(startDate, endDate);
 
@@ -30,36 +33,37 @@ public class AttendanceService : IAttendanceService
         var worksheet = workbook.Worksheets.First();
         var rows = worksheet.RowsUsed().Skip(1); // Skip header
 
-        // Parse all punch records: group by (attendanceCode, date) to find check-in/check-out
+        // Format: Column A (1) = UserID (AttendanceCode), Column B (2) = Time
         var punchRecords = new List<(string AttendanceCode, DateTime PunchTime)>();
 
         foreach (var row in rows)
         {
-            // Column C (3) = No. = AttendanceCode number
-            var noStr = row.Cell(3).GetString().Trim();
-            if (string.IsNullOrEmpty(noStr)) continue;
+            var userIdStr = row.Cell(1).GetString().Trim();
+            if (string.IsNullOrEmpty(userIdStr)) continue;
 
-            // Column D (4) = Date/Time
             DateTime punchTime;
-            if (row.Cell(4).DataType == XLDataType.DateTime)
+            if (row.Cell(2).DataType == XLDataType.DateTime)
             {
-                punchTime = row.Cell(4).GetDateTime();
+                punchTime = row.Cell(2).GetDateTime();
             }
             else
             {
-                var dtStr = row.Cell(4).GetString().Trim();
+                var dtStr = row.Cell(2).GetString().Trim();
                 if (!DateTime.TryParse(dtStr, out punchTime)) continue;
             }
 
-            punchRecords.Add((noStr, punchTime));
+            punchRecords.Add((userIdStr, punchTime));
         }
 
-        // Group by (AttendanceCode, Date) to determine check-in (earliest) and check-out (latest)
+        await ProcessPunchRecordsAsync(punchRecords);
+    }
+
+    public async Task ProcessPunchRecordsAsync(IEnumerable<(string AttendanceCode, DateTime PunchTime)> punchRecords)
+    {
         var grouped = punchRecords
             .GroupBy(r => (r.AttendanceCode, r.PunchTime.Date))
             .ToList();
 
-        // Cache employee lookups
         var empCache = new Dictionary<string, Employee?>();
 
         foreach (var group in grouped)
@@ -73,7 +77,6 @@ public class AttendanceService : IAttendanceService
             var employee = empCache[attCode];
             if (employee == null) continue;
 
-            // Check if attendance already exists for this employee+date
             var existing = await _unitOfWork.Attendances
                 .AnyAsync(a => a.EmployeeId == employee.EmployeeId && a.Date == date);
             if (existing) continue;
@@ -93,7 +96,7 @@ public class AttendanceService : IAttendanceService
                 CheckIn = checkIn,
                 CheckOut = checkOut,
                 WorkingHours = workingHours,
-                OvertimeHours = workingHours.HasValue && workingHours > 8 ? Math.Round(workingHours.Value - 8, 2) : 0,
+                OvertimeHours = 0,
                 IsLate = checkIn > LateThreshold,
             };
 

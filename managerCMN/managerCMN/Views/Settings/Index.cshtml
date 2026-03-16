@@ -8,6 +8,8 @@
     var assetCategories = ViewBag.AssetCategories as IEnumerable<AssetCategory> ?? Enumerable.Empty<AssetCategory>();
     var brands = ViewBag.Brands as IEnumerable<Brand> ?? Enumerable.Empty<Brand>();
     var suppliers = ViewBag.Suppliers as IEnumerable<Supplier> ?? Enumerable.Empty<Supplier>();
+    var approvers = ViewBag.Approvers as List<Employee> ?? new List<Employee>();
+    var nonApprovers = ViewBag.NonApprovers as List<Employee> ?? new List<Employee>();
 }
 
 <div class="mb-4">
@@ -59,6 +61,11 @@
     <li class="nav-item">
         <a class="nav-link @(activeTab == "suppliers" ? "active" : "")" href="?tab=suppliers">
             <i class="bi bi-truck"></i> Nhà cung cấp
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "approvers" ? "active" : "")" href="?tab=approvers">
+            <i class="bi bi-person-check"></i> Người duyệt đơn
         </a>
     </li>
 </ul>
@@ -746,4 +753,105 @@
     </div>
 </div>
 }
+}
+
+@* ========== APPROVERS TAB (Người duyệt đơn) ========== *@
+@if (activeTab == "approvers")
+{
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span class="fw-semibold"><i class="bi bi-person-check text-primary"></i> Danh sách người duyệt đơn</span>
+                <span class="badge bg-primary rounded-pill">@approvers.Count người</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Mã NV</th>
+                                <th>Họ tên</th>
+                                <th>Phòng ban</th>
+                                <th>Email</th>
+                                <th class="text-center" style="width:80px">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var emp in approvers)
+                            {
+                            <tr>
+                                <td><code>@emp.EmployeeCode</code></td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-2 flex-shrink-0" style="width:32px;height:32px">
+                                            <i class="bi bi-person-fill"></i>
+                                        </div>
+                                        <strong>@emp.FullName</strong>
+                                    </div>
+                                </td>
+                                <td><small>@emp.Department?.DepartmentName</small></td>
+                                <td><small class="text-muted">@emp.Email</small></td>
+                                <td class="text-center">
+                                    <form asp-action="RemoveApprover" method="post" class="d-inline" onsubmit="return confirm('Xóa người duyệt này khỏi danh sách?')">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="employeeId" value="@emp.EmployeeId" />
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa khỏi danh sách">
+                                            <i class="bi bi-person-dash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            }
+                            @if (!approvers.Any())
+                            {
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    <i class="bi bi-people fs-3 d-block mb-1"></i>
+                                    Chưa có người duyệt nào. Hãy thêm từ form bên phải.
+                                </td>
+                            </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card mb-3">
+            <div class="card-header bg-white fw-semibold">
+                <i class="bi bi-person-plus text-primary"></i> Thêm người duyệt
+            </div>
+            <div class="card-body">
+                <form asp-action="AddApprover" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Chọn nhân viên</label>
+                        <select name="employeeId" class="form-select" required>
+                            <option value="">-- Chọn nhân viên --</option>
+                            @foreach (var emp in nonApprovers)
+                            {
+                                <option value="@emp.EmployeeId">@emp.FullName (@emp.EmployeeCode) - @emp.Department?.DepartmentName</option>
+                            }
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-person-plus"></i> Thêm vào danh sách
+                    </button>
+                </form>
+            </div>
+        </div>
+        <div class="card border-0 bg-light">
+            <div class="card-body">
+                <h6 class="fw-semibold"><i class="bi bi-info-circle text-primary"></i> Hướng dẫn</h6>
+                <ul class="small text-muted mb-0">
+                    <li class="mb-1"><strong>Người duyệt 1</strong> (tự động): Trưởng phòng / Quản lý của phòng ban nhân viên tạo đơn.</li>
+                    <li class="mb-1"><strong>Người duyệt 2</strong> (chọn): Nhân viên tạo đơn sẽ chọn từ danh sách này khi tạo đơn.</li>
+                    <li>Thêm nhân viên vào đây để họ xuất hiện trong dropdown "Người duyệt 2" khi tạo đơn.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
 }

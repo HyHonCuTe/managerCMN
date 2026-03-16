@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using managerCMN.Data;
 
@@ -11,9 +12,11 @@ using managerCMN.Data;
 namespace managerCMN.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260316022504_AddEmployeeIsApprover")]
+    partial class AddEmployeeIsApprover
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -733,13 +736,7 @@ namespace managerCMN.Migrations
                     b.Property<bool>("IsHalfDayEnd")
                         .HasColumnType("bit");
 
-                    b.Property<bool>("IsHalfDayEndMorning")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsHalfDayStart")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("IsHalfDayStartMorning")
                         .HasColumnType("bit");
 
                     b.Property<int?>("LeaveReason")

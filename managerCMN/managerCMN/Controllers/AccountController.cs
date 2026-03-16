@@ -210,7 +210,23 @@ public class AccountController : Controller
         };
 
         if (user.EmployeeId.HasValue)
+        {
             claims.Add(new Claim("EmployeeId", user.EmployeeId.Value.ToString()));
+
+            // Check if employee is an approver (IsApprover or is a department manager)
+            var employee = await _unitOfWork.Employees.GetByIdAsync(user.EmployeeId.Value);
+            if (employee != null)
+            {
+                bool isApprover = employee.IsApprover;
+                if (!isApprover && employee.DepartmentId.HasValue)
+                {
+                    var dept = await _unitOfWork.Departments.GetByIdAsync(employee.DepartmentId.Value);
+                    isApprover = dept?.ManagerId == employee.EmployeeId;
+                }
+                if (isApprover)
+                    claims.Add(new Claim("IsApprover", "true"));
+            }
+        }
 
         var userWithRoles = await _unitOfWork.Users.GetWithRolesAsync(user.UserId);
         if (userWithRoles?.UserRoles != null)

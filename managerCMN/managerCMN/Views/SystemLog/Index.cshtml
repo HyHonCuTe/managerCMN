@@ -7,21 +7,20 @@
 
 <div class="card mb-3">
     <div class="card-body">
-        <form method="get" class="row g-2 align-items-end">
+        <form method="get" class="row g-2 align-items-end" id="logFilterForm">
             <div class="col-auto">
                 <label class="form-label">Module</label>
-                <input name="module" class="form-control" value="@ViewBag.Module" placeholder="VD: Employee, Leave..." />
+                <input name="module" id="moduleFilter" class="form-control" value="@ViewBag.Module" placeholder="VD: Employee, Leave..." />
             </div>
             <div class="col-auto">
                 <label class="form-label">Từ</label>
-                <input name="from" type="date" class="form-control" value="@(ViewBag.From != null ? ((DateTime)ViewBag.From).ToString("yyyy-MM-dd") : "")" />
+                <input name="from" type="date" class="form-control" value="@(ViewBag.From != null ? ((DateTime)ViewBag.From).ToString("yyyy-MM-dd") : "")" onchange="this.form.submit()" />
             </div>
             <div class="col-auto">
                 <label class="form-label">Đến</label>
-                <input name="to" type="date" class="form-control" value="@(ViewBag.To != null ? ((DateTime)ViewBag.To).ToString("yyyy-MM-dd") : "")" />
+                <input name="to" type="date" class="form-control" value="@(ViewBag.To != null ? ((DateTime)ViewBag.To).ToString("yyyy-MM-dd") : "")" onchange="this.form.submit()" />
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-outline-primary"><i class="bi bi-search"></i> Lọc</button>
                 <a asp-action="Index" class="btn btn-outline-secondary">Reset</a>
             </div>
         </form>
@@ -50,3 +49,13 @@
         </table>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    let _logFilterTimer;
+    document.getElementById('moduleFilter').addEventListener('input', function () {
+        clearTimeout(_logFilterTimer);
+        _logFilterTimer = setTimeout(() => document.getElementById('logFilterForm').submit(), 600);
+    });
+</script>
+}

@@ -16,6 +16,7 @@ public class UnitOfWork : IUnitOfWork
         LeaveBalances = new LeaveBalanceRepository(context);
         LeaveRequests = new LeaveRequestRepository(context);
         Requests = new RequestRepository(context);
+        RequestApprovals = new RequestApprovalRepository(context);
         Attendances = new AttendanceRepository(context);
         Assets = new AssetRepository(context);
         AssetAssignments = new AssetAssignmentRepository(context);
@@ -31,6 +32,7 @@ public class UnitOfWork : IUnitOfWork
     public ILeaveBalanceRepository LeaveBalances { get; }
     public ILeaveRequestRepository LeaveRequests { get; }
     public IRequestRepository Requests { get; }
+    public IRequestApprovalRepository RequestApprovals { get; }
     public IAttendanceRepository Attendances { get; }
     public IAssetRepository Assets { get; }
     public IAssetAssignmentRepository AssetAssignments { get; }

@@ -1,3 +1,4 @@
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
@@ -9,11 +10,13 @@ public class RequestService : IRequestService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILeaveService _leaveService;
+    private readonly INotificationService _notificationService;
 
-    public RequestService(IUnitOfWork unitOfWork, ILeaveService leaveService)
+    public RequestService(IUnitOfWork unitOfWork, ILeaveService leaveService, INotificationService notificationService)
     {
         _unitOfWork = unitOfWork;
         _leaveService = leaveService;
+        _notificationService = notificationService;
     }
 
     public async Task<IEnumerable<Request>> GetAllAsync()
@@ -21,6 +24,9 @@ public class RequestService : IRequestService
 
     public async Task<Request?> GetByIdAsync(int id)
         => await _unitOfWork.Requests.GetByIdAsync(id);
+
+    public async Task<Request?> GetWithDetailsAsync(int id)
+        => await _unitOfWork.Requests.GetWithApprovalsAsync(id);
 
     public async Task<Request?> GetWithAttachmentsAsync(int id)
         => await _unitOfWork.Requests.GetWithAttachmentsAsync(id);
@@ -31,50 +37,293 @@ public class RequestService : IRequestService
     public async Task<IEnumerable<Request>> GetByStatusAsync(RequestStatus status)
         => await _unitOfWork.Requests.GetByStatusAsync(status);
 
-    public async Task CreateAsync(Request request)
+    public async Task<IEnumerable<Request>> GetPendingForApproverAsync(int approverEmployeeId)
+        => await _unitOfWork.Requests.GetPendingForApproverAsync(approverEmployeeId);
+
+    public async Task<IEnumerable<Request>> GetAllForApproverAsync(int approverEmployeeId)
+        => await _unitOfWork.Requests.GetAllForApproverAsync(approverEmployeeId);
+
+    public async Task<IEnumerable<Request>> FilterAsync(RequestStatus? status, RequestType? type)
+        => await _unitOfWork.Requests.GetByStatusAndTypeAsync(status, type);
+
+    public async Task CreateAsync(Request request, int approver1Id, int approver2Id)
     {
         request.Status = RequestStatus.Pending;
         request.CreatedDate = DateTime.UtcNow;
+
+        if (request.LeaveReason.HasValue)
+            request.CountsAsWork = LeaveReasonHelper.GetCountsAsWork(request.LeaveReason.Value);
+
         await _unitOfWork.Requests.AddAsync(request);
         await _unitOfWork.SaveChangesAsync();
+
+        // Create 2 approval records
+        await _unitOfWork.RequestApprovals.AddAsync(new RequestApproval
+        {
+            RequestId = request.RequestId,
+            ApproverId = approver1Id,
+            ApproverOrder = 1,
+            Status = ApprovalStatus.Pending
+        });
+        await _unitOfWork.RequestApprovals.AddAsync(new RequestApproval
+        {
+            RequestId = request.RequestId,
+            ApproverId = approver2Id,
+            ApproverOrder = 2,
+            Status = ApprovalStatus.Pending
+        });
+
+        // If Leave type with paid leave, create LeaveRequest for balance tracking
+        if (request.RequestType == RequestType.Leave)
+        {
+            var leaveRequest = new LeaveRequest
+            {
+                EmployeeId = request.EmployeeId,
+                StartDate = request.StartTime.Date,
+                EndDate = request.EndTime.Date,
+                TotalDays = request.TotalDays,
+                Reason = request.Reason,
+                PayType = request.CountsAsWork ? LeavePayType.Paid : LeavePayType.Unpaid
+            };
+            await _leaveService.CreateRequestAsync(leaveRequest);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+
+        // Notify approvers
+        var employee = await _unitOfWork.Employees.GetByIdAsync(request.EmployeeId);
+        var empName = employee?.FullName ?? "Nhân viên";
+        var typeText = GetRequestTypeText(request.RequestType);
+        await NotifyApprover(approver1Id, $"Đơn từ mới cần duyệt", $"{empName} đã gửi {typeText}: {request.Title}");
+        await NotifyApprover(approver2Id, $"Đơn từ mới cần duyệt", $"{empName} đã gửi {typeText}: {request.Title}");
     }
 
-    public async Task ManagerApproveAsync(int requestId, int approverId)
+    public async Task UpdateAsync(Request request)
     {
-        var request = await _unitOfWork.Requests.GetByIdAsync(requestId);
-        if (request == null || request.Status != RequestStatus.Pending) return;
-
-        request.Status = RequestStatus.ManagerApproved;
-        request.ApproverId = approverId;
-        request.ApprovedDate = DateTime.UtcNow;
-
         _unitOfWork.Requests.Update(request);
         await _unitOfWork.SaveChangesAsync();
     }
 
-    public async Task HRApproveAsync(int requestId, int approverId)
+    public async Task ApproveAsync(int requestId, int approverEmployeeId, string? comment = null)
     {
-        var request = await _unitOfWork.Requests.GetByIdAsync(requestId);
-        if (request == null || request.Status != RequestStatus.ManagerApproved) return;
+        var request = await _unitOfWork.Requests.GetWithApprovalsAsync(requestId);
+        if (request == null) return;
+        if (request.Status == RequestStatus.Rejected || request.Status == RequestStatus.Cancelled) return;
 
-        request.Status = RequestStatus.HRApproved;
-        request.ApproverId = approverId;
-        request.ApprovedDate = DateTime.UtcNow;
+        var approval = request.Approvals.FirstOrDefault(a =>
+            a.ApproverId == approverEmployeeId && a.Status == ApprovalStatus.Pending);
+        if (approval == null) return;
+
+        approval.Status = ApprovalStatus.Approved;
+        approval.ApprovedDate = DateTime.UtcNow;
+        approval.Comment = comment;
+        _unitOfWork.RequestApprovals.Update(approval);
+
+        // Determine overall status
+        var allApproved = request.Approvals.All(a => a.Status == ApprovalStatus.Approved);
+        if (allApproved)
+        {
+            request.Status = RequestStatus.FullyApproved;
+        }
+        else if (approval.ApproverOrder == 1)
+        {
+            request.Status = RequestStatus.Approver1Approved;
+        }
+        else
+        {
+            request.Status = RequestStatus.Approver2Approved;
+        }
 
         _unitOfWork.Requests.Update(request);
         await _unitOfWork.SaveChangesAsync();
+
+        // Notify employee
+        var approver = await _unitOfWork.Employees.GetByIdAsync(approverEmployeeId);
+        var approverName = approver?.FullName ?? "Người duyệt";
+        await NotifyEmployee(request.EmployeeId,
+            "Đơn đã được duyệt",
+            $"{approverName} đã duyệt đơn: {request.Title}" + (allApproved ? " (Đã duyệt hoàn tất)" : ""));
     }
 
-    public async Task RejectAsync(int requestId, int approverId)
+    public async Task RejectAsync(int requestId, int approverEmployeeId, string? comment = null)
     {
-        var request = await _unitOfWork.Requests.GetByIdAsync(requestId);
+        var request = await _unitOfWork.Requests.GetWithApprovalsAsync(requestId);
         if (request == null) return;
 
-        request.Status = RequestStatus.Rejected;
-        request.ApproverId = approverId;
-        request.ApprovedDate = DateTime.UtcNow;
+        var approval = request.Approvals.FirstOrDefault(a =>
+            a.ApproverId == approverEmployeeId && a.Status == ApprovalStatus.Pending);
+        if (approval == null) return;
 
+        approval.Status = ApprovalStatus.Rejected;
+        approval.ApprovedDate = DateTime.UtcNow;
+        approval.Comment = comment;
+        _unitOfWork.RequestApprovals.Update(approval);
+
+        request.Status = RequestStatus.Rejected;
+        _unitOfWork.Requests.Update(request);
+
+        // If Leave type, reverse deduction
+        if (request.RequestType == RequestType.Leave)
+        {
+            var leaveRequests = await _unitOfWork.LeaveRequests
+                .FindAsync(lr => lr.EmployeeId == request.EmployeeId
+                              && lr.StartDate == request.StartTime.Date
+                              && lr.EndDate == request.EndTime.Date
+                              && lr.Status != RequestStatus.Rejected);
+            var leaveReq = leaveRequests.FirstOrDefault();
+            if (leaveReq != null)
+            {
+                await _leaveService.RejectRequestAsync(leaveReq.RequestId, approverEmployeeId);
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+
+        // Notify employee
+        var approver = await _unitOfWork.Employees.GetByIdAsync(approverEmployeeId);
+        var approverName = approver?.FullName ?? "Người duyệt";
+        await NotifyEmployee(request.EmployeeId,
+            "Đơn bị từ chối",
+            $"{approverName} đã từ chối đơn: {request.Title}" + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""));
+    }
+
+    public async Task ForceApproveAsync(int requestId, int adminEmployeeId, string? comment = null)
+    {
+        var request = await _unitOfWork.Requests.GetWithApprovalsAsync(requestId);
+        if (request == null) return;
+        if (request.Status == RequestStatus.FullyApproved
+            || request.Status == RequestStatus.Rejected
+            || request.Status == RequestStatus.Cancelled) return;
+
+        foreach (var a in request.Approvals.Where(a => a.Status == ApprovalStatus.Pending))
+        {
+            a.Status = ApprovalStatus.Approved;
+            a.ApprovedDate = DateTime.UtcNow;
+            a.Comment = comment;
+            _unitOfWork.RequestApprovals.Update(a);
+        }
+        request.Status = RequestStatus.FullyApproved;
         _unitOfWork.Requests.Update(request);
         await _unitOfWork.SaveChangesAsync();
+
+        var approver = await _unitOfWork.Employees.GetByIdAsync(adminEmployeeId);
+        var approverName = approver?.FullName ?? "Admin";
+        await NotifyEmployee(request.EmployeeId, "Đơn đã được duyệt",
+            $"{approverName} đã duyệt đơn: {request.Title} (Đã duyệt hoàn tất)");
     }
+
+    public async Task ForceRejectAsync(int requestId, int adminEmployeeId, string? comment = null)
+    {
+        var request = await _unitOfWork.Requests.GetWithApprovalsAsync(requestId);
+        if (request == null) return;
+        if (request.Status == RequestStatus.Rejected || request.Status == RequestStatus.Cancelled) return;
+
+        foreach (var a in request.Approvals.Where(a => a.Status == ApprovalStatus.Pending))
+        {
+            a.Status = ApprovalStatus.Rejected;
+            a.ApprovedDate = DateTime.UtcNow;
+            a.Comment = comment;
+            _unitOfWork.RequestApprovals.Update(a);
+        }
+        request.Status = RequestStatus.Rejected;
+        _unitOfWork.Requests.Update(request);
+
+        if (request.RequestType == RequestType.Leave)
+        {
+            var leaveRequests = await _unitOfWork.LeaveRequests
+                .FindAsync(lr => lr.EmployeeId == request.EmployeeId
+                              && lr.StartDate == request.StartTime.Date
+                              && lr.EndDate == request.EndTime.Date
+                              && lr.Status != RequestStatus.Rejected);
+            var leaveReq = leaveRequests.FirstOrDefault();
+            if (leaveReq != null)
+                await _leaveService.RejectRequestAsync(leaveReq.RequestId, adminEmployeeId);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+
+        var approver = await _unitOfWork.Employees.GetByIdAsync(adminEmployeeId);
+        var approverName = approver?.FullName ?? "Admin";
+        await NotifyEmployee(request.EmployeeId, "Đơn bị từ chối",
+            $"{approverName} đã từ chối đơn: {request.Title}"
+            + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""));
+    }
+
+    public async Task CancelAsync(int requestId, int employeeId)
+    {
+        var request = await _unitOfWork.Requests.GetByIdAsync(requestId);
+        if (request == null || request.EmployeeId != employeeId) return;
+        if (request.Status != RequestStatus.Pending) return;
+
+        request.Status = RequestStatus.Cancelled;
+        _unitOfWork.Requests.Update(request);
+
+        // If Leave type, reverse deduction
+        if (request.RequestType == RequestType.Leave)
+        {
+            var leaveRequests = await _unitOfWork.LeaveRequests
+                .FindAsync(lr => lr.EmployeeId == request.EmployeeId
+                              && lr.StartDate == request.StartTime.Date
+                              && lr.EndDate == request.EndTime.Date
+                              && lr.Status != RequestStatus.Rejected
+                              && lr.Status != RequestStatus.Cancelled);
+            var leaveReq = leaveRequests.FirstOrDefault();
+            if (leaveReq != null)
+            {
+                await _leaveService.RejectRequestAsync(leaveReq.RequestId, employeeId);
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task<int?> GetDefaultApprover1Async(int employeeId)
+    {
+        var employee = await _unitOfWork.Employees.GetByIdAsync(employeeId);
+        if (employee?.DepartmentId == null) return null;
+        var dept = await _unitOfWork.Departments.GetByIdAsync(employee.DepartmentId.Value);
+        return dept?.ManagerId;
+    }
+
+    public async Task<Employee?> GetByEmployeeIdAsync(int employeeId)
+        => await _unitOfWork.Employees.GetByIdAsync(employeeId);
+
+    public async Task<IEnumerable<Employee>> GetAvailableApprover2ListAsync()
+    {
+        var allEmployees = await _unitOfWork.Employees.GetAllAsync();
+        return allEmployees
+            .Where(e => e.IsApprover && e.Status == EmployeeStatus.Active)
+            .OrderBy(e => e.FullName);
+    }
+
+    public decimal CalculateTotalDays(DateTime start, DateTime end, bool halfDayStart, bool halfDayEnd)
+    {
+        var days = (end.Date - start.Date).Days + 1m;
+        if (halfDayStart) days -= 0.5m;
+        if (halfDayEnd) days -= 0.5m;
+        return Math.Max(days, 0.5m);
+    }
+
+    private async Task NotifyApprover(int approverEmployeeId, string title, string message)
+    {
+        var user = (await _unitOfWork.Users.FindAsync(u => u.EmployeeId == approverEmployeeId)).FirstOrDefault();
+        if (user != null)
+            await _notificationService.CreateAsync(user.UserId, title, message);
+    }
+
+    private async Task NotifyEmployee(int employeeId, string title, string message)
+    {
+        var user = (await _unitOfWork.Users.FindAsync(u => u.EmployeeId == employeeId)).FirstOrDefault();
+        if (user != null)
+            await _notificationService.CreateAsync(user.UserId, title, message);
+    }
+
+    private static string GetRequestTypeText(RequestType type) => type switch
+    {
+        RequestType.Leave => "đơn xin nghỉ",
+        RequestType.CheckInOut => "đơn checkin/out",
+        RequestType.Absence => "đơn vắng mặt",
+        RequestType.WorkFromHome => "đơn xin làm ở nhà",
+        _ => "đơn từ"
+    };
 }

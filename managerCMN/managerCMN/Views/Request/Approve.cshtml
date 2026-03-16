@@ -1,0 +1,338 @@
+@model PendingApprovalsViewModel
+@using managerCMN.Models.Enums
+@using managerCMN.Helpers
+@{
+    ViewData["Title"] = "Duyệt đơn từ";
+    var requests = Model.Requests.ToList();
+    bool isAdminOrMgr = ViewBag.IsAdminOrManager == true;
+    var pendingCount = isAdminOrMgr
+        ? requests.Count(r => r.Status == RequestStatus.Pending
+                            || r.Status == RequestStatus.Approver1Approved
+                            || r.Status == RequestStatus.Approver2Approved)
+        : requests.Count(r => r.Status != RequestStatus.Rejected
+                            && r.Status != RequestStatus.Cancelled
+                            && r.Approvals?.Any(a => a.ApproverId == Model.CurrentEmployeeId
+                                                  && a.Status == ApprovalStatus.Pending) == true);
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="mb-0"><i class="bi bi-check2-square"></i> Duyệt đơn từ</h4>
+        <small class="text-muted">Quản lý và duyệt các đơn từ được giao cho bạn</small>
+    </div>
+    @if (pendingCount > 0)
+    {
+        <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+            <i class="bi bi-hourglass-split"></i> @pendingCount đơn chờ duyệt
+        </span>
+    }
+</div>
+
+@* Summary cards *@
+<div class="row g-3 mb-3">
+    <div class="col-md-3">
+        <div class="card stat-card primary">
+            <div class="card-body py-2">
+                <div class="stat-label">Tổng đơn</div>
+                <div class="stat-value text-primary">@requests.Count</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card warning">
+            <div class="card-body py-2">
+                <div class="stat-label">Chờ duyệt</div>
+                <div class="stat-value text-warning">@pendingCount</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card success">
+            <div class="card-body py-2">
+                <div class="stat-label">Đã duyệt</div>
+                <div class="stat-value text-success">@requests.Count(r => r.Status == RequestStatus.FullyApproved)</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card danger">
+            <div class="card-body py-2">
+                <div class="stat-label">Từ chối</div>
+                <div class="stat-value text-danger">@requests.Count(r => r.Status == RequestStatus.Rejected)</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* Filter bar *@
+<div class="card mb-3">
+    <div class="card-body py-2">
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Trạng thái</label>
+                <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Tất cả</option>
+                    <option value="0" selected="@(Model.FilterStatus == RequestStatus.Pending)">Chờ duyệt</option>
+                    <option value="1" selected="@(Model.FilterStatus == RequestStatus.Approver1Approved)">ND1 đã duyệt</option>
+                    <option value="2" selected="@(Model.FilterStatus == RequestStatus.Approver2Approved)">ND2 đã duyệt</option>
+                    <option value="5" selected="@(Model.FilterStatus == RequestStatus.FullyApproved)">Đã duyệt</option>
+                    <option value="3" selected="@(Model.FilterStatus == RequestStatus.Rejected)">Từ chối</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Loại đơn</label>
+                <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Tất cả</option>
+                    <option value="0" selected="@(Model.FilterType == RequestType.Leave)">Nghỉ</option>
+                    <option value="1" selected="@(Model.FilterType == RequestType.CheckInOut)">Checkin/out</option>
+                    <option value="2" selected="@(Model.FilterType == RequestType.Absence)">Vắng mặt</option>
+                    <option value="3" selected="@(Model.FilterType == RequestType.WorkFromHome)">WFH</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Từ ngày</label>
+                <input type="date" name="from" class="form-control form-control-sm" value="@Model.FilterDateFrom?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Đến ngày</label>
+                <input type="date" name="to" class="form-control form-control-sm" value="@Model.FilterDateTo?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <a asp-action="Approve" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-counterclockwise"></i> Bỏ lọc</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* Requests table *@
+<div class="card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" id="approveTable">
+                <thead class="table-light">
+                    <tr>
+                        <th style="min-width:160px">Nhân viên</th>
+                        <th>Loại</th>
+                        <th style="min-width:200px">Tiêu đề</th>
+                        <th>Thời gian</th>
+                        <th class="text-center">Ngày</th>
+                        <th>Lý do</th>
+                        <th class="text-center">Tính công</th>
+                        <th class="text-center">Trạng thái</th>
+                        <th style="min-width:150px">Người duyệt</th>
+                        <th class="text-center" style="min-width:120px">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var req in requests)
+                    {
+                        var myApproval = req.Approvals?.FirstOrDefault(a => a.ApproverId == Model.CurrentEmployeeId);
+                        var canAct = isAdminOrMgr
+                            ? (req.Status != RequestStatus.FullyApproved
+                               && req.Status != RequestStatus.Rejected
+                               && req.Status != RequestStatus.Cancelled)
+                            : (myApproval != null && myApproval.Status == ApprovalStatus.Pending
+                               && req.Status != RequestStatus.Rejected
+                               && req.Status != RequestStatus.Cancelled);
+                        var rowClass = canAct ? "table-warning" : "";
+
+                        <tr class="@rowClass">
+                            <td>
+                                <div class="fw-semibold">@req.Employee?.FullName</div>
+                                <small class="text-muted">@req.Employee?.EmployeeCode</small>
+                            </td>
+                            <td>
+                                @if (req.RequestType == RequestType.Leave)
+                                {
+                                    <span class="badge bg-info">Nghỉ</span>
+                                }
+                                else if (req.RequestType == RequestType.CheckInOut)
+                                {
+                                    <span class="badge bg-primary">Checkin/out</span>
+                                }
+                                else if (req.RequestType == RequestType.Absence)
+                                {
+                                    <span class="badge bg-warning text-dark">Vắng mặt</span>
+                                }
+                                else if (req.RequestType == RequestType.WorkFromHome)
+                                {
+                                    <span class="badge bg-success">WFH</span>
+                                }
+                            </td>
+                            <td>
+                                <a asp-action="Details" asp-route-id="@req.RequestId" class="text-decoration-none fw-semibold">
+                                    @req.Title
+                                </a>
+                            </td>
+                            <td class="text-nowrap small">
+                                @req.StartTime.ToString("dd/MM/yyyy")<br />
+                                <span class="text-muted">~ @req.EndTime.ToString("dd/MM/yyyy")</span>
+                            </td>
+                            <td class="text-center">@req.TotalDays</td>
+                            <td><small>@(req.Reason ?? "-")</small></td>
+                            <td class="text-center">
+                                @if (req.CountsAsWork)
+                                {
+                                    <span class="badge bg-success-subtle text-success">Có</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-secondary-subtle text-secondary">Không</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (req.Status == RequestStatus.Pending)
+                                {
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> Chờ duyệt</span>
+                                }
+                                else if (req.Status == RequestStatus.Approver1Approved)
+                                {
+                                    <span class="badge bg-info"><i class="bi bi-check"></i> ND1 duyệt</span>
+                                }
+                                else if (req.Status == RequestStatus.Approver2Approved)
+                                {
+                                    <span class="badge bg-info"><i class="bi bi-check"></i> ND2 duyệt</span>
+                                }
+                                else if (req.Status == RequestStatus.FullyApproved)
+                                {
+                                    <span class="badge bg-success"><i class="bi bi-check-all"></i> Đã duyệt</span>
+                                }
+                                else if (req.Status == RequestStatus.Rejected)
+                                {
+                                    <span class="badge bg-danger"><i class="bi bi-x-lg"></i> Từ chối</span>
+                                }
+                                else if (req.Status == RequestStatus.Cancelled)
+                                {
+                                    <span class="badge bg-secondary"><i class="bi bi-dash"></i> Đã hủy</span>
+                                }
+                            </td>
+                            <td>
+                                @if (req.Approvals != null)
+                                {
+                                    foreach (var a in req.Approvals.OrderBy(x => x.ApproverOrder))
+                                    {
+                                        var icon = a.Status switch
+                                        {
+                                            ApprovalStatus.Approved => "bi-check-circle-fill text-success",
+                                            ApprovalStatus.Rejected => "bi-x-circle-fill text-danger",
+                                            _ => "bi-clock-fill text-warning"
+                                        };
+                                        <div class="small">
+                                            <i class="bi @icon"></i>
+                                            <span class="text-muted">ND@(a.ApproverOrder):</span>
+                                            @(a.Approver?.FullName ?? "?")
+                                        </div>
+                                    }
+                                }
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    @if (canAct)
+                                    {
+                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#approveModal"
+                                                onclick="setModalRequestId(@req.RequestId, '@req.Title.Replace("'", "\\'")')" title="Duyệt">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal"
+                                                onclick="setRejectRequestId(@req.RequestId, '@req.Title.Replace("'", "\\'"))" title="Từ chối">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    }
+                                    <a asp-action="Details" asp-route-id="@req.RequestId" class="btn btn-outline-info" title="Chi tiết">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    @if (!requests.Any())
+                    {
+                        <tr>
+                            <td colspan="10" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                Không có đơn từ nào.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@* Approve Modal *@
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form asp-action="DoApprove" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="RequestId" id="approveRequestId" />
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-check-circle"></i> Duyệt đơn</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-success-subtle border-0 mb-3">
+                        <i class="bi bi-info-circle"></i> Bạn đang duyệt đơn: <strong id="approveTitle"></strong>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Ghi chú (tùy chọn)</label>
+                        <textarea name="Comment" class="form-control" rows="3" placeholder="Nhập ghi chú nếu cần..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-success px-4"><i class="bi bi-check-lg"></i> Duyệt</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@* Reject Modal *@
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form asp-action="DoReject" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="RequestId" id="rejectRequestId" />
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-x-circle"></i> Từ chối đơn</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger-subtle border-0 mb-3">
+                        <i class="bi bi-exclamation-triangle"></i> Bạn đang từ chối đơn: <strong id="rejectTitle"></strong>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Lý do từ chối <span class="text-danger">*</span></label>
+                        <textarea name="Comment" class="form-control" rows="3" placeholder="Vui lòng nhập lý do từ chối..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-danger px-4"><i class="bi bi-x-lg"></i> Từ chối</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    function setModalRequestId(id, title) {
+        document.getElementById('approveRequestId').value = id;
+        document.getElementById('approveTitle').textContent = title;
+    }
+    function setRejectRequestId(id, title) {
+        document.getElementById('rejectRequestId').value = id;
+        document.getElementById('rejectTitle').textContent = title;
+    }
+    $(document).ready(function () {
+        $('#approveTable').DataTable({
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json' },
+            paging: false, scrollY: '520px', scrollCollapse: true, order: []
+        });
+    });
+</script>
+}

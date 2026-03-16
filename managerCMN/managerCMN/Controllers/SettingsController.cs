@@ -35,6 +35,11 @@ public class SettingsController : Controller
         var employees = await _employeeService.GetAllAsync();
         ViewBag.EmployeeList = new SelectList(employees.OrderBy(e => e.FullName), "EmployeeId", "FullName");
 
+        // Approvers tab
+        ViewBag.Approvers = employees.Where(e => e.IsApprover).OrderBy(e => e.FullName).ToList();
+        ViewBag.NonApprovers = employees.Where(e => !e.IsApprover && e.Status == Models.Enums.EmployeeStatus.Active)
+            .OrderBy(e => e.FullName).ToList();
+
         return View();
     }
 
@@ -318,5 +323,31 @@ public class SettingsController : Controller
         }
         TempData["Success"] = "Xóa nhà cung cấp thành công!";
         return RedirectToAction(nameof(Index), new { tab = "suppliers" });
+    }
+
+    // === APPROVERS (Người duyệt đơn) ===
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddApprover(int employeeId)
+    {
+        var emp = await _db.Employees.FindAsync(employeeId);
+        if (emp == null) return NotFound();
+
+        emp.IsApprover = true;
+        await _db.SaveChangesAsync();
+        TempData["Success"] = $"Đã thêm {emp.FullName} vào danh sách người duyệt!";
+        return RedirectToAction(nameof(Index), new { tab = "approvers" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveApprover(int employeeId)
+    {
+        var emp = await _db.Employees.FindAsync(employeeId);
+        if (emp == null) return NotFound();
+
+        emp.IsApprover = false;
+        await _db.SaveChangesAsync();
+        TempData["Success"] = $"Đã xóa {emp.FullName} khỏi danh sách người duyệt!";
+        return RedirectToAction(nameof(Index), new { tab = "approvers" });
     }
 }

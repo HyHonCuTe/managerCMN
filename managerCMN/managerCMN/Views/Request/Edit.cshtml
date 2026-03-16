@@ -1,20 +1,20 @@
 @model RequestCreateViewModel
 @using managerCMN.Models.Enums
 @{
-    ViewData["Title"] = "Tạo đơn từ mới";
+    ViewData["Title"] = "Chỉnh sửa đơn từ";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
-        <h4 class="mb-0"><i class="bi bi-send-plus"></i> Tạo đơn từ mới</h4>
-        <small class="text-muted">Điền thông tin đầy đủ để gửi đơn</small>
+        <h4 class="mb-0"><i class="bi bi-pencil-square"></i> Chỉnh sửa đơn từ <span class="badge bg-warning text-dark ms-2">#@Model.RequestId</span></h4>
+        <small class="text-muted">Chỉnh sửa thông tin đơn đang chờ duyệt</small>
     </div>
     <a asp-action="Index" class="btn btn-outline-secondary">
         <i class="bi bi-arrow-left"></i> Quay lại
     </a>
 </div>
 
-<form asp-action="Create" method="post" enctype="multipart/form-data">
+<form asp-action="Edit" asp-route-id="@Model.RequestId" method="post">
     @Html.AntiForgeryToken()
     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 
@@ -28,7 +28,7 @@
                 <div class="col-md-4">
                     <label asp-for="RequestType" class="form-label fw-semibold">Loại đơn <span class="text-danger">*</span></label>
                     <select asp-for="RequestType" class="form-select" id="requestType">
-                        <option value="0">Nghỉ</option>
+                        <option value="0">Nghỉ phép</option>
                         <option value="1">Checkin/out</option>
                         <option value="2">Vắng mặt</option>
                         <option value="3">Làm ở nhà (WFH)</option>
@@ -36,7 +36,7 @@
                 </div>
                 <div class="col-md-8">
                     <label asp-for="Title" class="form-label fw-semibold">Tiêu đề <span class="text-danger">*</span></label>
-                    <input asp-for="Title" class="form-control" placeholder="" />
+                    <input asp-for="Title" class="form-control" placeholder="VD: Xin nghỉ phép ngày 20/03..." />
                     <span asp-validation-for="Title" class="text-danger small"></span>
                 </div>
             </div>
@@ -77,7 +77,7 @@
                 <div class="col-md-2">
                     <label class="form-label fw-semibold">Tổng ngày</label>
                     <div class="input-group">
-                        <input type="text" class="form-control bg-light fw-semibold text-center" id="totalDays" readonly value="1" />
+                        <input type="text" class="form-control bg-light fw-semibold text-center" id="totalDays" readonly />
                         <span class="input-group-text">ngày</span>
                     </div>
                     <input asp-for="TotalDays" type="hidden" id="totalDaysHidden" />
@@ -101,7 +101,7 @@
                         {
                             foreach (var r in Model.AvailableReasons)
                             {
-                                <option value="@r.Value">@r.Text</option>
+                                <option value="@r.Value" selected="@(r.Value == ((int?)Model.LeaveReason)?.ToString())">@r.Text</option>
                             }
                         }
                     </select>
@@ -124,25 +124,23 @@
         <div class="card-body">
             <div class="row g-3">
                 <div class="col-md-6">
-                    <label class="form-label fw-semibold">Người duyệt 1 <span class="text-danger">*</span></label>
+                    <label class="form-label fw-semibold">Người duyệt 1</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
                         <input type="text" class="form-control bg-light" readonly value="@(Model.Approver1Name ?? "Chưa có trưởng phòng")" />
                     </div>
                     <input asp-for="Approver1Id" type="hidden" />
-                    <span asp-validation-for="Approver1Id" class="text-danger small"></span>
                     <small class="text-muted">Tự động: Trưởng phòng / Quản lý phòng ban</small>
                 </div>
                 <div class="col-md-6">
                     <label asp-for="Approver2Id" class="form-label fw-semibold">Người duyệt 2 <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-person-plus"></i></span>
-                        <select asp-for="Approver2Id" asp-items="Model.AvailableApprovers" class="form-select" id="approver2Select">
+                        <select asp-for="Approver2Id" asp-items="Model.AvailableApprovers" class="form-select">
                             <option value="">-- Chọn người duyệt --</option>
                         </select>
                     </div>
                     <span asp-validation-for="Approver2Id" class="text-danger small"></span>
-                    <small class="text-muted">Chọn từ danh sách người duyệt</small>
                 </div>
             </div>
         </div>
@@ -158,23 +156,12 @@
         </div>
     </div>
 
-    @* Card 6: Đính kèm *@
-    <div class="card mb-3">
-        <div class="card-header bg-white fw-semibold">
-            <i class="bi bi-paperclip text-primary"></i> Tệp đính kèm
-        </div>
-        <div class="card-body">
-            <input asp-for="Attachments" class="form-control" type="file" multiple />
-            <small class="text-muted mt-1 d-block">Có thể chọn nhiều file (hình ảnh, PDF, tài liệu...)</small>
-        </div>
-    </div>
-
     @* Submit *@
     <div class="d-flex gap-2 mb-4">
-        <button type="submit" class="btn btn-primary px-4">
-            <i class="bi bi-send"></i> Gửi đơn
+        <button type="submit" class="btn btn-warning px-4">
+            <i class="bi bi-save"></i> Lưu thay đổi
         </button>
-        <a asp-action="Index" class="btn btn-light">Hủy</a>
+        <a asp-action="Details" asp-route-id="@Model.RequestId" class="btn btn-light">Hủy</a>
     </div>
 </form>
 
@@ -201,7 +188,6 @@
         var endDate = document.getElementById('endDate');
         var halfDayStartOpt = document.getElementById('halfDayStartOpt');
         var halfDayEndOpt = document.getElementById('halfDayEndOpt');
-        var halfDayStartWrap = document.getElementById('halfDayStartWrap');
         var halfDayEndWrap = document.getElementById('halfDayEndWrap');
         var totalDays = document.getElementById('totalDays');
         var totalDaysHidden = document.getElementById('totalDaysHidden');
@@ -215,7 +201,6 @@
                 var startOpt = parseInt(halfDayStartOpt.value);
                 var endOpt = parseInt(halfDayEndOpt.value);
                 if (diff === 1) {
-                    // Same day: if either is half-day
                     if (startOpt > 0) diff = 0.5;
                 } else {
                     if (startOpt > 0) diff -= 0.5;
@@ -224,7 +209,6 @@
                 diff = Math.max(diff, 0.5);
                 totalDays.value = diff;
                 totalDaysHidden.value = diff;
-                // When same day, hide end half-day
                 halfDayEndWrap.style.display = (s === e) ? 'none' : '';
             }
         }
@@ -234,7 +218,7 @@
         halfDayStartOpt.addEventListener('change', calcDays);
         halfDayEndOpt.addEventListener('change', calcDays);
 
-        function loadReasons(type) {
+        function loadReasons(type, selectedValue) {
             fetch('/Request/GetReasons?type=' + type)
                 .then(r => r.json())
                 .then(data => {
@@ -243,11 +227,13 @@
                         var opt = document.createElement('option');
                         opt.value = r.value;
                         opt.textContent = r.text + ' \u2192 ' + (r.countsAsWork ? 'Tính công' : 'Không tính công');
+                        if (selectedValue !== undefined && r.value == selectedValue) opt.selected = true;
                         leaveReasonSelect.appendChild(opt);
                     });
-                    if (data.length === 1) {
-                        leaveReasonSelect.value = data[0].value;
-                        updateCountsAsWork(data[0].countsAsWork);
+                    // Update display for currently selected
+                    if (leaveReasonSelect.value) {
+                        var selText = leaveReasonSelect.options[leaveReasonSelect.selectedIndex]?.textContent ?? '';
+                        updateCountsAsWork(!selText.includes('Không tính công'));
                     }
                 });
         }
@@ -259,8 +245,7 @@
         }
 
         requestTypeSelect.addEventListener('change', function() {
-            var type = parseInt(this.value);
-            loadReasons(type);
+            loadReasons(parseInt(this.value));
             calcDays();
         });
 
@@ -271,6 +256,10 @@
             }
         });
 
+        // Init on page load with existing values
+        var initType = parseInt(requestTypeSelect.value);
+        var initReason = '@((int?)Model.LeaveReason)';
+        loadReasons(initType, initReason !== '' ? initReason : undefined);
         calcDays();
     </script>
 }

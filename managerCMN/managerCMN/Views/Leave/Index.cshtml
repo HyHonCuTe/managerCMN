@@ -41,7 +41,7 @@
                         @switch (req.Status)
                         {
                             case RequestStatus.Pending: <span class="badge bg-warning">Chờ duyệt</span> break;
-                            case RequestStatus.HRApproved: <span class="badge bg-success">Đã duyệt</span> break;
+                            case RequestStatus.FullyApproved: <span class="badge bg-success">Đã duyệt</span> break;
                             case RequestStatus.Rejected: <span class="badge bg-danger">Từ chối</span> break;
                             default: <span class="badge bg-secondary">@req.Status</span> break;
                         }

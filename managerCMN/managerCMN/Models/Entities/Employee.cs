@@ -89,6 +89,8 @@ public class Employee
 
     public EmployeeStatus Status { get; set; } = EmployeeStatus.Active;
 
+    public bool IsApprover { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

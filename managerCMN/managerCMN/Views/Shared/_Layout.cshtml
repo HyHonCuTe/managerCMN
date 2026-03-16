@@ -60,9 +60,11 @@
         </div>
         @{
             var ctrl = ViewContext.RouteData.Values["controller"]?.ToString();
+            var action = ViewContext.RouteData.Values["action"]?.ToString();
             bool isAdmin = User.IsInRole("Admin");
             bool isManager = User.IsInRole("Manager");
             bool isAdminOrMgr = isAdmin || isManager;
+            bool isApprover = isAdminOrMgr || User.HasClaim("IsApprover", "true");
         }
         <ul class="nav flex-column mt-2">
             <li class="nav-item">
@@ -95,10 +97,18 @@
 
             <li class="nav-section">Yêu cầu & Ticket</li>
             <li class="nav-item">
-                <a class="nav-link @(ctrl == "Request" ? "active" : "")" asp-controller="Request" asp-action="Index">
+                <a class="nav-link @(ctrl == "Request" && action != "Approve" ? "active" : "")" asp-controller="Request" asp-action="Index">
                     <i class="bi bi-send"></i> Đơn từ
                 </a>
             </li>
+            @if (isApprover)
+            {
+            <li class="nav-item">
+                <a class="nav-link @(ctrl == "Request" && action == "Approve" ? "active" : "")" asp-controller="Request" asp-action="Approve">
+                    <i class="bi bi-check2-square"></i> Duyệt đơn
+                </a>
+            </li>
+            }
             <li class="nav-item">
                 <a class="nav-link @(ctrl == "Ticket" ? "active" : "")" asp-controller="Ticket" asp-action="Index">
                     <i class="bi bi-ticket-detailed"></i> Ticket

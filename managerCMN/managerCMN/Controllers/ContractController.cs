@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using managerCMN.Models.Entities;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
+using managerCMN.Helpers;
+using System.ComponentModel.DataAnnotations;
 
 namespace managerCMN.Controllers;
 
@@ -48,16 +50,35 @@ public class ContractController : Controller
             return View(model);
         }
 
+        // Additional server-side file validation
+        if (model.ContractFile != null)
+        {
+            var validationResult = FileUploadHelper.ValidateFile(
+                model.ContractFile,
+                FileUploadHelper.AllowedDocumentExtensions,
+                false);
+
+            if (validationResult != ValidationResult.Success)
+            {
+                ModelState.AddModelError("ContractFile", validationResult.ErrorMessage ?? "File không hợp lệ.");
+                await PopulateEmployees();
+                return View(model);
+            }
+        }
+
         string? filePath = null;
         if (model.ContractFile != null)
         {
             var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "contracts");
             Directory.CreateDirectory(uploadsDir);
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(model.ContractFile.FileName)}";
-            var fullPath = Path.Combine(uploadsDir, fileName);
+
+            // Use secure filename generation
+            var secureFileName = FileUploadHelper.GenerateSecureFileName(model.ContractFile.FileName, "contract");
+            var fullPath = Path.Combine(uploadsDir, secureFileName);
+
             using var stream = new FileStream(fullPath, FileMode.Create);
             await model.ContractFile.CopyToAsync(stream);
-            filePath = $"/uploads/contracts/{fileName}";
+            filePath = $"/uploads/contracts/{secureFileName}";
         }
 
         var contract = new Contract

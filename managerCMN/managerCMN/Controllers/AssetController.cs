@@ -7,6 +7,9 @@ using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
+using managerCMN.Helpers;
+using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 
 namespace managerCMN.Controllers;
 
@@ -37,10 +40,111 @@ public class AssetController : Controller
             "SupplierId", "SupplierName", supplierId);
     }
 
-    public async Task<IActionResult> Index()
+    private async Task PopulateFilterDropdownsAsync(AssetFilterViewModel filter)
     {
-        var assets = await _assetService.GetAllAsync();
-        return View(assets);
+        // Categories
+        var categories = await _db.AssetCategories.Where(c => c.IsActive)
+            .OrderBy(c => c.CategoryName).ToListAsync();
+        filter.Categories = categories.Select(c => new SelectListItem
+        {
+            Value = c.AssetCategoryId.ToString(),
+            Text = c.CategoryName,
+            Selected = filter.CategoryId == c.AssetCategoryId
+        });
+
+        // Brands
+        var brands = await _db.Brands.Where(b => b.IsActive)
+            .OrderBy(b => b.BrandName).ToListAsync();
+        filter.Brands = brands.Select(b => new SelectListItem
+        {
+            Value = b.BrandId.ToString(),
+            Text = b.BrandName,
+            Selected = filter.BrandId == b.BrandId
+        });
+
+        // Employees
+        var employees = await _employeeService.GetAllAsync();
+        filter.Employees = employees.Select(e => new SelectListItem
+        {
+            Value = e.EmployeeId.ToString(),
+            Text = e.FullName,
+            Selected = filter.EmployeeId == e.EmployeeId
+        });
+
+        // Asset Statuses
+        filter.Statuses = Enum.GetValues<AssetStatus>().Select(status => new SelectListItem
+        {
+            Value = ((int)status).ToString(),
+            Text = status.ToString(),
+            Selected = filter.Status == status
+        });
+
+        // Assignment Reasons
+        filter.AssignmentReasons = Enum.GetValues<AssetAssignmentReason>().Select(reason => new SelectListItem
+        {
+            Value = ((int)reason).ToString(),
+            Text = GetAssignmentReasonDisplayName(reason),
+            Selected = filter.AssignmentReason == reason
+        });
+    }
+
+    private static string GetAssignmentReasonDisplayName(AssetAssignmentReason reason) => reason switch
+    {
+        AssetAssignmentReason.NewEmployee => "Nhân viên mới",
+        AssetAssignmentReason.ProjectNeeds => "Nhu cầu dự án",
+        AssetAssignmentReason.Replacement => "Thay thế",
+        AssetAssignmentReason.Upgrade => "Nâng cấp",
+        AssetAssignmentReason.Temporary => "Tạm thời",
+        _ => "Khác"
+    };
+
+    public async Task<IActionResult> Index(AssetFilterViewModel? filter)
+    {
+        filter ??= new AssetFilterViewModel();
+
+        var assets = await _assetService.GetFilteredAsync(filter);
+
+        // Populate filter dropdowns
+        await PopulateFilterDropdownsAsync(filter);
+
+        var viewModel = new AssetIndexViewModel
+        {
+            Assets = assets,
+            Filter = filter
+        };
+
+        return View(viewModel);
+    }
+
+    // MyAssets action for employees - Override class-level AdminOnly policy
+    [AllowAnonymous]
+    [Authorize(Policy = "Authenticated")]
+    public async Task<IActionResult> MyAssets()
+    {
+        var empIdClaim = User.FindFirst("EmployeeId");
+        if (empIdClaim == null || !int.TryParse(empIdClaim.Value, out var empId))
+        {
+            TempData["Error"] = "Không tìm thấy thông tin nhân viên.";
+            return RedirectToAction("Index", "Dashboard");
+        }
+
+        var myAssets = await _assetService.GetMyAssetsAsync(empId);
+        ViewBag.EmployeeName = User.FindFirst(ClaimTypes.Name)?.Value;
+
+        return View(myAssets);
+    }
+
+    // Lifecycle History
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> LifecycleHistory(int id)
+    {
+        var asset = await _assetService.GetByIdAsync(id);
+        if (asset == null) return NotFound();
+
+        var history = await _assetService.GetLifecycleHistoryAsync(id);
+        ViewBag.Asset = asset;
+
+        return View(history);
     }
 
     public async Task<IActionResult> Details(int id)
@@ -127,24 +231,39 @@ public class AssetController : Controller
         var employees = await _employeeService.GetAllAsync();
         ViewBag.Employees = new SelectList(employees, "EmployeeId", "FullName");
         ViewBag.Asset = asset;
+
+        // Add assignment reasons dropdown
+        ViewBag.AssignmentReasons = Enum.GetValues<AssetAssignmentReason>().Select(reason => new SelectListItem
+        {
+            Value = ((int)reason).ToString(),
+            Text = GetAssignmentReasonDisplayName(reason)
+        });
+
         return View();
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Assign(AssetAssignment assignment)
+    public async Task<IActionResult> Assign(AssetAssignment assignment, AssetAssignmentReason assignmentReason, string? assignmentCondition)
     {
         assignment.AssignedDate = DateTime.UtcNow;
         assignment.Status = AssetAssignmentStatus.Assigned;
-        await _assetService.AssignToEmployeeAsync(assignment);
+
+        // Use enhanced assignment method with reason
+        await _assetService.AssignToEmployeeAsync(assignment, assignmentReason, assignmentCondition);
+
+        TempData["Success"] = "Tài sản đã được cấp phát thành công!";
         return RedirectToAction(nameof(Details), new { id = assignment.AssetId });
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Return(int assignmentId, string? condition)
+    public async Task<IActionResult> Return(int assignmentId, AssetReturnReason returnReason, string? returnCondition)
     {
-        await _assetService.ReturnAssetAsync(assignmentId, condition);
+        // Use enhanced return method with reason
+        await _assetService.ReturnAssetAsync(assignmentId, returnReason, returnCondition);
+
+        TempData["Success"] = "Tài sản đã được thu hồi thành công!";
         return RedirectToAction(nameof(Index));
     }
 
@@ -154,9 +273,15 @@ public class AssetController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Import(IFormFile excelFile)
     {
-        if (excelFile == null || excelFile.Length == 0)
+        // Validate using FileUploadHelper
+        var validationResult = FileUploadHelper.ValidateFile(
+            excelFile,
+            FileUploadHelper.AllowedExcelExtensions,
+            true);
+
+        if (validationResult != ValidationResult.Success)
         {
-            ModelState.AddModelError("", "Vui lòng chọn file Excel.");
+            ModelState.AddModelError("", validationResult.ErrorMessage ?? "File không hợp lệ.");
             return View();
         }
 

@@ -7,6 +7,8 @@ using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
 using managerCMN.Data;
+using managerCMN.Helpers;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 
 namespace managerCMN.Controllers;
@@ -262,9 +264,15 @@ public class EmployeeController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ImportExcel(IFormFile file)
     {
-        if (file == null || file.Length == 0)
+        // Validate using FileUploadHelper
+        var validationResult = FileUploadHelper.ValidateFile(
+            file,
+            FileUploadHelper.AllowedExcelExtensions,
+            true);
+
+        if (validationResult != ValidationResult.Success)
         {
-            TempData["ImportError"] = "Vui lòng chọn file Excel (.xlsx).";
+            TempData["ImportError"] = validationResult.ErrorMessage ?? "File không hợp lệ.";
             return RedirectToAction(nameof(Create));
         }
 

@@ -80,13 +80,13 @@ namespace managerCMN.Migrations
                         column: x => x.EmployeeId,
                         principalTable: "Employees",
                         principalColumn: "EmployeeId",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                     table.ForeignKey(
                         name: "FK_AssetLifecycleHistories_Employees_PerformedById",
                         column: x => x.PerformedById,
                         principalTable: "Employees",
                         principalColumn: "EmployeeId",
-                        onDelete: ReferentialAction.SetNull);
+                        onDelete: ReferentialAction.NoAction);
                 });
 
             migrationBuilder.CreateIndex(
@@ -115,7 +115,7 @@ namespace managerCMN.Migrations
                 column: "ApprovedById",
                 principalTable: "Employees",
                 principalColumn: "EmployeeId",
-                onDelete: ReferentialAction.SetNull);
+                onDelete: ReferentialAction.NoAction);
         }
 
         /// <inheritdoc />

@@ -1,4 +1,4 @@
-@model IEnumerable<Asset>
+@model AssetIndexViewModel
 @{
     ViewData["Title"] = "Quản lý Tài sản";
 }
@@ -11,44 +11,303 @@
     </div>
 </div>
 
-<div class="card">
-    <div class="card-body">
-        <table class="table table-hover data-table">
-            <thead class="table-light">
-                <tr><th>Mã TS</th><th>Tên</th><th>Danh mục</th><th>Hãng</th><th>Trạng thái</th><th>Thao tác</th></tr>
-            </thead>
-            <tbody>
-                @foreach (var asset in Model)
-                {
-                <tr>
-                    <td><strong>@asset.AssetCode</strong></td>
-                    <td>@asset.AssetName</td>
-                    <td>@asset.AssetCategory?.CategoryName</td>
-                    <td>@asset.Brand?.BrandName</td>
-                    <td>
-                        @switch (asset.Status)
+<!-- Advanced Filter Panel -->
+<div class="card mb-3">
+    <div class="card-header bg-light">
+        <div class="d-flex justify-content-between align-items-center">
+            <h6 class="mb-0">
+                <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#filterPanel">
+                    <i class="bi bi-funnel"></i> Bộ lọc nâng cao
+                </button>
+            </h6>
+            @if (Model.Filter.HasActiveFilters)
+            {
+                <small class="text-info">
+                    <i class="bi bi-funnel-fill"></i> Đang áp dụng bộ lọc
+                </small>
+            }
+        </div>
+    </div>
+
+    <div class="collapse @(Model.Filter.HasActiveFilters ? "show" : "")" id="filterPanel">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Tìm kiếm</label>
+                    <input type="text" name="SearchTerm" value="@Model.Filter.SearchTerm"
+                           class="form-control form-control-sm" placeholder="Tên, mã tài sản...">
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold">Trạng thái</label>
+                    <select name="Status" class="form-select form-select-sm">
+                        <option value="">-- Tất cả --</option>
+                        @foreach (var status in Model.Filter.Statuses)
                         {
-                            case AssetStatus.Available: <span class="badge bg-success">Sẵn sàng</span> break;
-                            case AssetStatus.Assigned: <span class="badge bg-primary">Đang dùng</span> break;
-                            case AssetStatus.UnderRepair: <span class="badge bg-warning">Bảo trì</span> break;
-                            case AssetStatus.Disposed: <span class="badge bg-secondary">Thanh lý</span> break;
+                            <option value="@status.Value" selected="@status.Selected">@status.Text</option>
                         }
-                    </td>
-                    <td>
-                        <a asp-action="Details" asp-route-id="@asset.AssetId" class="btn btn-sm btn-outline-info"><i class="bi bi-eye"></i></a>
-                        <a asp-action="Edit" asp-route-id="@asset.AssetId" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
-                        @if (asset.Status == AssetStatus.Available)
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold">Danh mục</label>
+                    <select name="CategoryId" class="form-select form-select-sm">
+                        <option value="">-- Tất cả --</option>
+                        @foreach (var category in Model.Filter.Categories)
                         {
-                            <a asp-action="Assign" asp-route-id="@asset.AssetId" class="btn btn-sm btn-outline-success"><i class="bi bi-person-plus"></i></a>
+                            <option value="@category.Value" selected="@category.Selected">@category.Text</option>
                         }
-                        <form asp-action="Delete" asp-route-id="@asset.AssetId" method="post" class="d-inline" onsubmit="return confirm('Xóa tài sản này?')">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                        </form>
-                    </td>
-                </tr>
-                }
-            </tbody>
-        </table>
+                    </select>
+                </div>
+
+                <div class="col-md-2">
+                    <label class="form-label small fw-semibold">Hãng</label>
+                    <select name="BrandId" class="form-select form-select-sm">
+                        <option value="">-- Tất cả --</option>
+                        @foreach (var brand in Model.Filter.Brands)
+                        {
+                            <option value="@brand.Value" selected="@brand.Selected">@brand.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Nhân viên được cấp</label>
+                    <select name="EmployeeId" class="form-select form-select-sm">
+                        <option value="">-- Tất cả --</option>
+                        @foreach (var employee in Model.Filter.Employees)
+                        {
+                            <option value="@employee.Value" selected="@employee.Selected">@employee.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Lý do cấp phát</label>
+                    <select name="AssignmentReason" class="form-select form-select-sm">
+                        <option value="">-- Tất cả --</option>
+                        @foreach (var reason in Model.Filter.AssignmentReasons)
+                        {
+                            <option value="@reason.Value" selected="@reason.Selected">@reason.Text</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Từ ngày cấp</label>
+                    <input type="date" name="AssignedFromDate" value="@Model.Filter.AssignedFromDate?.ToString("yyyy-MM-dd")"
+                           class="form-control form-control-sm">
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold">Đến ngày cấp</label>
+                    <input type="date" name="AssignedToDate" value="@Model.Filter.AssignedToDate?.ToString("yyyy-MM-dd")"
+                           class="form-control form-control-sm">
+                </div>
+
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="btn-group w-100" role="group">
+                        <button type="submit" class="btn btn-primary btn-sm">
+                            <i class="bi bi-search"></i> Lọc
+                        </button>
+                        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-clockwise"></i> Reset
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
+
+<!-- Results Summary -->
+<div class="d-flex justify-content-between align-items-center mb-2">
+    <small class="text-muted">
+        Tìm thấy <strong>@Model.Assets.Count()</strong> tài sản
+        @if (Model.Filter.HasActiveFilters)
+        {
+            <span class="text-info">(đã lọc)</span>
+        }
+    </small>
+
+    @if (Model.Assets.Any())
+    {
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="exportToExcel()">
+                <i class="bi bi-file-earmark-excel"></i> Xuất Excel
+            </button>
+        </div>
+    }
+</div>
+
+<!-- Asset Table -->
+<div class="card">
+    <div class="card-body">
+        @if (!Model.Assets.Any())
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-laptop text-muted" style="font-size: 3rem;"></i>
+                <h5 class="text-muted mt-3">Không tìm thấy tài sản</h5>
+                <p class="text-muted">Thử điều chỉnh bộ lọc hoặc thêm tài sản mới.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover data-table">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Mã TS</th>
+                            <th>Tên</th>
+                            <th>Danh mục</th>
+                            <th>Hãng</th>
+                            <th>Trạng thái</th>
+                            <th>Người dùng</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var asset in Model.Assets)
+                        {
+                            var currentAssignment = asset.Assignments?.FirstOrDefault(a => a.Status == AssetAssignmentStatus.Assigned);
+                            <tr>
+                                <td><strong class="text-primary">@asset.AssetCode</strong></td>
+                                <td>@asset.AssetName</td>
+                                <td>@(asset.AssetCategory?.CategoryName ?? "-")</td>
+                                <td>@(asset.Brand?.BrandName ?? "-")</td>
+                                <td>
+                                    @switch (asset.Status)
+                                    {
+                                        case AssetStatus.Available: <span class="badge bg-success">Sẵn sàng</span> break;
+                                        case AssetStatus.Assigned: <span class="badge bg-primary">Đang dùng</span> break;
+                                        case AssetStatus.UnderRepair: <span class="badge bg-warning text-dark">Bảo trì</span> break;
+                                        case AssetStatus.Broken: <span class="badge bg-danger">Hỏng</span> break;
+                                        case AssetStatus.Disposed: <span class="badge bg-secondary">Thanh lý</span> break;
+                                    }
+                                </td>
+                                <td>
+                                    @if (currentAssignment != null)
+                                    {
+                                        <div class="small">
+                                            <strong>@currentAssignment.Employee?.FullName</strong>
+                                            <div class="text-muted">@currentAssignment.AssignedDate.ToString("dd/MM/yyyy")</div>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">-</span>
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a asp-action="Details" asp-route-id="@asset.AssetId"
+                                           class="btn btn-sm btn-outline-info" title="Chi tiết">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        <a asp-action="Edit" asp-route-id="@asset.AssetId"
+                                           class="btn btn-sm btn-outline-warning" title="Sửa">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        @if (asset.Status == AssetStatus.Available)
+                                        {
+                                            <a asp-action="Assign" asp-route-id="@asset.AssetId"
+                                               class="btn btn-sm btn-outline-success" title="Cấp phát">
+                                                <i class="bi bi-person-plus"></i>
+                                            </a>
+                                        }
+                                        @if (currentAssignment != null)
+                                        {
+                                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                                    onclick="showReturnModal(@currentAssignment.AssignmentId, '@asset.AssetName')"
+                                                    title="Thu hồi">
+                                                <i class="bi bi-person-dash"></i>
+                                            </button>
+                                        }
+                                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                onclick="showLifecycleHistory(@asset.AssetId)" title="Lịch sử">
+                                            <i class="bi bi-clock-history"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Return Asset Modal -->
+<div class="modal fade" id="returnAssetModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="returnAssetForm" method="post" asp-action="Return">
+                <div class="modal-header">
+                    <h5 class="modal-title">Thu hồi tài sản</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="returnAssignmentId" name="assignmentId">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tài sản</label>
+                        <input type="text" id="returnAssetName" class="form-control" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Lý do thu hồi <span class="text-danger">*</span></label>
+                        <select name="returnReason" class="form-select" required>
+                            <option value="">-- Chọn lý do --</option>
+                            <option value="0">Kết thúc dự án</option>
+                            <option value="1">Nghỉ việc</option>
+                            <option value="2">Hư hỏng</option>
+                            <option value="3">Nâng cấp</option>
+                            <option value="4">Không còn cần</option>
+                            <option value="99">Lý do khác</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tình trạng khi thu hồi</label>
+                        <textarea name="returnCondition" class="form-control" rows="3"
+                                  placeholder="Mô tả tình trạng tài sản khi thu hồi..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-danger">Thu hồi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function showReturnModal(assignmentId, assetName) {
+            document.getElementById('returnAssignmentId').value = assignmentId;
+            document.getElementById('returnAssetName').value = assetName;
+            new bootstrap.Modal(document.getElementById('returnAssetModal')).show();
+        }
+
+        function showLifecycleHistory(assetId) {
+            window.open(`/Asset/LifecycleHistory/${assetId}`, '_blank');
+        }
+
+        function exportToExcel() {
+            // Get current filter parameters
+            const params = new URLSearchParams(window.location.search);
+            params.set('export', 'excel');
+            window.location.href = '/Asset/Export?' + params.toString();
+        }
+
+        // Auto-submit form when filter changes (optional)
+        document.querySelectorAll('#filterPanel select, #filterPanel input[type="date"]').forEach(element => {
+            element.addEventListener('change', function() {
+                // Auto-submit on filter change (optional feature)
+                // this.form.submit();
+            });
+        });
+    </script>
+}

@@ -15,12 +15,15 @@ public class DashboardController : Controller
 {
     private readonly IDashboardService _dashboardService;
     private readonly ILeaveService _leaveService;
+    private readonly IAssetService _assetService;
     private readonly ApplicationDbContext _db;
 
-    public DashboardController(IDashboardService dashboardService, ILeaveService leaveService, ApplicationDbContext db)
+    public DashboardController(IDashboardService dashboardService, ILeaveService leaveService,
+        IAssetService assetService, ApplicationDbContext db)
     {
         _dashboardService = dashboardService;
         _leaveService = leaveService;
+        _assetService = assetService;
         _db = db;
     }
 
@@ -65,6 +68,11 @@ public class DashboardController : Controller
                     var pendingCount = await _db.Set<Models.Entities.Request>()
                         .CountAsync(r => r.EmployeeId == empId && r.Status == RequestStatus.Pending);
 
+                    // Get assigned assets count
+                    var assignedAssetsCount = await _db.Set<Models.Entities.AssetAssignment>()
+                        .CountAsync(aa => aa.EmployeeId == empId &&
+                                         aa.Status == Models.Enums.AssetAssignmentStatus.Assigned);
+
                     model.Personal = new PersonalDashboardData
                     {
                         FullName                = employee.FullName,
@@ -75,7 +83,8 @@ public class DashboardController : Controller
                         AttendanceDaysWorked    = attendances.Count(a => a.WorkingHours > 0),
                         AttendanceLateCount     = attendances.Count(a => a.IsLate),
                         AttendanceOvertimeHours = attendances.Sum(a => a.OvertimeHours ?? 0),
-                        MyPendingRequests       = pendingCount
+                        MyPendingRequests       = pendingCount,
+                        AssignedAssetsCount     = assignedAssetsCount
                     };
                 }
             }

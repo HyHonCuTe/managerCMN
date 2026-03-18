@@ -34,4 +34,7 @@ public class PersonalDashboardData
 
     // Pending requests
     public int MyPendingRequests { get; set; }
+
+    // Assets
+    public int AssignedAssetsCount { get; set; }
 }

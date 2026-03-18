@@ -71,7 +71,7 @@
         {
         <div class="att-filter-group">
             <label class="att-filter-label">Nhân viên</label>
-            <select name="employeeId" class="form-select form-select-sm" onchange="this.form.submit()">
+            <select name="employeeId" class="form-select form-select-sm">
                 @foreach (var emp in Model.Employees)
                 {
                     var dept = !string.IsNullOrEmpty(emp.DepartmentName) ? $" [{emp.DepartmentName}]" : "";
@@ -88,7 +88,7 @@
         }
         <div class="att-filter-group">
             <label class="att-filter-label">Tháng</label>
-            <select name="month" class="form-select form-select-sm" onchange="this.form.submit()">
+            <select name="month" class="form-select form-select-sm">
                 @for (int m = 1; m <= 12; m++)
                 {
                     <option value="@m" selected="@(m == Model.Month)">Tháng @m</option>
@@ -97,7 +97,12 @@
         </div>
         <div class="att-filter-group">
             <label class="att-filter-label">Năm</label>
-            <input name="year" type="number" class="form-control form-control-sm" value="@Model.Year" style="width:85px" onchange="this.form.submit()" />
+            <input name="year" type="number" class="form-control form-control-sm" value="@Model.Year" style="width:85px" />
+        </div>
+        <div class="att-filter-group">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="bi bi-funnel me-1"></i> Lọc
+            </button>
         </div>
     </form>
 

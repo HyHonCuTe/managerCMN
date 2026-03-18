@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using managerCMN.Models.Enums;
+using managerCMN.Attributes;
 
 namespace managerCMN.Models.ViewModels;
 
@@ -17,5 +18,7 @@ public class ContractCreateViewModel
     [Required]
     public decimal Salary { get; set; }
 
+    [ValidateFile(".pdf,.doc,.docx,.txt", false)]
+    [Display(Name = "File hợp đồng")]
     public IFormFile? ContractFile { get; set; }
 }

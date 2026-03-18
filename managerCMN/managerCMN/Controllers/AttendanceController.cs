@@ -5,6 +5,7 @@ using managerCMN.Helpers;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
+using System.ComponentModel.DataAnnotations;
 
 namespace managerCMN.Controllers;
 
@@ -294,9 +295,15 @@ public class AttendanceController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Import(AttendanceImportViewModel model)
     {
-        if (model.ExcelFile == null || model.ExcelFile.Length == 0)
+        // Validate using FileUploadHelper
+        var validationResult = FileUploadHelper.ValidateFile(
+            model.ExcelFile,
+            FileUploadHelper.AllowedExcelExtensions,
+            true);
+
+        if (validationResult != ValidationResult.Success)
         {
-            ModelState.AddModelError("", "Vui lòng chọn file Excel.");
+            ModelState.AddModelError("", validationResult.ErrorMessage ?? "File không hợp lệ.");
             return View(model);
         }
 

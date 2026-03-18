@@ -70,7 +70,7 @@
         <form method="get" class="row g-2 align-items-end">
             <div class="col-md-2">
                 <label class="form-label small mb-1">Trạng thái</label>
-                <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                <select name="status" class="form-select form-select-sm">
                     <option value="">Tất cả</option>
                     <option value="0" selected="@(Model.FilterStatus == RequestStatus.Pending)">Chờ duyệt</option>
                     <option value="1" selected="@(Model.FilterStatus == RequestStatus.Approver1Approved)">ND1 đã duyệt</option>
@@ -81,7 +81,7 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label small mb-1">Loại đơn</label>
-                <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
+                <select name="type" class="form-select form-select-sm">
                     <option value="">Tất cả</option>
                     <option value="0" selected="@(Model.FilterType == RequestType.Leave)">Xin nghỉ</option>
                     <option value="1" selected="@(Model.FilterType == RequestType.CheckInOut)">Checkin/out</option>
@@ -91,13 +91,16 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label small mb-1">Từ ngày</label>
-                <input type="date" name="from" class="form-control form-control-sm" value="@Model.FilterDateFrom?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+                <input type="date" name="from" class="form-control form-control-sm" value="@Model.FilterDateFrom?.ToString("yyyy-MM-dd")" />
             </div>
             <div class="col-md-2">
                 <label class="form-label small mb-1">Đến ngày</label>
-                <input type="date" name="to" class="form-control form-control-sm" value="@Model.FilterDateTo?.ToString("yyyy-MM-dd")" onchange="this.form.submit()" />
+                <input type="date" name="to" class="form-control form-control-sm" value="@Model.FilterDateTo?.ToString("yyyy-MM-dd")" />
             </div>
             <div class="col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-funnel me-1"></i> Lọc
+                </button>
                 <a asp-action="Approve" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-counterclockwise"></i> Bỏ lọc</a>
             </div>
         </form>

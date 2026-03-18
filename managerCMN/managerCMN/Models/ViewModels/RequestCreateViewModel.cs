@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using managerCMN.Models.Enums;
+using managerCMN.Attributes;
 
 namespace managerCMN.Models.ViewModels;
 
@@ -51,6 +52,8 @@ public class RequestCreateViewModel
     public List<SelectListItem>? AvailableApprovers { get; set; }
     public List<SelectListItem>? AvailableReasons { get; set; }
 
+    [ValidateFiles(".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt", false)]
+    [Display(Name = "Tệp đính kèm")]
     public List<IFormFile>? Attachments { get; set; }
 
     public decimal TotalDays { get; set; }

@@ -15,6 +15,7 @@
     <link rel="icon" type="image/png" href="/images/cmnLOGO.png" />
     <!-- Custom CSS -->
     <link rel="stylesheet" href="~/css/site.css" />
+    @await RenderSectionAsync("Styles", required: false)
 
     <style>
         :root {
@@ -118,15 +119,20 @@
                 </a>
             </li>
 
+            <li class="nav-section">Tài sản</li>
             @if (isAdminOrMgr)
             {
-            <li class="nav-section">Tài sản</li>
             <li class="nav-item">
-                <a class="nav-link @(ctrl == "Asset" ? "active" : "")" asp-controller="Asset" asp-action="Index">
-                    <i class="bi bi-laptop"></i> Tài sản
+                <a class="nav-link @(ctrl == "Asset" && action == "Index" ? "active" : "")" asp-controller="Asset" asp-action="Index">
+                    <i class="bi bi-laptop"></i> Quản lý tài sản
                 </a>
             </li>
             }
+            <li class="nav-item">
+                <a class="nav-link @(ctrl == "Asset" && action == "MyAssets" ? "active" : "")" asp-controller="Asset" asp-action="MyAssets">
+                    <i class="bi bi-box-seam"></i> Tài sản của tôi
+                </a>
+            </li>
 
             <li class="nav-section">Hệ thống</li>
             <li class="nav-item">

@@ -13,7 +13,7 @@ using System.Security.Claims;
 
 namespace managerCMN.Controllers;
 
-[Authorize(Policy = "AdminOnly")]
+[Authorize]
 public class AssetController : Controller
 {
     private readonly IAssetService _assetService;
@@ -98,6 +98,7 @@ public class AssetController : Controller
         _ => "Khác"
     };
 
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Index(AssetFilterViewModel? filter)
     {
         filter ??= new AssetFilterViewModel();
@@ -116,9 +117,7 @@ public class AssetController : Controller
         return View(viewModel);
     }
 
-    // MyAssets action for employees - Override class-level AdminOnly policy
-    [AllowAnonymous]
-    [Authorize(Policy = "Authenticated")]
+    // MyAssets action for employees - accessible to all authenticated users
     public async Task<IActionResult> MyAssets()
     {
         var empIdClaim = User.FindFirst("EmployeeId");
@@ -147,6 +146,7 @@ public class AssetController : Controller
         return View(history);
     }
 
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Details(int id)
     {
         var asset = await _assetService.GetWithConfigurationAsync(id);
@@ -154,6 +154,7 @@ public class AssetController : Controller
         return View(asset);
     }
 
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Create()
     {
         await PopulateDropdownsAsync();
@@ -162,6 +163,7 @@ public class AssetController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Create(AssetCreateViewModel model)
     {
         if (!ModelState.IsValid)
@@ -201,6 +203,7 @@ public class AssetController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Edit(int id)
     {
         var asset = await _assetService.GetWithConfigurationAsync(id);
@@ -211,6 +214,7 @@ public class AssetController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Edit(Asset asset)
     {
         if (!ModelState.IsValid)
@@ -223,6 +227,7 @@ public class AssetController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Assign(int id)
     {
         var asset = await _assetService.GetByIdAsync(id);
@@ -244,6 +249,7 @@ public class AssetController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Assign(AssetAssignment assignment, AssetAssignmentReason assignmentReason, string? assignmentCondition)
     {
         assignment.AssignedDate = DateTime.UtcNow;
@@ -258,6 +264,7 @@ public class AssetController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Return(int assignmentId, AssetReturnReason returnReason, string? returnCondition)
     {
         // Use enhanced return method with reason
@@ -267,10 +274,12 @@ public class AssetController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [Authorize(Policy = "AdminOnly")]
     public IActionResult Import() => View();
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Import(IFormFile excelFile)
     {
         // Validate using FileUploadHelper
@@ -294,6 +303,7 @@ public class AssetController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Delete(int id)
     {
         await _assetService.DeleteAsync(id);

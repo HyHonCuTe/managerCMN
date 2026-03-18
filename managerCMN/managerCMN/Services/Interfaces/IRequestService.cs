@@ -24,7 +24,10 @@ public interface IRequestService
     Task CancelAsync(int requestId, int employeeId);
 
     Task<int?> GetDefaultApprover1Async(int employeeId);
+    Task<bool> NeedsManualApprover1SelectionAsync(int employeeId);
+    Task<IEnumerable<Employee>> GetDepartmentManagersAsync(int employeeId);
     Task<Employee?> GetByEmployeeIdAsync(int employeeId);
     Task<IEnumerable<Employee>> GetAvailableApprover2ListAsync();
+    Task<IEnumerable<Employee>> GetAllDepartmentEmployeesAsync(int departmentId);
     decimal CalculateTotalDays(DateTime start, DateTime end, bool halfDayStart, bool halfDayEnd);
 }

@@ -1,3 +1,4 @@
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
@@ -302,5 +303,5 @@ public class LeaveService : ILeaveService
         => (date ?? Today()).Date;
 
     private static DateTime Today()
-        => DateTime.Today;
+        => DateTimeHelper.VietnamToday;
 }

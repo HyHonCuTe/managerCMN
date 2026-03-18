@@ -229,12 +229,14 @@
                                 <div class="btn-group btn-group-sm">
                                     @if (canAct)
                                     {
-                                        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#approveModal"
-                                                onclick="setModalRequestId(@req.RequestId, '@req.Title.Replace("'", "\\'")')" title="Duyệt">
+                                        <button type="button" class="btn btn-success btn-approve-action"
+                                                data-bs-toggle="modal" data-bs-target="#approveModal"
+                                                data-request-id="@req.RequestId" data-request-title="@req.Title" title="Duyệt">
                                             <i class="bi bi-check-lg"></i>
                                         </button>
-                                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal"
-                                                onclick="setRejectRequestId(@req.RequestId, '@req.Title.Replace("'", "\\'"))" title="Từ chối">
+                                        <button type="button" class="btn btn-danger btn-reject-action"
+                                                data-bs-toggle="modal" data-bs-target="#rejectModal"
+                                                data-request-id="@req.RequestId" data-request-title="@req.Title" title="Từ chối">
                                             <i class="bi bi-x-lg"></i>
                                         </button>
                                     }
@@ -306,7 +308,7 @@
                     </div>
                     <div class="mb-0">
                         <label class="form-label">Lý do từ chối <span class="text-danger">*</span></label>
-                        <textarea name="Comment" class="form-control" rows="3" placeholder="Vui lòng nhập lý do từ chối..." required></textarea>
+                        <textarea name="Comment" class="form-control" rows="3" placeholder="Vui lòng nhập lý do từ chối..." id="rejectComment"></textarea>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
@@ -320,14 +322,81 @@
 
 @section Scripts {
 <script>
-    function setModalRequestId(id, title) {
-        document.getElementById('approveRequestId').value = id;
-        document.getElementById('approveTitle').textContent = title;
-    }
-    function setRejectRequestId(id, title) {
-        document.getElementById('rejectRequestId').value = id;
-        document.getElementById('rejectTitle').textContent = title;
-    }
+    // Use Bootstrap modal events to get data from trigger button
+    document.addEventListener('DOMContentLoaded', function() {
+        // Approve modal - capture data when modal is shown
+        var approveModal = document.getElementById('approveModal');
+        if (approveModal) {
+            approveModal.addEventListener('show.bs.modal', function(event) {
+                var button = event.relatedTarget;
+                var requestId = button.getAttribute('data-request-id');
+                var requestTitle = button.getAttribute('data-request-title');
+
+                document.getElementById('approveRequestId').value = requestId;
+                document.getElementById('approveTitle').textContent = requestTitle;
+            });
+        }
+
+        // Reject modal - capture data when modal is shown
+        var rejectModal = document.getElementById('rejectModal');
+        if (rejectModal) {
+            rejectModal.addEventListener('show.bs.modal', function(event) {
+                var button = event.relatedTarget;
+                var requestId = button.getAttribute('data-request-id');
+                var requestTitle = button.getAttribute('data-request-title');
+
+                document.getElementById('rejectRequestId').value = requestId;
+                document.getElementById('rejectTitle').textContent = requestTitle;
+
+                // Clear previous comment
+                var commentField = document.getElementById('rejectComment');
+                if (commentField) commentField.value = '';
+            });
+        }
+
+        // Handle reject form submission
+        var rejectForm = document.querySelector('#rejectModal form');
+        if (rejectForm) {
+            rejectForm.addEventListener('submit', function(e) {
+                var requestId = document.getElementById('rejectRequestId').value;
+                var comment = document.getElementById('rejectComment').value;
+
+                if (!requestId || requestId === '0' || requestId === '') {
+                    e.preventDefault();
+                    alert('Lỗi: Không tìm thấy mã đơn. Vui lòng thử lại.');
+                    return false;
+                }
+
+                if (!comment || comment.trim() === '') {
+                    e.preventDefault();
+                    alert('Vui lòng nhập lý do từ chối.');
+                    document.getElementById('rejectComment').focus();
+                    return false;
+                }
+
+                // Form will submit normally
+                return true;
+            });
+        }
+
+        // Handle approve form submission
+        var approveForm = document.querySelector('#approveModal form');
+        if (approveForm) {
+            approveForm.addEventListener('submit', function(e) {
+                var requestId = document.getElementById('approveRequestId').value;
+
+                if (!requestId || requestId === '0' || requestId === '') {
+                    e.preventDefault();
+                    alert('Lỗi: Không tìm thấy mã đơn. Vui lòng thử lại.');
+                    return false;
+                }
+
+                // Form will submit normally
+                return true;
+            });
+        }
+    });
+
     $(document).ready(function () {
         $('#approveTable').DataTable({
             language: { url: '//cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json' },

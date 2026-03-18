@@ -66,10 +66,10 @@
                 </p>
                 <p><strong>Người tạo:</strong> @Model.Creator?.FullName</p>
                 <p><strong>Người xử lý:</strong> @(Model.Assignee?.FullName ?? "Chưa gán")</p>
-                <p><strong>Ngày tạo:</strong> @Model.CreatedDate.ToString("dd/MM/yyyy HH:mm")</p>
+                <p><strong>Ngày tạo:</strong> @Model.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</p>
                 @if (Model.ResolvedDate.HasValue)
                 {
-                    <p><strong>Ngày giải quyết:</strong> @Model.ResolvedDate?.ToString("dd/MM/yyyy HH:mm")</p>
+                    <p><strong>Ngày giải quyết:</strong> @Model.ResolvedDate?.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</p>
                 }
             </div>
         </div>

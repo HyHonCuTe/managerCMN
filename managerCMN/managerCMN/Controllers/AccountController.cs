@@ -63,6 +63,16 @@ public class AccountController : Controller
         if (string.IsNullOrEmpty(email))
             return RedirectToAction(nameof(Login));
 
+        // Check if email exists in Employee list - RESTRICT LOGIN
+        var employee = await _db.Employees.FirstOrDefaultAsync(e => e.Email == email);
+        if (employee == null)
+        {
+            // Email not in employee list - DENY LOGIN
+            TempData["LoginError"] = $"Email {email} không có trong danh sách nhân viên. Vui lòng liên hệ Admin để được cấp quyền truy cập.";
+            await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return RedirectToAction(nameof(Login));
+        }
+
         var user = await _unitOfWork.Users.GetByEmailAsync(email);
         if (user == null)
         {

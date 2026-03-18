@@ -63,9 +63,10 @@ public class RequestController : Controller
     {
         var employeeId = GetCurrentEmployeeId();
 
+        // All employees now need to select Approver1 manually
         if (!model.Approver1Id.HasValue || model.Approver1Id == 0)
         {
-            ModelState.AddModelError("Approver1Id", "Không tìm thấy người duyệt 1. Vui lòng liên hệ quản trị.");
+            ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
 
         if (!ModelState.IsValid)
@@ -282,8 +283,11 @@ public class RequestController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        // All employees now need to select Approver1 manually
         if (!model.Approver1Id.HasValue || model.Approver1Id == 0)
-            ModelState.AddModelError("Approver1Id", "Không tìm thấy người duyệt 1.");
+        {
+            ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
+        }
 
         if (!ModelState.IsValid)
         {
@@ -320,6 +324,104 @@ public class RequestController : Controller
     }
 
     [HttpGet]
+    public async Task<IActionResult> GetDebugDepartmentManagers()
+    {
+        var employeeId = GetCurrentEmployeeId();
+        var managers = await _requestService.GetDepartmentManagersAsync(employeeId);
+
+        // Get current user info for debug
+        var currentEmployee = await _requestService.GetByEmployeeIdAsync(employeeId);
+
+        var result = new
+        {
+            EmployeeId = employeeId,
+            CurrentEmployee = currentEmployee == null ? null : new
+            {
+                currentEmployee.EmployeeId,
+                currentEmployee.FullName,
+                currentEmployee.DepartmentId,
+                Department = currentEmployee.Department?.DepartmentName,
+                PositionName = currentEmployee.Position?.PositionName,
+                currentEmployee.Status
+            },
+            UserClaims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
+            Managers = managers.Select(m => new
+            {
+                m.EmployeeId,
+                m.FullName,
+                m.DepartmentId,
+                Department = m.Department?.DepartmentName,
+                PositionName = m.Position?.PositionName,
+                m.Status
+            }).ToList()
+        };
+
+        return Json(result);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetDebugAllISCEmployees()
+    {
+        var employeeId = GetCurrentEmployeeId();
+        var currentEmployee = await _requestService.GetByEmployeeIdAsync(employeeId);
+
+        if (currentEmployee?.DepartmentId == null)
+        {
+            return Json(new { Error = "Employee not found or no department" });
+        }
+
+        // Get all employees in the same department
+        var allDepartmentEmployees = await _requestService.GetAllDepartmentEmployeesAsync(currentEmployee.DepartmentId.Value);
+
+        var result = new
+        {
+            CurrentEmployee = new
+            {
+                currentEmployee.EmployeeId,
+                currentEmployee.FullName,
+                currentEmployee.DepartmentId,
+                Department = currentEmployee.Department?.DepartmentName,
+                PositionName = currentEmployee.Position?.PositionName,
+                currentEmployee.Status
+            },
+            AllDepartmentEmployees = allDepartmentEmployees.Select(e => new
+            {
+                e.EmployeeId,
+                e.FullName,
+                PositionName = e.Position?.PositionName,
+                JobTitleId = e.JobTitleId,
+                JobTitleName = e.JobTitle?.JobTitleName,
+                e.Status,
+                IsManager = IsManagerPositionDebug(e.JobTitleId),
+                IsApprover = e.IsApprover,
+                IsLowLevel = IsLowLevelJobTitleDebug(e.JobTitleId)
+            }).OrderBy(e => e.PositionName).ToList()
+        };
+
+        return Json(result);
+    }
+
+    private bool IsManagerPositionDebug(int? jobTitleId)
+    {
+        if (!jobTitleId.HasValue) return false;
+
+        // Manager JobTitles based on JobTitles table:
+        // 1 = Ban Giám Đốc
+        // 2 = Trưởng phòng
+        return jobTitleId == 1 || jobTitleId == 2;
+    }
+
+    private bool IsLowLevelJobTitleDebug(int? jobTitleId)
+    {
+        if (!jobTitleId.HasValue) return true; // No JobTitle = low level
+
+        // Low-level JobTitles:
+        // 4 = Nhân viên
+        // 5 = Thực tập
+        return jobTitleId == 4 || jobTitleId == 5;
+    }
+
+    [HttpGet]
     public IActionResult GetReasons(RequestType type)
     {
         var reasons = LeaveReasonHelper.GetReasonsForType(type)
@@ -334,13 +436,27 @@ public class RequestController : Controller
 
     private async Task PopulateCreateViewModel(RequestCreateViewModel model, int employeeId)
     {
-        // Auto-fill Approver 1 (department manager)
-        var approver1Id = await _requestService.GetDefaultApprover1Async(employeeId);
-        if (approver1Id.HasValue)
+        // Everyone needs manual selection now, but source list differs by position level
+        model.NeedsManualApprover1Selection = true;
+
+        // Check if employee has low-level position to determine Approver1 source
+        var departmentManagers = await _requestService.GetDepartmentManagersAsync(employeeId);
+
+        if (departmentManagers.Any())
         {
-            model.Approver1Id = approver1Id;
-            var approver1 = await _requestService.GetByEmployeeIdAsync(approver1Id.Value);
-            model.Approver1Name = approver1?.FullName ?? "Trưởng phòng";
+            // Low-level position: Show department managers as Approver1 options
+            model.AvailableApprover1s = departmentManagers
+                .Select(m => new SelectListItem(m.FullName, m.EmployeeId.ToString()))
+                .ToList();
+        }
+        else
+        {
+            // High-level position OR no managers in department: Use Approver2 list for Approver1
+            var availableApprover2s = await _requestService.GetAvailableApprover2ListAsync();
+            model.AvailableApprover1s = availableApprover2s
+                .Where(a => a.EmployeeId != employeeId)
+                .Select(a => new SelectListItem(a.FullName, a.EmployeeId.ToString()))
+                .ToList();
         }
 
         // Approver 2 dropdown (from admin-configured IsApprover list)

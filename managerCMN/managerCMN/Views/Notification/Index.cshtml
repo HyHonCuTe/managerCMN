@@ -14,18 +14,31 @@
 <div class="list-group">
     @foreach (var n in Model)
     {
-    <div class="list-group-item @(n.IsRead ? "" : "list-group-item-light border-start border-primary border-3")">
+    <div class="list-group-item @(n.IsRead ? "bg-light" : "border-start border-primary border-4 bg-white")">
         <div class="d-flex justify-content-between align-items-start">
-            <div>
-                <h6 class="mb-1">@n.Title</h6>
-                <p class="mb-1 text-muted">@n.Message</p>
-                <small class="text-muted">@n.CreatedDate.ToString("dd/MM/yyyy HH:mm")</small>
+            <div class="flex-grow-1">
+                @if (!n.IsRead)
+                {
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    <span class="badge bg-primary rounded-pill"><i class="bi bi-bell-fill"></i> Mới</span>
+                    <h6 class="mb-0 fw-bold">@n.Title</h6>
+                </div>
+                <p class="mb-1">@n.Message</p>
+                }
+                else
+                {
+                <h6 class="mb-1 text-muted">@n.Title</h6>
+                <p class="mb-1 text-muted small">@n.Message</p>
+                }
+                <small class="text-muted"><i class="bi bi-clock"></i> @n.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</small>
             </div>
             @if (!n.IsRead)
             {
             <form asp-action="MarkAsRead" asp-route-id="@n.NotificationId" method="post">
                 @Html.AntiForgeryToken()
-                <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-check"></i></button>
+                <button type="submit" class="btn btn-sm btn-outline-primary" title="Đánh dấu đã đọc">
+                    <i class="bi bi-check"></i>
+                </button>
             </form>
             }
         </div>

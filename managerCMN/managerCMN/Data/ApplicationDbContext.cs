@@ -12,6 +12,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
     // HR
     public DbSet<Employee> Employees => Set<Employee>();
@@ -206,11 +208,126 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<SystemLog>()
             .HasIndex(sl => sl.CreatedDate);
 
+        // Notification indexes for query performance
+        modelBuilder.Entity<Notification>()
+            .HasIndex(n => new { n.UserId, n.CreatedDate });
+
+        modelBuilder.Entity<Notification>()
+            .HasIndex(n => new { n.UserId, n.IsRead, n.CreatedDate });
+
+        // Permission
+        modelBuilder.Entity<Permission>()
+            .HasIndex(p => p.PermissionKey)
+            .IsUnique();
+
+        // RolePermission
+        modelBuilder.Entity<RolePermission>()
+            .HasIndex(rp => new { rp.RoleId, rp.PermissionId })
+            .IsUnique();
+
+        modelBuilder.Entity<RolePermission>()
+            .HasOne(rp => rp.Role)
+            .WithMany(r => r.RolePermissions)
+            .HasForeignKey(rp => rp.RoleId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<RolePermission>()
+            .HasOne(rp => rp.Permission)
+            .WithMany(p => p.RolePermissions)
+            .HasForeignKey(rp => rp.PermissionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Seed default roles
         modelBuilder.Entity<Role>().HasData(
             new Role { RoleId = 1, RoleName = "Admin", Description = "System administrator" },
             new Role { RoleId = 2, RoleName = "Manager", Description = "Department manager" },
             new Role { RoleId = 3, RoleName = "User", Description = "Regular employee" }
+        );
+
+        // Seed permissions
+        modelBuilder.Entity<Permission>().HasData(
+            // Employee Management (1-5)
+            new Permission { PermissionId = 1, PermissionKey = "Employee.View", PermissionName = "Xem danh sách nhân viên", Category = "Employee", Description = "Xem thông tin nhân viên", SortOrder = 1, IsActive = true },
+            new Permission { PermissionId = 2, PermissionKey = "Employee.Create", PermissionName = "Tạo nhân viên mới", Category = "Employee", Description = "Thêm nhân viên mới vào hệ thống", SortOrder = 2, IsActive = true },
+            new Permission { PermissionId = 3, PermissionKey = "Employee.Edit", PermissionName = "Sửa thông tin nhân viên", Category = "Employee", Description = "Chỉnh sửa thông tin nhân viên", SortOrder = 3, IsActive = true },
+            new Permission { PermissionId = 4, PermissionKey = "Employee.Delete", PermissionName = "Xóa nhân viên", Category = "Employee", Description = "Xóa nhân viên khỏi hệ thống", SortOrder = 4, IsActive = true },
+            new Permission { PermissionId = 5, PermissionKey = "Employee.ViewSalary", PermissionName = "Xem lương nhân viên", Category = "Employee", Description = "Xem thông tin lương và hợp đồng nhân viên", SortOrder = 5, IsActive = true },
+
+            // Request Management (6-9)
+            new Permission { PermissionId = 6, PermissionKey = "Request.View", PermissionName = "Xem đơn từ", Category = "Request", Description = "Xem danh sách đơn từ", SortOrder = 1, IsActive = true },
+            new Permission { PermissionId = 7, PermissionKey = "Request.Create", PermissionName = "Tạo đơn từ", Category = "Request", Description = "Tạo đơn từ mới", SortOrder = 2, IsActive = true },
+            new Permission { PermissionId = 8, PermissionKey = "Request.Approve", PermissionName = "Duyệt đơn từ", Category = "Request", Description = "Duyệt hoặc từ chối đơn từ", SortOrder = 3, IsActive = true },
+            new Permission { PermissionId = 9, PermissionKey = "Request.Delete", PermissionName = "Xóa đơn từ", Category = "Request", Description = "Xóa đơn từ khỏi hệ thống", SortOrder = 4, IsActive = true },
+
+            // Attendance Management (10-12)
+            new Permission { PermissionId = 10, PermissionKey = "Attendance.View", PermissionName = "Xem chấm công", Category = "Attendance", Description = "Xem dữ liệu chấm công", SortOrder = 1, IsActive = true },
+            new Permission { PermissionId = 11, PermissionKey = "Attendance.Edit", PermissionName = "Sửa chấm công", Category = "Attendance", Description = "Chỉnh sửa dữ liệu chấm công", SortOrder = 2, IsActive = true },
+            new Permission { PermissionId = 12, PermissionKey = "Attendance.Export", PermissionName = "Xuất báo cáo chấm công", Category = "Attendance", Description = "Xuất file báo cáo chấm công", SortOrder = 3, IsActive = true },
+
+            // Asset Management (13-17)
+            new Permission { PermissionId = 13, PermissionKey = "Asset.View", PermissionName = "Xem tài sản", Category = "Asset", Description = "Xem danh sách tài sản", SortOrder = 1, IsActive = true },
+            new Permission { PermissionId = 14, PermissionKey = "Asset.Create", PermissionName = "Tạo tài sản", Category = "Asset", Description = "Thêm tài sản mới", SortOrder = 2, IsActive = true },
+            new Permission { PermissionId = 15, PermissionKey = "Asset.Edit", PermissionName = "Sửa tài sản", Category = "Asset", Description = "Chỉnh sửa thông tin tài sản", SortOrder = 3, IsActive = true },
+            new Permission { PermissionId = 16, PermissionKey = "Asset.Delete", PermissionName = "Xóa tài sản", Category = "Asset", Description = "Xóa tài sản khỏi hệ thống", SortOrder = 4, IsActive = true },
+            new Permission { PermissionId = 17, PermissionKey = "Asset.Assign", PermissionName = "Gán tài sản", Category = "Asset", Description = "Gán tài sản cho nhân viên", SortOrder = 5, IsActive = true },
+
+            // Settings Management (18-21)
+            new Permission { PermissionId = 18, PermissionKey = "Settings.ViewDepartments", PermissionName = "Xem cài đặt danh mục", Category = "Settings", Description = "Xem phòng ban, chức vụ, vị trí", SortOrder = 1, IsActive = true },
+            new Permission { PermissionId = 19, PermissionKey = "Settings.ManageDepartments", PermissionName = "Quản lý danh mục", Category = "Settings", Description = "Thêm, sửa, xóa phòng ban và danh mục", SortOrder = 2, IsActive = true },
+            new Permission { PermissionId = 20, PermissionKey = "Settings.ViewPermissions", PermissionName = "Xem phân quyền", Category = "Settings", Description = "Xem phân quyền hệ thống", SortOrder = 3, IsActive = true },
+            new Permission { PermissionId = 21, PermissionKey = "Settings.ManagePermissions", PermissionName = "Quản lý phân quyền", Category = "Settings", Description = "Thêm, sửa, xóa quyền và phân quyền cho vai trò", SortOrder = 4, IsActive = true },
+
+            // System Management (22-25)
+            new Permission { PermissionId = 22, PermissionKey = "System.ViewLogs", PermissionName = "Xem system logs", Category = "System", Description = "Xem nhật ký hệ thống", SortOrder = 1, IsActive = true },
+            new Permission { PermissionId = 23, PermissionKey = "System.ManageUsers", PermissionName = "Quản lý người dùng", Category = "System", Description = "Quản lý tài khoản người dùng", SortOrder = 2, IsActive = true },
+            new Permission { PermissionId = 24, PermissionKey = "System.ViewReports", PermissionName = "Xem báo cáo", Category = "System", Description = "Xem các báo cáo hệ thống", SortOrder = 3, IsActive = true },
+            new Permission { PermissionId = 25, PermissionKey = "System.ALL", PermissionName = "⭐ TOÀN QUYỀN HỆ THỐNG", Category = "System", Description = "Quyền cao nhất - Được làm mọi thứ trong hệ thống", SortOrder = 99, IsActive = true }
+        );
+
+        // Seed default role permissions
+        modelBuilder.Entity<RolePermission>().HasData(
+            // Admin role (RoleId = 1) - All permissions EXCEPT System.ALL
+            new RolePermission { RolePermissionId = 1, RoleId = 1, PermissionId = 1, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 2, RoleId = 1, PermissionId = 2, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 3, RoleId = 1, PermissionId = 3, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 4, RoleId = 1, PermissionId = 4, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 5, RoleId = 1, PermissionId = 5, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 6, RoleId = 1, PermissionId = 6, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 7, RoleId = 1, PermissionId = 7, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 8, RoleId = 1, PermissionId = 8, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 9, RoleId = 1, PermissionId = 9, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 10, RoleId = 1, PermissionId = 10, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 11, RoleId = 1, PermissionId = 11, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 12, RoleId = 1, PermissionId = 12, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 13, RoleId = 1, PermissionId = 13, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 14, RoleId = 1, PermissionId = 14, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 15, RoleId = 1, PermissionId = 15, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 16, RoleId = 1, PermissionId = 16, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 17, RoleId = 1, PermissionId = 17, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 18, RoleId = 1, PermissionId = 18, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 19, RoleId = 1, PermissionId = 19, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 20, RoleId = 1, PermissionId = 20, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 21, RoleId = 1, PermissionId = 21, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 22, RoleId = 1, PermissionId = 22, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 23, RoleId = 1, PermissionId = 23, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 24, RoleId = 1, PermissionId = 24, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+
+            // Manager role (RoleId = 2) - Employee.*, Request.*, Attendance.*, Asset.View
+            new RolePermission { RolePermissionId = 25, RoleId = 2, PermissionId = 1, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Employee.View
+            new RolePermission { RolePermissionId = 26, RoleId = 2, PermissionId = 2, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Employee.Create
+            new RolePermission { RolePermissionId = 27, RoleId = 2, PermissionId = 3, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Employee.Edit
+            new RolePermission { RolePermissionId = 28, RoleId = 2, PermissionId = 6, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Request.View
+            new RolePermission { RolePermissionId = 29, RoleId = 2, PermissionId = 7, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Request.Create
+            new RolePermission { RolePermissionId = 30, RoleId = 2, PermissionId = 8, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Request.Approve
+            new RolePermission { RolePermissionId = 31, RoleId = 2, PermissionId = 10, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Attendance.View
+            new RolePermission { RolePermissionId = 32, RoleId = 2, PermissionId = 11, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Attendance.Edit
+            new RolePermission { RolePermissionId = 33, RoleId = 2, PermissionId = 12, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Attendance.Export
+            new RolePermission { RolePermissionId = 34, RoleId = 2, PermissionId = 13, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Asset.View
+
+            // User role (RoleId = 3) - Basic permissions
+            new RolePermission { RolePermissionId = 35, RoleId = 3, PermissionId = 6, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Request.View
+            new RolePermission { RolePermissionId = 36, RoleId = 3, PermissionId = 7, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Request.Create
+            new RolePermission { RolePermissionId = 37, RoleId = 3, PermissionId = 10, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) } // Attendance.View
         );
 
         // Seed job titles (Chức vụ)

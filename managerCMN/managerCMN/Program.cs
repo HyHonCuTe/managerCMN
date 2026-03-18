@@ -2,7 +2,9 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using managerCMN.Authorization;
 using managerCMN.Data;
 using managerCMN.Filters;
 using managerCMN.Repositories.Implementations;
@@ -31,6 +33,7 @@ builder.Services.AddScoped<ITicketService, TicketService>();
 builder.Services.AddScoped<ISystemLogService, SystemLogService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 
 // ── Authentication (Google OAuth + Cookie) ──
 
@@ -60,11 +63,21 @@ builder.Services.AddAuthentication(options =>
     options.ClaimActions.MapJsonKey("picture", "picture");
 });
 
+// ── Authorization ──
+builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
+
 builder.Services.AddAuthorization(options =>
 {
+    // Role-based policies (backward compatibility)
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
     options.AddPolicy("ManagerOrAdmin", policy => policy.RequireRole("Admin", "Manager"));
     options.AddPolicy("Authenticated", policy => policy.RequireAuthenticatedUser());
+
+    // Permission-based policies
+    options.AddPolicy("ManagePermissions", policy =>
+        policy.Requirements.Add(new PermissionRequirement("Settings.ManagePermissions")));
+    options.AddPolicy("ViewEmployees", policy =>
+        policy.Requirements.Add(new PermissionRequirement("Employee.View")));
 });
 
 // ── MVC ──

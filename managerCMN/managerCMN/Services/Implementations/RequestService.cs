@@ -279,10 +279,66 @@ public class RequestService : IRequestService
 
     public async Task<int?> GetDefaultApprover1Async(int employeeId)
     {
+        // This method is now deprecated in favor of GetDepartmentManagersAsync
+        // Keep for backward compatibility but always return null to force manual selection
+        return null;
+    }
+
+    public async Task<bool> NeedsManualApprover1SelectionAsync(int employeeId)
+    {
+        // All employees now need manual selection, but the source list differs
+        return true;
+    }
+
+    public async Task<IEnumerable<Employee>> GetDepartmentManagersAsync(int employeeId)
+    {
         var employee = await _unitOfWork.Employees.GetByIdAsync(employeeId);
-        if (employee?.DepartmentId == null) return null;
-        var dept = await _unitOfWork.Departments.GetByIdAsync(employee.DepartmentId.Value);
-        return dept?.ManagerId;
+        if (employee?.DepartmentId == null)
+        {
+            return Enumerable.Empty<Employee>();
+        }
+
+        // Check if employee has low-level JobTitle (Nhân viên = 4, Thực tập = 5)
+        var isLowLevelPosition = IsLowLevelJobTitle(employee.JobTitleId);
+
+        if (isLowLevelPosition)
+        {
+            // Low-level: Get all "Trưởng phòng" (JobTitleId = 2) in the same department
+            var allEmployees = await _unitOfWork.Employees.GetAllAsync();
+
+            var departmentManagers = allEmployees
+                .Where(e => e.DepartmentId == employee.DepartmentId &&
+                           e.EmployeeId != employeeId &&
+                           e.Status == EmployeeStatus.Active &&
+                           e.JobTitleId == 2) // Trưởng phòng
+                .OrderBy(e => e.FullName);
+
+            // If no "Trưởng phòng" found, fallback to Approver2 list (return empty to trigger fallback)
+            if (!departmentManagers.Any())
+            {
+                return Enumerable.Empty<Employee>();
+            }
+
+            return departmentManagers;
+        }
+        else
+        {
+            // High-level (Trưởng phòng, Ban Giám Đốc): Return empty (will use Approver2 list instead)
+            return Enumerable.Empty<Employee>();
+        }
+    }
+
+    /// <summary>
+    /// Check if JobTitle is low-level (Nhân viên = 4, Thực tập = 5)
+    /// </summary>
+    private static bool IsLowLevelJobTitle(int? jobTitleId)
+    {
+        if (!jobTitleId.HasValue) return true; // No JobTitle = low level
+
+        // Low-level JobTitles:
+        // 4 = Nhân viên
+        // 5 = Thực tập
+        return jobTitleId == 4 || jobTitleId == 5;
     }
 
     public async Task<Employee?> GetByEmployeeIdAsync(int employeeId)
@@ -293,6 +349,14 @@ public class RequestService : IRequestService
         var allEmployees = await _unitOfWork.Employees.GetAllAsync();
         return allEmployees
             .Where(e => e.IsApprover && e.Status == EmployeeStatus.Active)
+            .OrderBy(e => e.FullName);
+    }
+
+    public async Task<IEnumerable<Employee>> GetAllDepartmentEmployeesAsync(int departmentId)
+    {
+        var allEmployees = await _unitOfWork.Employees.GetAllAsync();
+        return allEmployees
+            .Where(e => e.DepartmentId == departmentId && e.Status == EmployeeStatus.Active)
             .OrderBy(e => e.FullName);
     }
 

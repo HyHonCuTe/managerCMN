@@ -10,6 +10,9 @@
     var suppliers = ViewBag.Suppliers as IEnumerable<Supplier> ?? Enumerable.Empty<Supplier>();
     var approvers = ViewBag.Approvers as List<Employee> ?? new List<Employee>();
     var nonApprovers = ViewBag.NonApprovers as List<Employee> ?? new List<Employee>();
+    var users = ViewBag.Users as IEnumerable<User> ?? Enumerable.Empty<User>();
+    var roles = ViewBag.Roles as IEnumerable<Role> ?? Enumerable.Empty<Role>();
+    var permissionsByCategory = ViewBag.PermissionsByCategory as Dictionary<string, List<Permission>> ?? new Dictionary<string, List<Permission>>();
 }
 
 <div class="mb-4">
@@ -66,6 +69,11 @@
     <li class="nav-item">
         <a class="nav-link @(activeTab == "approvers" ? "active" : "")" href="?tab=approvers">
             <i class="bi bi-person-check"></i> Người duyệt đơn
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "permissions" ? "active" : "")" href="?tab=permissions">
+            <i class="bi bi-shield-lock"></i> Phân quyền
         </a>
     </li>
 </ul>
@@ -854,4 +862,238 @@
         </div>
     </div>
 </div>
+}
+
+@* ========== PERMISSIONS TAB (Phân quyền) ========== *@
+@if (activeTab == "permissions")
+{
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span class="fw-semibold"><i class="bi bi-people text-primary"></i> Quản lý người dùng</span>
+                <span class="badge bg-primary rounded-pill">@users.Count() người</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>Email</th>
+                                <th>Họ tên</th>
+                                <th>Vai trò</th>
+                                <th class="text-center" style="width:80px">Thao tác</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var user in users)
+                            {
+                            <tr>
+                                <td><small>@user.Email</small></td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center me-2 flex-shrink-0" style="width:32px;height:32px">
+                                            <i class="bi bi-person-fill"></i>
+                                        </div>
+                                        <strong>@(user.Employee?.FullName ?? user.Email)</strong>
+                                    </div>
+                                </td>
+                                <td>
+                                    @foreach (var ur in user.UserRoles)
+                                    {
+                                        <span class="badge bg-@(ur.Role.RoleName == "Admin" ? "danger" : ur.Role.RoleName == "Manager" ? "warning" : "secondary") me-1">@ur.Role.RoleName</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editUserRoleModal-@user.UserId" title="Sửa vai trò">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            }
+                            @if (!users.Any())
+                            {
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">
+                                    <i class="bi bi-people fs-3 d-block mb-1"></i>
+                                    Chưa có người dùng nào.
+                                </td>
+                            </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header bg-white fw-semibold">
+                <i class="bi bi-shield-lock text-primary"></i> Phân quyền cho vai trò
+            </div>
+            <div class="card-body">
+                @Html.AntiForgeryToken()
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Chọn vai trò</label>
+                    <select id="roleSelector" class="form-select">
+                        <option value="">-- Chọn vai trò --</option>
+                        @foreach (var role in roles)
+                        {
+                            <option value="@role.RoleId">@role.RoleName - @role.Description</option>
+                        }
+                    </select>
+                </div>
+
+                <div id="permissionsContainer" style="max-height: 350px; overflow-y: auto;">
+                    @foreach (var category in permissionsByCategory)
+                    {
+                        <div class="mb-3 border-bottom pb-2">
+                            <h6 class="fw-bold text-primary mb-2">
+                                <i class="bi bi-folder"></i> @category.Key
+                            </h6>
+                            @foreach (var perm in category.Value)
+                            {
+                                <div class="form-check ms-3">
+                                    <input type="checkbox"
+                                           class="form-check-input permission-check"
+                                           data-permission-id="@perm.PermissionId"
+                                           id="perm_@perm.PermissionId"
+                                           disabled>
+                                    <label class="form-check-label" for="perm_@perm.PermissionId">
+                                        @perm.PermissionName
+                                        @if (perm.PermissionKey == "System.ALL")
+                                        {
+                                            <span class="badge bg-danger ms-1">TOÀN QUYỀN</span>
+                                        }
+                                    </label>
+                                    @if (!string.IsNullOrEmpty(perm.Description))
+                                    {
+                                        <small class="text-muted d-block ms-4">@perm.Description</small>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <button id="savePermissions" class="btn btn-primary w-100 mt-3" disabled>
+                    <i class="bi bi-check-lg"></i> Lưu phân quyền
+                </button>
+            </div>
+        </div>
+
+        <div class="card border-0 bg-light mt-3">
+            <div class="card-body">
+                <h6 class="fw-semibold"><i class="bi bi-info-circle text-primary"></i> Hướng dẫn</h6>
+                <ul class="small text-muted mb-0">
+                    <li class="mb-1"><strong>Admin</strong>: Quản trị viên hệ thống, có hầu hết các quyền.</li>
+                    <li class="mb-1"><strong>Manager</strong>: Quản lý phòng ban, có quyền duyệt đơn và xem nhân viên.</li>
+                    <li class="mb-1"><strong>User</strong>: Nhân viên thường, có quyền tạo đơn và xem chấm công cơ bản.</li>
+                    <li><strong class="text-danger">TOÀN QUYỀN</strong>: Quyền cao nhất, bypass mọi kiểm tra phân quyền.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* Edit User Role Modals *@
+@foreach (var user in users)
+{
+<div class="modal fade" id="editUserRoleModal-@user.UserId" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="UpdateUserRoles" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="userId" value="@user.UserId" />
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-gear"></i> Sửa vai trò: @(user.Employee?.FullName ?? user.Email)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Chọn vai trò</label>
+                    @foreach (var role in roles)
+                    {
+                        <div class="form-check">
+                            <input type="checkbox" name="roleIds" value="@role.RoleId" class="form-check-input"
+                                   id="role_@(user.UserId)_@role.RoleId"
+                                   @(user.UserRoles.Any(ur => ur.RoleId == role.RoleId) ? "checked" : "") />
+                            <label class="form-check-label" for="role_@(user.UserId)_@role.RoleId">
+                                <span class="badge bg-@(role.RoleName == "Admin" ? "danger" : role.RoleName == "Manager" ? "warning" : "secondary")">@role.RoleName</span>
+                                <small class="text-muted ms-1">@role.Description</small>
+                            </label>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+}
+
+<script>
+$(document).ready(function() {
+    // Load permissions when role is selected
+    $('#roleSelector').change(function() {
+        const roleId = $(this).val();
+        if (!roleId) {
+            $('.permission-check').prop('checked', false).prop('disabled', true);
+            $('#savePermissions').prop('disabled', true);
+            return;
+        }
+
+        // Enable checkboxes and save button
+        $('.permission-check').prop('disabled', false);
+        $('#savePermissions').prop('disabled', false);
+
+        // Get current permissions for role
+        $.get('/Settings/GetRolePermissions?roleId=' + roleId, function(data) {
+            // Uncheck all
+            $('.permission-check').prop('checked', false);
+
+            // Check permissions for this role
+            data.forEach(function(permId) {
+                $('[data-permission-id="' + permId + '"]').prop('checked', true);
+            });
+        });
+    });
+
+    // Save permissions
+    $('#savePermissions').click(function() {
+        const roleId = $('#roleSelector').val();
+        if (!roleId) {
+            alert('Vui lòng chọn vai trò');
+            return;
+        }
+
+        const selectedPermissions = $('.permission-check:checked')
+            .map(function() { return $(this).data('permission-id'); })
+            .get();
+
+        $.ajax({
+            url: '/Settings/UpdateRolePermissions',
+            method: 'POST',
+            data: {
+                roleId: roleId,
+                permissionIds: selectedPermissions,
+                __RequestVerificationToken: $('input[name="__RequestVerificationToken"]').val()
+            },
+            success: function(response) {
+                if (response.success) {
+                    alert(response.message);
+                } else {
+                    alert(response.message || 'Có lỗi xảy ra!');
+                }
+            },
+            error: function() {
+                alert('Có lỗi xảy ra khi lưu phân quyền!');
+            }
+        });
+    });
+});
+</script>
 }

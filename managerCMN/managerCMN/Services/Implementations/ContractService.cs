@@ -1,3 +1,4 @@
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
@@ -47,7 +48,7 @@ public class ContractService : IContractService
 
     public async Task SyncExpiredAsync()
     {
-        var today = DateTime.Today;
+        var today = DateTimeHelper.VietnamToday;
         var expired = await _unitOfWork.Contracts.FindAsync(c =>
             c.Status == ContractStatus.Active &&
             c.EndDate != null &&

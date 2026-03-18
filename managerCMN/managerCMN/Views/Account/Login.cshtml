@@ -29,6 +29,14 @@
             <small>Hệ thống Quản lý Công ty</small>
         </div>
         <div class="login-body text-center">
+            @if (TempData["LoginError"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show text-start" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    @TempData["LoginError"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
             <p class="text-muted mb-4">Đăng nhập bằng tài khoản Google của bạn</p>
             <form asp-controller="Account" asp-action="ExternalLogin" method="post">
                 @Html.AntiForgeryToken()

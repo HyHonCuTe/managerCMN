@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
+using managerCMN.Helpers;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
@@ -49,7 +50,7 @@ public class DashboardController : Controller
 
                 if (employee != null)
                 {
-                    var today = DateTime.Today;
+                    var today = DateTimeHelper.VietnamToday;
                     var currentContract = employee.Contracts
                         .Where(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.Renewed)
                         .OrderByDescending(c => c.StartDate)

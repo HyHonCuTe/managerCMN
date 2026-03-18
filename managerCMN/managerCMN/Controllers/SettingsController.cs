@@ -13,12 +13,18 @@ public class SettingsController : Controller
 {
     private readonly IDepartmentService _departmentService;
     private readonly IEmployeeService _employeeService;
+    private readonly IPermissionService _permissionService;
     private readonly ApplicationDbContext _db;
 
-    public SettingsController(IDepartmentService departmentService, IEmployeeService employeeService, ApplicationDbContext db)
+    public SettingsController(
+        IDepartmentService departmentService,
+        IEmployeeService employeeService,
+        IPermissionService permissionService,
+        ApplicationDbContext db)
     {
         _departmentService = departmentService;
         _employeeService = employeeService;
+        _permissionService = permissionService;
         _db = db;
     }
 
@@ -39,6 +45,20 @@ public class SettingsController : Controller
         ViewBag.Approvers = employees.Where(e => e.IsApprover).OrderBy(e => e.FullName).ToList();
         ViewBag.NonApprovers = employees.Where(e => !e.IsApprover && e.Status == Models.Enums.EmployeeStatus.Active)
             .OrderBy(e => e.FullName).ToList();
+
+        // Permissions tab
+        if (tab == "permissions")
+        {
+            ViewBag.Users = await _db.Users
+                .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
+                .Include(u => u.Employee)
+                .Where(u => u.IsActive)
+                .OrderBy(u => u.Email)
+                .ToListAsync();
+
+            ViewBag.Roles = await _db.Roles.OrderBy(r => r.RoleName).ToListAsync();
+            ViewBag.PermissionsByCategory = await _permissionService.GetAllPermissionsGroupedByCategoryAsync();
+        }
 
         return View();
     }
@@ -349,5 +369,63 @@ public class SettingsController : Controller
         await _db.SaveChangesAsync();
         TempData["Success"] = $"Đã xóa {emp.FullName} khỏi danh sách người duyệt!";
         return RedirectToAction(nameof(Index), new { tab = "approvers" });
+    }
+
+    // === PERMISSIONS (Phân quyền) ===
+
+    [HttpGet]
+    public async Task<IActionResult> GetRolePermissions(int roleId)
+    {
+        var permissions = await _permissionService.GetPermissionsByRoleIdAsync(roleId);
+        return Json(permissions.Select(p => p.PermissionId));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateRolePermissions(int roleId, int[] permissionIds)
+    {
+        try
+        {
+            permissionIds ??= Array.Empty<int>();
+            await _permissionService.UpdateRolePermissionsAsync(roleId, permissionIds);
+            return Json(new { success = true, message = "Đã cập nhật phân quyền thành công!" });
+        }
+        catch (Exception ex)
+        {
+            return Json(new { success = false, message = "Có lỗi xảy ra: " + ex.Message });
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateUserRoles(int userId, int[] roleIds)
+    {
+        try
+        {
+            roleIds ??= Array.Empty<int>();
+
+            // Remove existing user roles
+            var existingUserRoles = await _db.UserRoles.Where(ur => ur.UserId == userId).ToListAsync();
+            _db.UserRoles.RemoveRange(existingUserRoles);
+
+            // Add new user roles
+            var newUserRoles = roleIds.Select(roleId => new UserRole
+            {
+                UserId = userId,
+                RoleId = roleId,
+                AssignedDate = DateTime.UtcNow
+            }).ToList();
+
+            await _db.UserRoles.AddRangeAsync(newUserRoles);
+            await _db.SaveChangesAsync();
+
+            TempData["Success"] = "Đã cập nhật vai trò người dùng thành công!";
+            return RedirectToAction(nameof(Index), new { tab = "permissions" });
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = "Có lỗi xảy ra: " + ex.Message;
+            return RedirectToAction(nameof(Index), new { tab = "permissions" });
+        }
     }
 }

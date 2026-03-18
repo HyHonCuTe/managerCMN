@@ -4,7 +4,7 @@
     ViewData["Title"] = "Bảng chấm công";
     var periodStart = Model.PeriodStart;
     var periodEnd = Model.PeriodEnd;
-    var today = DateOnly.FromDateTime(DateTime.Now);
+    var today = DateOnly.FromDateTime(DateTimeHelper.VietnamNow);
     var prevMonth = Model.Month == 1 ? 12 : Model.Month - 1;
     var prevYear = Model.Month == 1 ? Model.Year - 1 : Model.Year;
     var nextMonth = Model.Month == 12 ? 1 : Model.Month + 1;

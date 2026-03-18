@@ -39,10 +39,12 @@ public class RequestCreateViewModel
 
     public int? Approver1Id { get; set; }
     public string? Approver1Name { get; set; }
+    public bool NeedsManualApprover1Selection { get; set; }
 
     [Required(ErrorMessage = "Vui lòng chọn người duyệt 2")]
     public int Approver2Id { get; set; }
 
+    public List<SelectListItem>? AvailableApprover1s { get; set; }
     public List<SelectListItem>? AvailableApprovers { get; set; }
     public List<SelectListItem>? AvailableReasons { get; set; }
 

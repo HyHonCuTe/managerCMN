@@ -37,7 +37,7 @@
                 @foreach (var log in Model)
                 {
                 <tr>
-                    <td>@log.CreatedDate.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                    <td>@log.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm:ss")</td>
                     <td>@log.UserId</td>
                     <td><span class="badge bg-secondary">@log.Module</span></td>
                     <td>@log.Action</td>

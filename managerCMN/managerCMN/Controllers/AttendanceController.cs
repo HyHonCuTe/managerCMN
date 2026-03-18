@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using managerCMN.Helpers;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
@@ -26,8 +27,8 @@ public class AttendanceController : Controller
 
     public async Task<IActionResult> Index(int? year, int? month, int? employeeId)
     {
-        year ??= DateTime.Now.Year;
-        month ??= DateTime.Now.Month;
+        year ??= DateTimeHelper.VietnamNow.Year;
+        month ??= DateTimeHelper.VietnamNow.Month;
 
         bool isAdminOrManager = User.IsInRole("Admin") || User.IsInRole("Manager");
         int? myEmployeeId = null;
@@ -151,7 +152,7 @@ public class AttendanceController : Controller
             // Calculate summary with 2-shift logic
             decimal totalDeductionMinutes = 0;
             decimal requestWorkDays = 0;
-            var todayDate = DateOnly.FromDateTime(DateTime.Now);
+            var todayDate = DateOnly.FromDateTime(DateTimeHelper.VietnamNow);
 
             foreach (var att in attendances)
             {
@@ -276,8 +277,8 @@ public class AttendanceController : Controller
     [Authorize(Policy = "ManagerOrAdmin")]
     public async Task<IActionResult> LateReport(int? year, int? month)
     {
-        year ??= DateTime.UtcNow.Year;
-        month ??= DateTime.UtcNow.Month;
+        year ??= DateTimeHelper.VietnamNow.Year;
+        month ??= DateTimeHelper.VietnamNow.Month;
 
         var lateRecords = await _attendanceService.GetLateCheckInsAsync(year.Value, month.Value);
 

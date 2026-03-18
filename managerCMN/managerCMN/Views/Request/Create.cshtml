@@ -125,13 +125,15 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label fw-semibold">Người duyệt 1 <span class="text-danger">*</span></label>
+
                     <div class="input-group">
-                        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
-                        <input type="text" class="form-control bg-light" readonly value="@(Model.Approver1Name ?? "Chưa có trưởng phòng")" />
+                        <span class="input-group-text"><i class="bi bi-person-plus"></i></span>
+                        <select asp-for="Approver1Id" asp-items="Model.AvailableApprover1s" class="form-select" id="approver1Select">
+                            <option value="">-- Chọn người duyệt 1 --</option>
+                        </select>
                     </div>
-                    <input asp-for="Approver1Id" type="hidden" />
                     <span asp-validation-for="Approver1Id" class="text-danger small"></span>
-                    <small class="text-muted">Tự động: Trưởng phòng / Quản lý phòng ban</small>
+                    <small class="text-muted">Chọn người duyệt 1 từ danh sách</small>
                 </div>
                 <div class="col-md-6">
                     <label asp-for="Approver2Id" class="form-label fw-semibold">Người duyệt 2 <span class="text-danger">*</span></label>

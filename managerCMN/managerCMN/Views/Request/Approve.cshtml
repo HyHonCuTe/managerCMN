@@ -83,7 +83,7 @@
                 <label class="form-label small mb-1">Loại đơn</label>
                 <select name="type" class="form-select form-select-sm" onchange="this.form.submit()">
                     <option value="">Tất cả</option>
-                    <option value="0" selected="@(Model.FilterType == RequestType.Leave)">Nghỉ</option>
+                    <option value="0" selected="@(Model.FilterType == RequestType.Leave)">Xin nghỉ</option>
                     <option value="1" selected="@(Model.FilterType == RequestType.CheckInOut)">Checkin/out</option>
                     <option value="2" selected="@(Model.FilterType == RequestType.Absence)">Vắng mặt</option>
                     <option value="3" selected="@(Model.FilterType == RequestType.WorkFromHome)">WFH</option>
@@ -144,7 +144,7 @@
                             <td>
                                 @if (req.RequestType == RequestType.Leave)
                                 {
-                                    <span class="badge bg-info">Nghỉ</span>
+                                    <span class="badge bg-info">Xin nghỉ</span>
                                 }
                                 else if (req.RequestType == RequestType.CheckInOut)
                                 {

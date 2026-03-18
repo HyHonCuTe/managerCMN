@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using managerCMN.Models.Entities;
 using managerCMN.Services.Interfaces;
 
 namespace managerCMN.Controllers;
@@ -15,8 +16,20 @@ public class NotificationController : Controller
 
     public async Task<IActionResult> Index()
     {
-        var userId = GetCurrentUserId();
-        var notifications = await _notificationService.GetByUserAsync(userId);
+        IEnumerable<Notification> notifications;
+
+        if (IsPrivileged())
+        {
+            notifications = await _notificationService.GetAllAsync();
+            ViewBag.IsPrivileged = true;
+        }
+        else
+        {
+            var userId = GetCurrentUserId();
+            notifications = await _notificationService.GetByUserAsync(userId);
+            ViewBag.IsPrivileged = false;
+        }
+
         return View(notifications);
     }
 
@@ -32,7 +45,16 @@ public class NotificationController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MarkAllRead()
     {
-        await _notificationService.MarkAllAsReadAsync(GetCurrentUserId());
+        if (IsPrivileged())
+        {
+            // Admin/Manager: Mark ALL notifications as read (system-wide)
+            await _notificationService.MarkAllAsReadAsync();
+        }
+        else
+        {
+            // Regular user: Mark only their notifications as read
+            await _notificationService.MarkAllAsReadAsync(GetCurrentUserId());
+        }
         return RedirectToAction(nameof(Index));
     }
 
@@ -48,4 +70,7 @@ public class NotificationController : Controller
         var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return int.TryParse(claim, out var id) ? id : 0;
     }
+
+    private bool IsPrivileged()
+        => User.IsInRole("Admin") || User.IsInRole("Manager") || User.HasClaim("IsApprover", "true");
 }

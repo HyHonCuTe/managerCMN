@@ -28,7 +28,7 @@
                 <div class="col-md-4">
                     <label asp-for="RequestType" class="form-label fw-semibold">Loại đơn <span class="text-danger">*</span></label>
                     <select asp-for="RequestType" class="form-select" id="requestType">
-                        <option value="0">Nghỉ</option>
+                        <option value="0">Xin nghỉ</option>
                         <option value="1">Checkin/out</option>
                         <option value="2">Vắng mặt</option>
                         <option value="3">Làm ở nhà (WFH)</option>
@@ -111,6 +111,20 @@
                     <div class="form-control bg-light d-flex align-items-center" id="countsAsWorkDisplay">
                         <i class="bi bi-check-circle text-success me-2"></i> Tính công
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Card 3.5: Thông tin số dư phép (Only for Leave Request) *@
+    <div class="card mb-3" id="leaveBalanceCard" style="display: none;">
+        <div class="card-header bg-light fw-semibold">
+            <i class="bi bi-calendar-check text-info"></i> Thông tin số dư phép
+        </div>
+        <div class="card-body">
+            <div id="balanceInfo">
+                <div class="text-center text-muted">
+                    <i class="bi bi-hourglass-split"></i> Chọn ngày để kiểm tra số dư phép
                 </div>
             </div>
         </div>
@@ -228,7 +242,57 @@
                 totalDaysHidden.value = diff;
                 // When same day, hide end half-day
                 halfDayEndWrap.style.display = (s === e) ? 'none' : '';
+
+                // Check leave balance after calculating days
+                checkLeaveBalance();
             }
+        }
+
+        async function checkLeaveBalance() {
+            // Only check for Leave requests (RequestType = 0)
+            if (requestTypeSelect.value !== '0') {
+                document.getElementById('leaveBalanceCard').style.display = 'none';
+                return;
+            }
+
+            const startDateValue = startDate.value;
+            const endDateValue = endDate.value;
+
+            if (!startDateValue || !endDateValue) {
+                document.getElementById('leaveBalanceCard').style.display = 'none';
+                return;
+            }
+
+            // Show the balance card for Leave requests
+            document.getElementById('leaveBalanceCard').style.display = 'block';
+
+            const isHalfDayStart = parseInt(halfDayStartOpt.value) > 0;
+            const isHalfDayEnd = parseInt(halfDayEndOpt.value) > 0;
+
+            try {
+                const response = await fetch(`/Request/GetLeaveBalance?startDate=${startDateValue}&endDate=${endDateValue}&isHalfDayStart=${isHalfDayStart}&isHalfDayEnd=${isHalfDayEnd}`);
+                const data = await response.json();
+                updateBalanceDisplay(data);
+            } catch (error) {
+                console.error('Error checking leave balance:', error);
+                updateBalanceDisplay({
+                    message: 'Không thể kiểm tra số dư phép. Vui lòng thử lại.',
+                    hasSufficientBalance: false
+                });
+            }
+        }
+
+        function updateBalanceDisplay(balanceData) {
+            const balanceInfo = document.getElementById('balanceInfo');
+            const alertClass = balanceData.hasSufficientBalance ? 'alert-success' : 'alert-warning';
+            const iconClass = balanceData.hasSufficientBalance ? 'bi-check-circle' : 'bi-exclamation-triangle';
+
+            balanceInfo.innerHTML = `
+                <div class="alert ${alertClass} mb-0">
+                    <i class="bi ${iconClass} me-2"></i>
+                    ${balanceData.message}
+                </div>
+            `;
         }
 
         startDate.addEventListener('change', calcDays);
@@ -264,6 +328,7 @@
             var type = parseInt(this.value);
             loadReasons(type);
             calcDays();
+            checkLeaveBalance(); // Check balance when request type changes
         });
 
         leaveReasonSelect.addEventListener('change', function() {

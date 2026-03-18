@@ -88,25 +88,11 @@ public class LeaveService : ILeaveService
         // Only override PayType if not already set to Unpaid (from CountsAsWork=false)
         if (request.PayType != LeavePayType.Unpaid)
             request.PayType = availableLeave >= request.TotalDays ? LeavePayType.Paid : LeavePayType.Unpaid;
+
+        // Initialize deduction tracking - deduction will be handled by caller if needed
         request.IsLeaveDeducted = false;
         request.DeductedFromCarryForward = 0m;
         request.DeductedFromCurrentYear = 0m;
-
-        if (request.PayType == LeavePayType.Paid)
-        {
-            var carryForwardUsed = Math.Min(carryForwardRemaining, request.TotalDays);
-            var currentYearUsed = request.TotalDays - carryForwardUsed;
-
-            balance.CarryForward -= carryForwardUsed;
-            balance.UsedLeave += currentYearUsed;
-            UpdateRemainingLeave(balance);
-
-            request.IsLeaveDeducted = true;
-            request.DeductedFromCarryForward = carryForwardUsed;
-            request.DeductedFromCurrentYear = currentYearUsed;
-
-            _unitOfWork.LeaveBalances.Update(balance);
-        }
 
         await _unitOfWork.LeaveRequests.AddAsync(request);
         await _unitOfWork.SaveChangesAsync();
@@ -158,6 +144,44 @@ public class LeaveService : ILeaveService
 
         _unitOfWork.LeaveRequests.Update(request);
         await _unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task<bool> DeductLeaveForApprovedRequestAsync(int requestId)
+    {
+        var request = await _unitOfWork.LeaveRequests.GetByIdAsync(requestId);
+        if (request == null || request.IsLeaveDeducted || request.PayType != LeavePayType.Paid)
+            return false;
+
+        var balance = await EnsureBalanceForYearAsync(request.EmployeeId, request.StartDate.Year, request.StartDate);
+        var currentYearRemaining = Math.Max(balance.TotalLeave - balance.UsedLeave, 0m);
+        var carryForwardRemaining = IsCarryForwardWindowOpen(request.StartDate) ? balance.CarryForward : 0m;
+        var availableLeave = currentYearRemaining + carryForwardRemaining;
+
+        if (availableLeave < request.TotalDays)
+        {
+            // Insufficient balance at approval time - convert to unpaid
+            request.PayType = LeavePayType.Unpaid;
+            _unitOfWork.LeaveRequests.Update(request);
+            await _unitOfWork.SaveChangesAsync();
+            return false;
+        }
+
+        // Apply actual deduction
+        var carryForwardUsed = Math.Min(carryForwardRemaining, request.TotalDays);
+        var currentYearUsed = request.TotalDays - carryForwardUsed;
+
+        balance.CarryForward -= carryForwardUsed;
+        balance.UsedLeave += currentYearUsed;
+        UpdateRemainingLeave(balance);
+
+        request.IsLeaveDeducted = true;
+        request.DeductedFromCarryForward = carryForwardUsed;
+        request.DeductedFromCurrentYear = currentYearUsed;
+
+        _unitOfWork.LeaveBalances.Update(balance);
+        _unitOfWork.LeaveRequests.Update(request);
+        await _unitOfWork.SaveChangesAsync();
+        return true;
     }
 
     public async Task AdjustBalanceAsync(int employeeId, int year, decimal currentYearAdjustment, decimal carryForwardAdjustment)

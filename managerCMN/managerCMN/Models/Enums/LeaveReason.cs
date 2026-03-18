@@ -2,7 +2,6 @@ namespace managerCMN.Models.Enums;
 
 public enum LeaveReason
 {
-    // ── Nghỉ phép (RequestType.Leave) ──
     PaidLeave = 0,           // Nghỉ tính phép → Tính công
     UnpaidLeave = 1,         // Nghỉ không phép → Không tính công
     SickLeaveWithCert = 2,   // Nghỉ ốm có giấy → Tính công

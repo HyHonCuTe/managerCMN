@@ -84,7 +84,7 @@
     </li>
     <li class="nav-item">
         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabLeave" type="button">
-            <i class="bi bi-calendar-check me-1"></i> Nghỉ phép <span class="badge bg-info ms-1">@allRequests.Count(r => r.RequestType == RequestType.Leave)</span>
+            <i class="bi bi-calendar-check me-1"></i> Xin nghỉ <span class="badge bg-info ms-1">@allRequests.Count(r => r.RequestType == RequestType.Leave)</span>
         </button>
     </li>
     <li class="nav-item">
@@ -207,7 +207,7 @@
 
     IHtmlContent RenderTypeBadge(RequestType type) => type switch
     {
-        RequestType.Leave => Html.Raw("<span class='badge bg-info'><i class='bi bi-calendar-check'></i> Nghỉ phép</span>"),
+        RequestType.Leave => Html.Raw("<span class='badge bg-info'><i class='bi bi-calendar-check'></i> Xin nghỉ</span>"),
         RequestType.CheckInOut => Html.Raw("<span class='badge bg-primary'><i class='bi bi-clock'></i> Checkin/out</span>"),
         RequestType.Absence => Html.Raw("<span class='badge bg-warning text-dark'><i class='bi bi-person-dash'></i> Vắng mặt</span>"),
         RequestType.WorkFromHome => Html.Raw("<span class='badge bg-success'><i class='bi bi-house'></i> WFH</span>"),

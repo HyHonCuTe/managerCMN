@@ -73,7 +73,7 @@ public class RequestService : IRequestService
             Status = ApprovalStatus.Pending
         });
 
-        // If Leave type with paid leave, create LeaveRequest for balance tracking
+        // If Leave type with paid leave, create LeaveRequest and deduct leave immediately
         if (request.RequestType == RequestType.Leave)
         {
             var leaveRequest = new LeaveRequest
@@ -86,6 +86,16 @@ public class RequestService : IRequestService
                 PayType = request.CountsAsWork ? LeavePayType.Paid : LeavePayType.Unpaid
             };
             await _leaveService.CreateRequestAsync(leaveRequest);
+
+            // Deduct leave immediately for paid leave requests
+            if (leaveRequest.PayType == LeavePayType.Paid)
+            {
+                var deductionSuccess = await _leaveService.DeductLeaveForApprovedRequestAsync(leaveRequest.RequestId);
+                if (!deductionSuccess)
+                {
+                    throw new InvalidOperationException("Không thể trừ phép - số dư không đủ hoặc có lỗi xảy ra.");
+                }
+            }
         }
 
         await _unitOfWork.SaveChangesAsync();
@@ -124,6 +134,7 @@ public class RequestService : IRequestService
         if (allApproved)
         {
             request.Status = RequestStatus.FullyApproved;
+            // Note: Leave deduction is already handled at request creation for paid leave
         }
         else if (approval.ApproverOrder == 1)
         {
@@ -165,11 +176,12 @@ public class RequestService : IRequestService
         // If Leave type, reverse deduction
         if (request.RequestType == RequestType.Leave)
         {
+            var startDate = request.StartTime.Date;
+            var endDate = request.EndTime.Date;
             var leaveRequests = await _unitOfWork.LeaveRequests
                 .FindAsync(lr => lr.EmployeeId == request.EmployeeId
-                              && lr.StartDate == request.StartTime.Date
-                              && lr.EndDate == request.EndTime.Date
-                              && lr.Status != RequestStatus.Rejected);
+                              && lr.StartDate.Date == startDate
+                              && lr.EndDate.Date == endDate);
             var leaveReq = leaveRequests.FirstOrDefault();
             if (leaveReq != null)
             {
@@ -203,6 +215,9 @@ public class RequestService : IRequestService
             _unitOfWork.RequestApprovals.Update(a);
         }
         request.Status = RequestStatus.FullyApproved;
+
+        // Note: Leave deduction is already handled at request creation for paid leave
+
         _unitOfWork.Requests.Update(request);
         await _unitOfWork.SaveChangesAsync();
 
@@ -230,11 +245,12 @@ public class RequestService : IRequestService
 
         if (request.RequestType == RequestType.Leave)
         {
+            var startDate = request.StartTime.Date;
+            var endDate = request.EndTime.Date;
             var leaveRequests = await _unitOfWork.LeaveRequests
                 .FindAsync(lr => lr.EmployeeId == request.EmployeeId
-                              && lr.StartDate == request.StartTime.Date
-                              && lr.EndDate == request.EndTime.Date
-                              && lr.Status != RequestStatus.Rejected);
+                              && lr.StartDate.Date == startDate
+                              && lr.EndDate.Date == endDate);
             var leaveReq = leaveRequests.FirstOrDefault();
             if (leaveReq != null)
                 await _leaveService.RejectRequestAsync(leaveReq.RequestId, adminEmployeeId);

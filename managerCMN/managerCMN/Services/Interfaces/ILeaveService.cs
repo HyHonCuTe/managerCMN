@@ -14,6 +14,7 @@ public interface ILeaveService
     Task CreateRequestAsync(LeaveRequest request);
     Task ApproveRequestAsync(int requestId, int approverId);
     Task RejectRequestAsync(int requestId, int approverId);
+    Task<bool> DeductLeaveForApprovedRequestAsync(int requestId);
     Task AdjustBalanceAsync(int employeeId, int year, decimal currentYearAdjustment, decimal carryForwardAdjustment);
     Task AllocateQuarterlyLeaveAsync();
     Task ProcessCarryForwardAsync();

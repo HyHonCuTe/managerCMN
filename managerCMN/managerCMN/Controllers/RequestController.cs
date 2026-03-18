@@ -69,6 +69,25 @@ public class RequestController : Controller
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
 
+        // Add leave balance validation for paid leave requests
+        if (model.RequestType == RequestType.Leave && model.LeaveReason.HasValue)
+        {
+            var isUnpaid = !LeaveReasonHelper.GetCountsAsWork(model.LeaveReason.Value);
+            if (!isUnpaid) // Only validate paid leave
+            {
+                // Calculate total days for validation
+                var totalDays = _requestService.CalculateTotalDays(model.StartTime, model.EndTime,
+                    model.HalfDayStartOption > 0, model.HalfDayEndOption > 0);
+
+                var summary = await _leaveService.GetBalanceSummaryAsync(employeeId, model.StartTime);
+                if (summary.TotalRemaining < totalDays)
+                {
+                    ModelState.AddModelError("LeaveReason",
+                        $"Không đủ số dư phép. Còn lại {summary.TotalRemaining} ngày, cần {totalDays} ngày.");
+                }
+            }
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateCreateViewModel(model, employeeId);
@@ -432,6 +451,26 @@ public class RequestController : Controller
                 countsAsWork = r.CountsAsWork
             });
         return Json(reasons);
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetLeaveBalance(DateTime startDate, DateTime endDate, bool isHalfDayStart = false, bool isHalfDayEnd = false)
+    {
+        var employeeId = GetCurrentEmployeeId();
+        var totalDays = _requestService.CalculateTotalDays(startDate, endDate, isHalfDayStart, isHalfDayEnd);
+
+        var summary = await _leaveService.GetBalanceSummaryAsync(employeeId, startDate);
+        var availableLeave = summary.TotalRemaining;
+
+        return Json(new
+        {
+            availableLeave = availableLeave,
+            totalDays = totalDays,
+            hasSufficientBalance = availableLeave >= totalDays,
+            message = availableLeave >= totalDays
+                ? $"Đủ số dư phép ({availableLeave} ngày)"
+                : $"Không đủ số dư phép (còn {availableLeave} ngày, cần {totalDays} ngày)"
+        });
     }
 
     private async Task PopulateCreateViewModel(RequestCreateViewModel model, int employeeId)

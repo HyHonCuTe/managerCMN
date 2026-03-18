@@ -9,6 +9,9 @@ public class NotificationRepository : Repository<Notification>, INotificationRep
 {
     public NotificationRepository(ApplicationDbContext context) : base(context) { }
 
+    public override async Task<IEnumerable<Notification>> GetAllAsync()
+        => await _dbSet.OrderByDescending(n => n.CreatedDate).ToListAsync();
+
     public async Task<IEnumerable<Notification>> GetByUserAsync(int userId)
         => await _dbSet.Where(n => n.UserId == userId)
             .OrderByDescending(n => n.CreatedDate)

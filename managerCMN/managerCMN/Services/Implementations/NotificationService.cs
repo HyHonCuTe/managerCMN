@@ -19,6 +19,9 @@ public class NotificationService : INotificationService
     public async Task<int> GetUnreadCountAsync(int userId)
         => await _unitOfWork.Notifications.GetUnreadCountAsync(userId);
 
+    public async Task<IEnumerable<Notification>> GetAllAsync()
+        => await _unitOfWork.Notifications.GetAllAsync();
+
     public async Task CreateAsync(int userId, string title, string message)
     {
         var notification = new Notification
@@ -47,6 +50,17 @@ public class NotificationService : INotificationService
     {
         var unread = await _unitOfWork.Notifications.GetUnreadByUserAsync(userId);
         foreach (var n in unread)
+        {
+            n.IsRead = true;
+            _unitOfWork.Notifications.Update(n);
+        }
+        await _unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task MarkAllAsReadAsync()
+    {
+        var allUnread = await _unitOfWork.Notifications.FindAsync(n => !n.IsRead);
+        foreach (var n in allUnread)
         {
             n.IsRead = true;
             _unitOfWork.Notifications.Update(n);

@@ -3,11 +3,21 @@
     ViewData["Title"] = "Thông báo";
 }
 
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0"><i class="bi bi-bell"></i> Thông báo</h4>
-    <form asp-action="MarkAllRead" method="post">
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <h4 class="mb-0 d-flex align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-bell"></i> Thông báo</span>
+        @if (ViewBag.IsPrivileged == true)
+        {
+            <span class="badge bg-warning text-dark"><i class="bi bi-shield-check"></i> Chế độ Admin</span>
+        }
+    </h4>
+    <form asp-action="MarkAllRead" method="post" class="flex-shrink-0">
         @Html.AntiForgeryToken()
-        <button type="submit" class="btn btn-outline-primary btn-sm"><i class="bi bi-check-all"></i> Đánh dấu tất cả đã đọc</button>
+        <button type="submit" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-check-all"></i>
+            <span class="d-none d-sm-inline">Đánh dấu tất cả đã đọc</span>
+            <span class="d-sm-none">Đánh dấu tất cả</span>
+        </button>
     </form>
 </div>
 
@@ -29,6 +39,16 @@
                 {
                 <h6 class="mb-1 text-muted">@n.Title</h6>
                 <p class="mb-1 text-muted small">@n.Message</p>
+                }
+                @if (ViewBag.IsPrivileged == true)
+                {
+                <div class="mb-2">
+                    <small class="text-info">
+                        <i class="bi bi-person"></i>
+                        <strong>Người nhận:</strong> @(n.User?.FullName ?? "N/A")
+                        <span class="text-muted">(ID: @n.UserId)</span>
+                    </small>
+                </div>
                 }
                 <small class="text-muted"><i class="bi bi-clock"></i> @n.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</small>
             </div>

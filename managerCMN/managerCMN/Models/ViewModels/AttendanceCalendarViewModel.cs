@@ -16,7 +16,7 @@ public class RequestDayInfo
 
     public string TypeDisplayName => RequestType switch
     {
-        RequestType.Leave => "Nghỉ phép",
+        RequestType.Leave => "Xin nghỉ",
         RequestType.CheckInOut => "Checkin/out",
         RequestType.Absence => "Vắng mặt",
         RequestType.WorkFromHome => "WFH",

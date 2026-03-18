@@ -40,6 +40,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<AssetAssignment> AssetAssignments => Set<AssetAssignment>();
     public DbSet<AssetConfiguration> AssetConfigurations => Set<AssetConfiguration>();
     public DbSet<AssetCategory> AssetCategories => Set<AssetCategory>();
+    public DbSet<AssetLifecycleHistory> AssetLifecycleHistories => Set<AssetLifecycleHistory>();
     public DbSet<Brand> Brands => Set<Brand>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
 
@@ -190,6 +191,27 @@ public class ApplicationDbContext : DbContext
             .HasOne(ac => ac.Asset)
             .WithOne(a => a.Configuration)
             .HasForeignKey<AssetConfiguration>(ac => ac.AssetId);
+
+        // AssetAssignment -> Employee (ApprovedBy)
+        modelBuilder.Entity<AssetAssignment>()
+            .HasOne(aa => aa.ApprovedBy)
+            .WithMany()
+            .HasForeignKey(aa => aa.ApprovedById)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        // AssetLifecycleHistory -> Employee (Employee)
+        modelBuilder.Entity<AssetLifecycleHistory>()
+            .HasOne(alh => alh.Employee)
+            .WithMany()
+            .HasForeignKey(alh => alh.EmployeeId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // AssetLifecycleHistory -> Employee (PerformedBy)
+        modelBuilder.Entity<AssetLifecycleHistory>()
+            .HasOne(alh => alh.PerformedBy)
+            .WithMany()
+            .HasForeignKey(alh => alh.PerformedById)
+            .OnDelete(DeleteBehavior.NoAction);
 
         // Ticket
         modelBuilder.Entity<Ticket>()

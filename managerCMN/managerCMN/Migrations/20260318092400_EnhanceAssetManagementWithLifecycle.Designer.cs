@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using managerCMN.Data;
 
@@ -11,9 +12,11 @@ using managerCMN.Data;
 namespace managerCMN.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260318092400_EnhanceAssetManagementWithLifecycle")]
+    partial class EnhanceAssetManagementWithLifecycle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -83,24 +86,11 @@ namespace managerCMN.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AssignmentId"));
 
-                    b.Property<int?>("ApprovedById")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("ApprovedDate")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("AssetId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("AssignedDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("AssignmentCondition")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<int>("AssignmentReason")
-                        .HasColumnType("int");
 
                     b.Property<string>("Condition")
                         .HasMaxLength(500)
@@ -113,22 +103,13 @@ namespace managerCMN.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("ReturnCondition")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<DateTime?>("ReturnDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<int?>("ReturnReason")
-                        .HasColumnType("int");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.HasKey("AssignmentId");
-
-                    b.HasIndex("ApprovedById");
 
                     b.HasIndex("AssetId");
 
@@ -194,56 +175,6 @@ namespace managerCMN.Migrations
                     b.HasKey("AssetId");
 
                     b.ToTable("AssetConfigurations");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.AssetLifecycleHistory", b =>
-                {
-                    b.Property<int>("HistoryId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HistoryId"));
-
-                    b.Property<int>("AssetId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("EmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("EventDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EventDescription")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<int>("EventType")
-                        .HasColumnType("int");
-
-                    b.Property<string>("NewValue")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Notes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<int?>("PerformedById")
-                        .HasColumnType("int");
-
-                    b.Property<string>("PreviousValue")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.HasKey("HistoryId");
-
-                    b.HasIndex("AssetId");
-
-                    b.HasIndex("EmployeeId");
-
-                    b.HasIndex("PerformedById");
-
-                    b.ToTable("AssetLifecycleHistories");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Attendance", b =>
@@ -1765,11 +1696,6 @@ namespace managerCMN.Migrations
 
             modelBuilder.Entity("managerCMN.Models.Entities.AssetAssignment", b =>
                 {
-                    b.HasOne("managerCMN.Models.Entities.Employee", "ApprovedBy")
-                        .WithMany()
-                        .HasForeignKey("ApprovedById")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("managerCMN.Models.Entities.Asset", "Asset")
                         .WithMany("Assignments")
                         .HasForeignKey("AssetId")
@@ -1781,8 +1707,6 @@ namespace managerCMN.Migrations
                         .HasForeignKey("EmployeeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("ApprovedBy");
 
                     b.Navigation("Asset");
 
@@ -1798,31 +1722,6 @@ namespace managerCMN.Migrations
                         .IsRequired();
 
                     b.Navigation("Asset");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.AssetLifecycleHistory", b =>
-                {
-                    b.HasOne("managerCMN.Models.Entities.Asset", "Asset")
-                        .WithMany()
-                        .HasForeignKey("AssetId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("managerCMN.Models.Entities.Employee", "Employee")
-                        .WithMany()
-                        .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("managerCMN.Models.Entities.Employee", "PerformedBy")
-                        .WithMany()
-                        .HasForeignKey("PerformedById")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Asset");
-
-                    b.Navigation("Employee");
-
-                    b.Navigation("PerformedBy");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Attendance", b =>

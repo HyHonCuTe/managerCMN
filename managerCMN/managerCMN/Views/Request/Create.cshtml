@@ -34,7 +34,14 @@
                         <option value="3">Làm ở nhà (WFH)</option>
                     </select>
                 </div>
-                <div class="col-md-8">
+                <div class="col-md-4" id="checkInOutTypeWrap" style="display: none;">
+                    <label asp-for="CheckInOutType" class="form-label fw-semibold">Loại <span class="text-danger">*</span></label>
+                    <select asp-for="CheckInOutType" class="form-select" id="checkInOutType">
+                        <option value="0">Quên check in</option>
+                        <option value="1">Quên check out</option>
+                    </select>
+                </div>
+                <div class="col-md-8" id="titleWrap">
                     <label asp-for="Title" class="form-label fw-semibold">Tiêu đề <span class="text-danger">*</span></label>
                     <input asp-for="Title" class="form-control" placeholder="" />
                     <span asp-validation-for="Title" class="text-danger small"></span>
@@ -239,6 +246,9 @@
         var totalDaysWrap = document.getElementById('totalDaysWrap');
         var leaveReasonSelect = document.getElementById('leaveReasonSelect');
         var countsAsWorkDisplay = document.getElementById('countsAsWorkDisplay');
+        var checkInOutTypeWrap = document.getElementById('checkInOutTypeWrap');
+        var checkInOutType = document.getElementById('checkInOutType');
+        var titleWrap = document.getElementById('titleWrap');
 
         function updateFormByRequestType(type) {
             // Reset visibility
@@ -248,25 +258,39 @@
             startTimeWrap.style.display = 'none';
             endTimeWrap.style.display = 'none';
             totalDaysWrap.style.display = '';
+            checkInOutTypeWrap.style.display = 'none';
+
+            // Adjust title wrap width
+            titleWrap.className = 'col-md-8';
 
             // RequestType: 0=Leave, 1=CheckInOut, 2=Absence, 3=WorkFromHome
             if (type === 1) {
-                // CheckInOut: Chỉ cần chọn ngày quên check in/out
+                // CheckInOut: Show dropdown to select type, then show appropriate time field
+                checkInOutTypeWrap.style.display = '';
+                titleWrap.className = 'col-md-4';
                 startDateLabel.innerHTML = 'Ngày quên checkin/out <span class="text-danger">*</span>';
                 endDateWrap.style.display = 'none';
                 halfDayStartWrap.style.display = 'none';
                 halfDayEndWrap.style.display = 'none';
                 totalDaysWrap.style.display = 'none';
+
+                // Show time input based on CheckInOutType
+                updateCheckInOutTimeFields();
+
                 // Set end date same as start date
                 endDate.value = startDate.value;
             } else if (type === 2) {
-                // Absence: Vắng ngày nào và từ thời gian nào tới thời gian nào
-                startDateLabel.innerHTML = 'Từ ngày <span class="text-danger">*</span>';
-                endDateLabel.innerHTML = 'Đến ngày <span class="text-danger">*</span>';
+                // Absence: Select 1 day and time range, hide "Tổng ngày"
+                startDateLabel.innerHTML = 'Ngày vắng <span class="text-danger">*</span>';
+                endDateWrap.style.display = 'none';
                 startTimeWrap.style.display = '';
                 endTimeWrap.style.display = '';
                 halfDayStartWrap.style.display = 'none';
                 halfDayEndWrap.style.display = 'none';
+                totalDaysWrap.style.display = 'none'; // Hide "Tổng ngày" for Absence
+
+                // Set end date same as start date
+                endDate.value = startDate.value;
             } else if (type === 3) {
                 // WorkFromHome: Chỉ cần ngày hoặc ca sáng/chiều
                 startDateLabel.innerHTML = 'Ngày làm ở nhà <span class="text-danger">*</span>';
@@ -278,6 +302,19 @@
                 // Leave (default): Full date range with half-day options
                 startDateLabel.innerHTML = 'Từ ngày <span class="text-danger">*</span>';
                 endDateLabel.innerHTML = 'Đến ngày <span class="text-danger">*</span>';
+            }
+        }
+
+        function updateCheckInOutTimeFields() {
+            var checkInOutTypeValue = parseInt(checkInOutType.value);
+            if (checkInOutTypeValue === 0) {
+                // Missed Check In: Show start time only
+                startTimeWrap.style.display = '';
+                endTimeWrap.style.display = 'none';
+            } else {
+                // Missed Check Out: Show end time only
+                startTimeWrap.style.display = 'none';
+                endTimeWrap.style.display = '';
             }
         }
 
@@ -403,6 +440,10 @@
             loadReasons(type);
             calcDays();
             checkLeaveBalance(); // Check balance when request type changes
+        });
+
+        checkInOutType.addEventListener('change', function() {
+            updateCheckInOutTimeFields();
         });
 
         leaveReasonSelect.addEventListener('change', function() {

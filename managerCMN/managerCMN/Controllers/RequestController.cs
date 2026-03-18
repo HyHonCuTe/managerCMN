@@ -108,6 +108,7 @@ public class RequestController : Controller
         {
             EmployeeId = employeeId,
             RequestType = model.RequestType,
+            CheckInOutType = model.CheckInOutType,
             Title = model.Title,
             StartTime = model.StartTime,
             EndTime = model.EndTime,
@@ -359,6 +360,7 @@ public class RequestController : Controller
         {
             RequestId = request.RequestId,
             RequestType = request.RequestType,
+            CheckInOutType = request.CheckInOutType,
             Title = request.Title,
             StartTime = request.StartTime,
             EndTime = request.EndTime,
@@ -409,6 +411,7 @@ public class RequestController : Controller
         model.IsHalfDayEnd = model.HalfDayEndOption > 0;
 
         request.RequestType = model.RequestType;
+        request.CheckInOutType = model.CheckInOutType;
         request.Title = model.Title;
         request.StartTime = model.StartTime;
         request.EndTime = model.EndTime;

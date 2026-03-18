@@ -10,6 +10,9 @@ public class RequestCreateViewModel
 
     public RequestType RequestType { get; set; }
 
+    /// <summary>Type of check in/out issue (only for CheckInOut requests)</summary>
+    public CheckInOutType? CheckInOutType { get; set; }
+
     [Required(ErrorMessage = "Vui lòng nhập tiêu đề")]
     [MaxLength(200)]
     public string Title { get; set; } = string.Empty;

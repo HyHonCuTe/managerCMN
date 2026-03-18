@@ -13,6 +13,9 @@ public class Request
 
     public RequestType RequestType { get; set; }
 
+    /// <summary>Type of check in/out issue (only relevant when RequestType is CheckInOut)</summary>
+    public CheckInOutType? CheckInOutType { get; set; }
+
     [Required, MaxLength(200)]
     public string Title { get; set; } = string.Empty;
 

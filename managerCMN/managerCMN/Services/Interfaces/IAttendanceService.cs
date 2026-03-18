@@ -11,4 +11,5 @@ public interface IAttendanceService
     Task ImportFromExcelAsync(Stream excelStream);
     Task ProcessPunchRecordsAsync(IEnumerable<(string AttendanceCode, DateTime PunchTime)> punchRecords);
     Task<Attendance?> GetByIdAsync(int id);
+    Task<byte[]> ExportToExcelAsync(int year, int month);
 }

@@ -1,0 +1,118 @@
+@model IEnumerable<AttendanceSummaryViewModel>
+@{
+    ViewData["Title"] = "Danh sách chấm công tổng";
+    var year = ViewBag.Year;
+    var month = ViewBag.Month;
+}
+
+<div class="container-fluid mt-4">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h4 class="mb-0"><i class="bi bi-list-check"></i> Danh sách chấm công tổng</h4>
+            <div class="d-flex gap-2">
+                <form method="get" class="d-flex gap-2">
+                    <select name="month" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @for (int i = 1; i <= 12; i++)
+                        {
+                            <option value="@i" selected="@(i == month)">Tháng @i</option>
+                        }
+                    </select>
+                    <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+                        @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++)
+                        {
+                            <option value="@y" selected="@(y == year)">@y</option>
+                        }
+                    </select>
+                </form>
+                <a href="@Url.Action("ExportToExcel", new { year, month })" class="btn btn-success btn-sm">
+                    <i class="bi bi-file-earmark-excel"></i> Xuất Excel
+                </a>
+            </div>
+        </div>
+        <div class="card-body">
+            <table class="table table-bordered table-hover table-sm" id="summaryTable">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Mã NV</th>
+                        <th>Họ tên</th>
+                        <th>Phòng ban</th>
+                        <th>Tổng công</th>
+                        <th>Đơn có phép</th>
+                        <th>Đơn không phép</th>
+                        <th>Số lần đi muộn</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @{
+                        int index = 1;
+                    }
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td class="text-center">@index</td>
+                            <td>@item.EmployeeCode</td>
+                            <td>@item.FullName</td>
+                            <td>@item.DepartmentName</td>
+                            <td class="text-center">
+                                <span class="badge bg-primary">@item.TotalCong</span>
+                            </td>
+                            <td class="text-center">
+                                @if (item.DonCoPhep > 0)
+                                {
+                                    <span class="badge bg-success">@item.DonCoPhep</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (item.DonKhongPhep > 0)
+                                {
+                                    <span class="badge bg-warning">@item.DonKhongPhep</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                @if (item.LateDays > 0)
+                                {
+                                    <span class="badge bg-danger">@item.LateDays</span>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">0</span>
+                                }
+                            </td>
+                            <td class="text-center">
+                                <a href="@Url.Action("Index", new { employeeId = item.EmployeeId, year, month })" 
+                                   class="btn btn-sm btn-outline-primary" title="Xem chi tiết">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        index++;
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            $('#summaryTable').DataTable({
+                "pageLength": 25,
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/vi.json"
+                },
+                "order": [[2, 'asc']] // Sort by name
+            });
+        });
+    </script>
+}

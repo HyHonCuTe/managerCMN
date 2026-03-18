@@ -104,6 +104,28 @@
     </div>
 </div>
 
+@* Bulk Actions Toolbar *@
+<div class="card mb-3" id="bulkActions" style="display: none;">
+    <div class="card-body py-2">
+        <div class="d-flex align-items-center gap-3">
+            <span class="text-muted small">
+                <span id="selectedCount">0</span> đơn đã chọn
+            </span>
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-success" id="bulkApproveBtn">
+                    <i class="bi bi-check-all"></i> Duyệt tất cả
+                </button>
+                <button type="button" class="btn btn-danger" id="bulkRejectBtn">
+                    <i class="bi bi-x-lg"></i> Từ chối tất cả
+                </button>
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="clearSelectionBtn">
+                <i class="bi bi-arrow-counterclockwise"></i> Bỏ chọn
+            </button>
+        </div>
+    </div>
+</div>
+
 @* Requests table *@
 <div class="card">
     <div class="card-body p-0">
@@ -111,6 +133,12 @@
             <table class="table table-hover align-middle mb-0" id="approveTable">
                 <thead class="table-light">
                     <tr>
+                        <th style="width: 50px;">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="selectAll">
+                                <label class="form-check-label" for="selectAll"></label>
+                            </div>
+                        </th>
                         <th style="min-width:160px">Nhân viên</th>
                         <th>Loại</th>
                         <th style="min-width:200px">Tiêu đề</th>
@@ -137,6 +165,15 @@
                         var rowClass = canAct ? "table-warning" : "";
 
                         <tr class="@rowClass">
+                            <td>
+                                @if (canAct)
+                                {
+                                    <div class="form-check">
+                                        <input class="form-check-input request-checkbox" type="checkbox"
+                                               value="@req.RequestId" data-request-title="@req.Title">
+                                    </div>
+                                }
+                            </td>
                             <td>
                                 <div class="fw-semibold">@req.Employee?.FullName</div>
                                 <small class="text-muted">@req.Employee?.EmployeeCode</small>
@@ -250,7 +287,7 @@
                     @if (!requests.Any())
                     {
                         <tr>
-                            <td colspan="10" class="text-center py-5 text-muted">
+                            <td colspan="11" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                 Không có đơn từ nào.
                             </td>
@@ -258,6 +295,72 @@
                     }
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+@* Bulk Approve Modal *@
+<div class="modal fade" id="bulkApproveModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form asp-action="BulkApprove" method="post" id="bulkApproveForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="RequestIds" id="bulkApproveIds" />
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-check-circle"></i> Duyệt nhiều đơn</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-success-subtle border-0 mb-3">
+                        <i class="bi bi-info-circle"></i> Bạn đang duyệt <strong id="bulkApproveCount">0</strong> đơn được chọn
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Danh sách đơn:</label>
+                        <div id="bulkApproveList" class="border rounded p-2 bg-light small" style="max-height: 200px; overflow-y: auto;"></div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Ghi chú (tùy chọn)</label>
+                        <textarea name="Comment" class="form-control" rows="3" placeholder="Nhập ghi chú nếu cần..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-success px-4"><i class="bi bi-check-all"></i> Duyệt tất cả</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@* Bulk Reject Modal *@
+<div class="modal fade" id="bulkRejectModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form asp-action="BulkReject" method="post" id="bulkRejectForm">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="RequestIds" id="bulkRejectIds" />
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="bi bi-x-circle"></i> Từ chối nhiều đơn</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger-subtle border-0 mb-3">
+                        <i class="bi bi-exclamation-triangle"></i> Bạn đang từ chối <strong id="bulkRejectCount">0</strong> đơn được chọn
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Danh sách đơn:</label>
+                        <div id="bulkRejectList" class="border rounded p-2 bg-light small" style="max-height: 200px; overflow-y: auto;"></div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">Lý do từ chối <span class="text-danger">*</span></label>
+                        <textarea name="Comment" class="form-control" rows="3" placeholder="Vui lòng nhập lý do từ chối..." id="bulkRejectComment" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-danger px-4"><i class="bi bi-x-lg"></i> Từ chối tất cả</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -324,6 +427,130 @@
 <script>
     // Use Bootstrap modal events to get data from trigger button
     document.addEventListener('DOMContentLoaded', function() {
+        // Bulk selection functionality
+        const selectAllCheckbox = document.getElementById('selectAll');
+        const requestCheckboxes = document.querySelectorAll('.request-checkbox');
+        const bulkActions = document.getElementById('bulkActions');
+        const selectedCountSpan = document.getElementById('selectedCount');
+        const bulkApproveBtn = document.getElementById('bulkApproveBtn');
+        const bulkRejectBtn = document.getElementById('bulkRejectBtn');
+        const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+
+        function updateBulkActionsVisibility() {
+            const selectedCheckboxes = document.querySelectorAll('.request-checkbox:checked');
+            const count = selectedCheckboxes.length;
+
+            if (count > 0) {
+                bulkActions.style.display = 'block';
+                selectedCountSpan.textContent = count;
+            } else {
+                bulkActions.style.display = 'none';
+            }
+
+            // Update select all checkbox state
+            if (count === 0) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = false;
+            } else if (count === requestCheckboxes.length) {
+                selectAllCheckbox.indeterminate = false;
+                selectAllCheckbox.checked = true;
+            } else {
+                selectAllCheckbox.indeterminate = true;
+            }
+        }
+
+        // Select all checkbox handler
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function() {
+                const isChecked = this.checked;
+                requestCheckboxes.forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                });
+                updateBulkActionsVisibility();
+            });
+        }
+
+        // Individual checkbox handlers
+        requestCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateBulkActionsVisibility);
+        });
+
+        // Clear selection button
+        if (clearSelectionBtn) {
+            clearSelectionBtn.addEventListener('click', function() {
+                requestCheckboxes.forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                updateBulkActionsVisibility();
+            });
+        }
+
+        // Bulk approve button
+        if (bulkApproveBtn) {
+            bulkApproveBtn.addEventListener('click', function() {
+                const selectedCheckboxes = document.querySelectorAll('.request-checkbox:checked');
+                const requestIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+                const requestTitles = Array.from(selectedCheckboxes).map(cb => cb.dataset.requestTitle);
+
+                if (requestIds.length === 0) {
+                    alert('Vui lòng chọn ít nhất một đơn để duyệt.');
+                    return;
+                }
+
+                // Populate bulk approve modal
+                document.getElementById('bulkApproveIds').value = requestIds.join(',');
+                document.getElementById('bulkApproveCount').textContent = requestIds.length;
+
+                const listDiv = document.getElementById('bulkApproveList');
+                listDiv.innerHTML = requestTitles.map(title => `<div><i class="bi bi-check-circle text-success"></i> ${title}</div>`).join('');
+
+                // Show modal
+                new bootstrap.Modal(document.getElementById('bulkApproveModal')).show();
+            });
+        }
+
+        // Bulk reject button
+        if (bulkRejectBtn) {
+            bulkRejectBtn.addEventListener('click', function() {
+                const selectedCheckboxes = document.querySelectorAll('.request-checkbox:checked');
+                const requestIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+                const requestTitles = Array.from(selectedCheckboxes).map(cb => cb.dataset.requestTitle);
+
+                if (requestIds.length === 0) {
+                    alert('Vui lòng chọn ít nhất một đơn để từ chối.');
+                    return;
+                }
+
+                // Populate bulk reject modal
+                document.getElementById('bulkRejectIds').value = requestIds.join(',');
+                document.getElementById('bulkRejectCount').textContent = requestIds.length;
+
+                const listDiv = document.getElementById('bulkRejectList');
+                listDiv.innerHTML = requestTitles.map(title => `<div><i class="bi bi-x-circle text-danger"></i> ${title}</div>`).join('');
+
+                // Clear previous comment
+                const bulkRejectComment = document.getElementById('bulkRejectComment');
+                if (bulkRejectComment) bulkRejectComment.value = '';
+
+                // Show modal
+                new bootstrap.Modal(document.getElementById('bulkRejectModal')).show();
+            });
+        }
+
+        // Bulk reject form validation
+        const bulkRejectForm = document.getElementById('bulkRejectForm');
+        if (bulkRejectForm) {
+            bulkRejectForm.addEventListener('submit', function(e) {
+                const comment = document.getElementById('bulkRejectComment').value;
+                if (!comment || comment.trim() === '') {
+                    e.preventDefault();
+                    alert('Vui lòng nhập lý do từ chối.');
+                    document.getElementById('bulkRejectComment').focus();
+                    return false;
+                }
+            });
+        }
+
         // Approve modal - capture data when modal is shown
         var approveModal = document.getElementById('approveModal');
         if (approveModal) {
@@ -400,7 +627,10 @@
     $(document).ready(function () {
         $('#approveTable').DataTable({
             language: { url: '//cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json' },
-            paging: false, scrollY: '520px', scrollCollapse: true, order: []
+            paging: false, scrollY: '520px', scrollCollapse: true, order: [],
+            columnDefs: [
+                { targets: 0, orderable: false } // Disable sorting on checkbox column
+            ]
         });
     });
 </script>

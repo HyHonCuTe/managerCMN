@@ -44,6 +44,12 @@
         @if (ViewBag.IsAdminOrManager == true)
         {
         <div class="d-flex gap-2">
+            <a asp-action="Summary" asp-route-year="@Model.Year" asp-route-month="@Model.Month" class="btn btn-outline-info btn-sm">
+                <i class="bi bi-list-check"></i> Danh sách tổng
+            </a>
+            <a asp-action="ExportToExcel" asp-route-year="@Model.Year" asp-route-month="@Model.Month" class="btn btn-outline-success btn-sm">
+                <i class="bi bi-file-earmark-excel"></i> Xuất Excel
+            </a>
             <a asp-action="LateReport" class="btn btn-outline-warning btn-sm"><i class="bi bi-exclamation-triangle"></i> DS đi muộn</a>
             <a asp-action="Import" class="btn btn-success btn-sm"><i class="bi bi-upload"></i> Import Excel</a>
         </div>

@@ -306,4 +306,105 @@ public class AttendanceController : Controller
         TempData["Success"] = "Import chấm công thành công!";
         return RedirectToAction(nameof(Index));
     }
+
+    [Authorize(Policy = "ManagerOrAdmin")]
+    public async Task<IActionResult> ExportToExcel(int? year, int? month)
+    {
+        year ??= DateTimeHelper.VietnamNow.Year;
+        month ??= DateTimeHelper.VietnamNow.Month;
+
+        var excelBytes = await _attendanceService.ExportToExcelAsync(year.Value, month.Value);
+        var fileName = $"BangChamCong_{year}_{month:D2}.xlsx";
+        
+        return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
+    }
+
+    [Authorize(Policy = "ManagerOrAdmin")]
+    public async Task<IActionResult> Summary(int? year, int? month)
+    {
+        year ??= DateTimeHelper.VietnamNow.Year;
+        month ??= DateTimeHelper.VietnamNow.Month;
+
+        var employees = await _employeeService.GetAllAsync();
+        var (periodStart, periodEnd) = AttendanceCalendarViewModel.GetPeriodDates(year.Value, month.Value);
+        
+        var summaryList = new List<AttendanceSummaryViewModel>();
+        
+        foreach (var emp in employees.OrderBy(e => e.Department?.DepartmentName).ThenBy(e => e.FullName))
+        {
+            var attendances = await _attendanceService.GetByEmployeeAndDateRangeAsync(emp.EmployeeId, periodStart, periodEnd);
+            var requests = await _requestService.GetByEmployeeAsync(emp.EmployeeId);
+            
+            var activeRequests = requests
+                .Where(r => r.Status != RequestStatus.Rejected && r.Status != RequestStatus.Cancelled)
+                .ToList();
+            
+            // Calculate statistics
+            decimal totalCong = 0;
+            decimal donCoPhep = 0;
+            decimal donKhongPhep = 0;
+            int lateDays = 0;
+            
+            // Count attendance công
+            var morningStart = AttendanceCalendarViewModel.MorningStart;
+            var morningEnd = AttendanceCalendarViewModel.MorningEnd;
+            var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
+            var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
+            
+            foreach (var att in attendances)
+            {
+                if (att.CheckIn.HasValue && att.CheckOut.HasValue)
+                {
+                    bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
+                    bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= afternoonStart;
+                    
+                    if (hasMorning && hasAfternoon)
+                        totalCong += 1m;
+                    else if (hasMorning || hasAfternoon)
+                        totalCong += 0.5m;
+                }
+                else if (att.CheckIn.HasValue)
+                {
+                    totalCong += 0.5m;
+                }
+                
+                if (att.IsLate)
+                    lateDays++;
+            }
+            
+            // Count approved requests
+            foreach (var req in activeRequests)
+            {
+                if (req.Status == RequestStatus.FullyApproved)
+                {
+                    var reqStart = DateOnly.FromDateTime(req.StartTime);
+                    var reqEnd = DateOnly.FromDateTime(req.EndTime);
+                    
+                    if (req.RequestType == RequestType.Leave)
+                    {
+                        if (req.CountsAsWork)
+                            donCoPhep += req.TotalDays;
+                        else
+                            donKhongPhep += req.TotalDays;
+                    }
+                }
+            }
+            
+            summaryList.Add(new AttendanceSummaryViewModel
+            {
+                EmployeeId = emp.EmployeeId,
+                EmployeeCode = emp.EmployeeCode ?? "",
+                FullName = emp.FullName,
+                DepartmentName = emp.Department?.DepartmentName ?? "",
+                TotalCong = totalCong,
+                DonCoPhep = donCoPhep,
+                DonKhongPhep = donKhongPhep,
+                LateDays = lateDays
+            });
+        }
+        
+        ViewBag.Year = year;
+        ViewBag.Month = month;
+        return View(summaryList);
+    }
 }

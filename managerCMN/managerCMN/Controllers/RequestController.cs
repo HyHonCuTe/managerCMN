@@ -249,6 +249,93 @@ public class RequestController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkApprove(string requestIds, string comment)
+    {
+        if (!IsPrivileged()) return Forbid();
+        if (string.IsNullOrEmpty(requestIds))
+        {
+            TempData["Error"] = "Không có đơn nào được chọn.";
+            return RedirectToAction(nameof(Approve));
+        }
+
+        var employeeId = GetCurrentEmployeeId();
+        var ids = requestIds.Split(',').Where(x => int.TryParse(x, out _)).Select(int.Parse).ToList();
+
+        int successCount = 0;
+        int errorCount = 0;
+
+        foreach (var id in ids)
+        {
+            try
+            {
+                if (User.IsInRole("Admin") || User.IsInRole("Manager"))
+                    await _requestService.ForceApproveAsync(id, employeeId, comment);
+                else
+                    await _requestService.ApproveAsync(id, employeeId, comment);
+                successCount++;
+            }
+            catch
+            {
+                errorCount++;
+            }
+        }
+
+        if (successCount > 0)
+            TempData["Success"] = $"Đã duyệt thành công {successCount} đơn!";
+        if (errorCount > 0)
+            TempData["Warning"] = $"Có {errorCount} đơn không thể duyệt.";
+
+        return RedirectToAction(nameof(Approve));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> BulkReject(string requestIds, string comment)
+    {
+        if (!IsPrivileged()) return Forbid();
+        if (string.IsNullOrEmpty(requestIds))
+        {
+            TempData["Error"] = "Không có đơn nào được chọn.";
+            return RedirectToAction(nameof(Approve));
+        }
+        if (string.IsNullOrEmpty(comment))
+        {
+            TempData["Error"] = "Vui lòng nhập lý do từ chối.";
+            return RedirectToAction(nameof(Approve));
+        }
+
+        var employeeId = GetCurrentEmployeeId();
+        var ids = requestIds.Split(',').Where(x => int.TryParse(x, out _)).Select(int.Parse).ToList();
+
+        int successCount = 0;
+        int errorCount = 0;
+
+        foreach (var id in ids)
+        {
+            try
+            {
+                if (User.IsInRole("Admin") || User.IsInRole("Manager"))
+                    await _requestService.ForceRejectAsync(id, employeeId, comment);
+                else
+                    await _requestService.RejectAsync(id, employeeId, comment);
+                successCount++;
+            }
+            catch
+            {
+                errorCount++;
+            }
+        }
+
+        if (successCount > 0)
+            TempData["Success"] = $"Đã từ chối thành công {successCount} đơn!";
+        if (errorCount > 0)
+            TempData["Warning"] = $"Có {errorCount} đơn không thể từ chối.";
+
+        return RedirectToAction(nameof(Approve));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Cancel(int id)
     {
         var employeeId = GetCurrentEmployeeId();

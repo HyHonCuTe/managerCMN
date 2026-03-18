@@ -51,8 +51,12 @@
         <div class="card-body">
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
-                    <label asp-for="StartTime" class="form-label fw-semibold">Từ ngày <span class="text-danger">*</span></label>
+                    <label asp-for="StartTime" class="form-label fw-semibold" id="startDateLabel">Từ ngày <span class="text-danger">*</span></label>
                     <input asp-for="StartTime" class="form-control" type="date" id="startDate" />
+                </div>
+                <div class="col-md-2" id="startTimeWrap" style="display: none;">
+                    <label class="form-label fw-semibold">Giờ bắt đầu</label>
+                    <input type="time" class="form-control form-control-sm" id="startTimeInput" />
                 </div>
                 <div class="col-md-2" id="halfDayStartWrap">
                     <label class="form-label fw-semibold">Ca bắt đầu</label>
@@ -62,9 +66,13 @@
                         <option value="2">Nửa ca chiều</option>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <label asp-for="EndTime" class="form-label fw-semibold">Đến ngày <span class="text-danger">*</span></label>
+                <div class="col-md-3" id="endDateWrap">
+                    <label asp-for="EndTime" class="form-label fw-semibold" id="endDateLabel">Đến ngày <span class="text-danger">*</span></label>
                     <input asp-for="EndTime" class="form-control" type="date" id="endDate" />
+                </div>
+                <div class="col-md-2" id="endTimeWrap" style="display: none;">
+                    <label class="form-label fw-semibold">Giờ kết thúc</label>
+                    <input type="time" class="form-control form-control-sm" id="endTimeInput" />
                 </div>
                 <div class="col-md-2" id="halfDayEndWrap">
                     <label class="form-label fw-semibold">Ca kết thúc</label>
@@ -74,7 +82,7 @@
                         <option value="2">Nửa ca chiều</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-2" id="totalDaysWrap">
                     <label class="form-label fw-semibold">Tổng ngày</label>
                     <div class="input-group">
                         <input type="text" class="form-control bg-light fw-semibold text-center" id="totalDays" readonly value="1" />
@@ -215,33 +223,98 @@
         var requestTypeSelect = document.getElementById('requestType');
         var startDate = document.getElementById('startDate');
         var endDate = document.getElementById('endDate');
+        var startDateLabel = document.getElementById('startDateLabel');
+        var endDateLabel = document.getElementById('endDateLabel');
         var halfDayStartOpt = document.getElementById('halfDayStartOpt');
         var halfDayEndOpt = document.getElementById('halfDayEndOpt');
         var halfDayStartWrap = document.getElementById('halfDayStartWrap');
         var halfDayEndWrap = document.getElementById('halfDayEndWrap');
+        var endDateWrap = document.getElementById('endDateWrap');
+        var startTimeWrap = document.getElementById('startTimeWrap');
+        var endTimeWrap = document.getElementById('endTimeWrap');
+        var startTimeInput = document.getElementById('startTimeInput');
+        var endTimeInput = document.getElementById('endTimeInput');
         var totalDays = document.getElementById('totalDays');
         var totalDaysHidden = document.getElementById('totalDaysHidden');
+        var totalDaysWrap = document.getElementById('totalDaysWrap');
         var leaveReasonSelect = document.getElementById('leaveReasonSelect');
         var countsAsWorkDisplay = document.getElementById('countsAsWorkDisplay');
 
+        function updateFormByRequestType(type) {
+            // Reset visibility
+            halfDayStartWrap.style.display = '';
+            halfDayEndWrap.style.display = '';
+            endDateWrap.style.display = '';
+            startTimeWrap.style.display = 'none';
+            endTimeWrap.style.display = 'none';
+            totalDaysWrap.style.display = '';
+
+            // RequestType: 0=Leave, 1=CheckInOut, 2=Absence, 3=WorkFromHome
+            if (type === 1) {
+                // CheckInOut: Chỉ cần chọn ngày quên check in/out
+                startDateLabel.innerHTML = 'Ngày quên checkin/out <span class="text-danger">*</span>';
+                endDateWrap.style.display = 'none';
+                halfDayStartWrap.style.display = 'none';
+                halfDayEndWrap.style.display = 'none';
+                totalDaysWrap.style.display = 'none';
+                // Set end date same as start date
+                endDate.value = startDate.value;
+            } else if (type === 2) {
+                // Absence: Vắng ngày nào và từ thời gian nào tới thời gian nào
+                startDateLabel.innerHTML = 'Từ ngày <span class="text-danger">*</span>';
+                endDateLabel.innerHTML = 'Đến ngày <span class="text-danger">*</span>';
+                startTimeWrap.style.display = '';
+                endTimeWrap.style.display = '';
+                halfDayStartWrap.style.display = 'none';
+                halfDayEndWrap.style.display = 'none';
+            } else if (type === 3) {
+                // WorkFromHome: Chỉ cần ngày hoặc ca sáng/chiều
+                startDateLabel.innerHTML = 'Ngày làm ở nhà <span class="text-danger">*</span>';
+                endDateWrap.style.display = 'none';
+                halfDayEndWrap.style.display = 'none';
+                // Set end date same as start date
+                endDate.value = startDate.value;
+            } else {
+                // Leave (default): Full date range with half-day options
+                startDateLabel.innerHTML = 'Từ ngày <span class="text-danger">*</span>';
+                endDateLabel.innerHTML = 'Đến ngày <span class="text-danger">*</span>';
+            }
+        }
+
         function calcDays() {
+            var type = parseInt(requestTypeSelect.value);
             var s = startDate.value, e = endDate.value;
+            
+            // For CheckInOut and WorkFromHome, sync end date with start date
+            if (type === 1 || type === 3) {
+                endDate.value = s;
+                e = s;
+            }
+            
             if (s && e) {
                 var diff = (new Date(e) - new Date(s)) / (1000*60*60*24) + 1;
-                var startOpt = parseInt(halfDayStartOpt.value);
-                var endOpt = parseInt(halfDayEndOpt.value);
-                if (diff === 1) {
-                    // Same day: if either is half-day
-                    if (startOpt > 0) diff = 0.5;
-                } else {
-                    if (startOpt > 0) diff -= 0.5;
-                    if (endOpt > 0) diff -= 0.5;
+                
+                // Only calculate half-days for Leave and WorkFromHome
+                if (type === 0 || type === 3) {
+                    var startOpt = parseInt(halfDayStartOpt.value);
+                    var endOpt = parseInt(halfDayEndOpt.value);
+                    if (diff === 1) {
+                        // Same day: if either is half-day
+                        if (startOpt > 0) diff = 0.5;
+                    } else {
+                        if (startOpt > 0) diff -= 0.5;
+                        if (endOpt > 0) diff -= 0.5;
+                    }
                 }
+                
                 diff = Math.max(diff, 0.5);
                 totalDays.value = diff;
                 totalDaysHidden.value = diff;
-                // When same day, hide end half-day
-                halfDayEndWrap.style.display = (s === e) ? 'none' : '';
+                
+                // When same day, hide end half-day (for Leave type only)
+                if (type === 0) {
+                    halfDayEndWrap.style.display = (s === e) ? 'none' : '';
+                }
 
                 // Check leave balance after calculating days
                 checkLeaveBalance();
@@ -326,6 +399,7 @@
 
         requestTypeSelect.addEventListener('change', function() {
             var type = parseInt(this.value);
+            updateFormByRequestType(type);
             loadReasons(type);
             calcDays();
             checkLeaveBalance(); // Check balance when request type changes
@@ -338,6 +412,8 @@
             }
         });
 
+        // Initialize form based on default request type
+        updateFormByRequestType(parseInt(requestTypeSelect.value));
         calcDays();
     </script>
 }

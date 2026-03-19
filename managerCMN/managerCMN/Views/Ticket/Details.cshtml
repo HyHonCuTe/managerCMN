@@ -1,92 +1,684 @@
-@model Ticket
+@model TicketDetailViewModel
+@using managerCMN.Helpers
 @{
-    ViewData["Title"] = "Chi tiết Ticket";
+    ViewData["Title"] = $"Ticket #{Model.Ticket.TicketId}";
 }
 
+<style>
+    .timeline {
+        position: relative;
+        padding-left: 40px;
+    }
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 15px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #e9ecef;
+    }
+    .timeline-item {
+        position: relative;
+        padding-bottom: 1.5rem;
+    }
+    .timeline-item:last-child {
+        padding-bottom: 0;
+    }
+    .timeline-marker {
+        position: absolute;
+        left: -40px;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 0.75rem;
+    }
+    .timeline-marker.bg-primary { background-color: #0d6efd !important; }
+    .timeline-marker.bg-warning { background-color: #ffc107 !important; color: #212529 !important; }
+    .timeline-marker.bg-success { background-color: #198754 !important; }
+    .timeline-marker.bg-info { background-color: #0dcaf0 !important; color: #212529 !important; }
+    .timeline-content {
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        border: 1px solid #e9ecef;
+    }
+    .original-message {
+        background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+        border: 1px solid #bbdefb;
+    }
+    .recipient-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+    /* Forward recipient selector styles */
+    .forward-recipient-selector {
+        position: relative;
+    }
+    .forward-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        max-height: 200px;
+        overflow-y: auto;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        z-index: 1050;
+        display: none;
+    }
+    .forward-dropdown.show {
+        display: block;
+    }
+    .forward-search {
+        position: sticky;
+        top: 0;
+        background: white;
+        padding: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+    .forward-list {
+        padding: 0;
+        margin: 0;
+        list-style: none;
+    }
+    .forward-item {
+        padding: 0.4rem 0.75rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+    }
+    .forward-item:hover {
+        background-color: #f8f9fa;
+    }
+    .forward-item.selected {
+        background-color: #fff3cd;
+    }
+    .forward-item input[type="checkbox"] {
+        cursor: pointer;
+    }
+    .forward-item label {
+        cursor: pointer;
+        margin: 0;
+        flex: 1;
+    }
+    .forward-selected-recipients {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        min-height: 32px;
+        padding: 0.25rem;
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        cursor: pointer;
+        background: white;
+        font-size: 0.875rem;
+    }
+    .forward-placeholder {
+        color: #6c757d;
+        padding: 0.15rem;
+    }
+    .fw-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.15rem 0.4rem;
+        background: #ffc107;
+        color: #212529;
+        border-radius: 0.25rem;
+        font-size: 0.8rem;
+    }
+    .fw-remove-btn {
+        cursor: pointer;
+        opacity: 0.7;
+        font-weight: bold;
+    }
+    .fw-remove-btn:hover {
+        opacity: 1;
+    }
+    .forward-no-results {
+        padding: 0.75rem;
+        text-align: center;
+        color: #6c757d;
+        font-size: 0.875rem;
+    }
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0"><i class="bi bi-ticket-detailed"></i> Ticket #@Model.TicketId: @Model.Title</h4>
-    <a asp-action="Index" class="btn btn-secondary">Quay lại</a>
+    <div>
+        <h4 class="mb-0">
+            <i class="bi bi-envelope-open"></i>
+            @Model.Ticket.Title
+        </h4>
+        <small class="text-muted">Ticket #@Model.Ticket.TicketId</small>
+    </div>
+    <a asp-action="Index" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Quay lại
+    </a>
 </div>
 
 <div class="row g-3">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">Mô tả</div>
-            <div class="card-body">
-                <p>@Model.Description</p>
+    <!-- Main content: Thread view -->
+    <div class="col-lg-8">
+        <!-- Original message -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    <strong><i class="bi bi-person"></i> @Model.Ticket.Creator?.FullName</strong>
+                    <span class="text-muted ms-2">đã tạo ticket</span>
+                </div>
+                <small class="text-muted">
+                    <i class="bi bi-calendar"></i>
+                    @Model.Ticket.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")
+                </small>
+            </div>
+            <div class="card-body original-message">
+                <div class="mb-3">
+                    @if (!string.IsNullOrEmpty(Model.Ticket.Description))
+                    {
+                        <p class="mb-0" style="white-space: pre-wrap;">@Model.Ticket.Description</p>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0"><em>Không có nội dung</em></p>
+                    }
+                </div>
+
+                @{
+                    var initialAttachments = Model.Ticket.Attachments.Where(a => a.TicketMessageId == null).ToList();
+                }
+                @if (initialAttachments.Any())
+                {
+                    <div class="border-top pt-2 mt-2">
+                        <small class="text-muted d-block mb-2"><i class="bi bi-paperclip"></i> Tệp đính kèm:</small>
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach (var att in initialAttachments)
+                            {
+                                <a asp-action="DownloadAttachment" asp-route-attachmentId="@att.TicketAttachmentId"
+                                   class="badge bg-secondary text-decoration-none">
+                                    <i class="bi bi-file-earmark"></i> @att.FileName
+                                    <small>(@(att.FileSize / 1024) KB)</small>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                }
             </div>
         </div>
 
-        @if (Model.Status == TicketStatus.InProgress)
+        <!-- Messages timeline -->
+        @if (Model.Ticket.Messages.Any())
         {
-        <div class="card mt-3">
-            <div class="card-header">Giải quyết</div>
-            <div class="card-body">
-                <form asp-action="Resolve" asp-route-id="@Model.TicketId" method="post">
-                    @Html.AntiForgeryToken()
-                    <div class="mb-3">
-                        <textarea name="resolution" class="form-control" rows="3" placeholder="Mô tả cách giải quyết..." required></textarea>
+            <div class="card mb-3">
+                <div class="card-header">
+                    <i class="bi bi-chat-dots"></i> Lịch sử trao đổi (@Model.Ticket.Messages.Count)
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        @foreach (var msg in Model.Ticket.Messages.OrderBy(m => m.CreatedDate))
+                        {
+                            var markerClass = msg.MessageType switch
+                            {
+                                TicketMessageType.Forward => "bg-warning",
+                                TicketMessageType.StatusUpdate => "bg-success",
+                                TicketMessageType.Note => "bg-info",
+                                _ => "bg-primary"
+                            };
+                            var iconClass = msg.MessageType switch
+                            {
+                                TicketMessageType.Forward => "bi-forward",
+                                TicketMessageType.StatusUpdate => "bi-check-circle",
+                                TicketMessageType.Note => "bi-sticky",
+                                _ => "bi-reply"
+                            };
+                            <div class="timeline-item">
+                                <div class="timeline-marker @markerClass">
+                                    <i class="bi @iconClass"></i>
+                                </div>
+                                <div class="timeline-content">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <strong>@msg.Sender?.FullName</strong>
+                                            @if (msg.MessageType == TicketMessageType.Forward)
+                                            {
+                                                <span class="badge bg-warning text-dark ms-2">Chuyển tiếp</span>
+                                            }
+                                            else if (msg.MessageType == TicketMessageType.StatusUpdate)
+                                            {
+                                                <span class="badge bg-success ms-2">Cập nhật</span>
+                                            }
+                                        </div>
+                                        <small class="text-muted">
+                                            @msg.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")
+                                        </small>
+                                    </div>
+                                    <p class="mb-0" style="white-space: pre-wrap;">@msg.Content</p>
+                                    @if (msg.Attachments.Any())
+                                    {
+                                        <div class="mt-2">
+                                            @foreach (var att in msg.Attachments)
+                                            {
+                                                <a asp-action="DownloadAttachment" asp-route-attachmentId="@att.TicketAttachmentId"
+                                                   class="badge bg-secondary text-decoration-none me-1">
+                                                    <i class="bi bi-paperclip"></i> @att.FileName
+                                                </a>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
                     </div>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Đánh dấu đã giải quyết</button>
-                </form>
+                </div>
             </div>
-        </div>
         }
 
-        @if (!string.IsNullOrEmpty(Model.Resolution))
+        <!-- Reply form -->
+        @if (Model.CanReply)
         {
-        <div class="card mt-3">
-            <div class="card-header text-success"><i class="bi bi-check-circle"></i> Giải pháp</div>
-            <div class="card-body">@Model.Resolution</div>
-        </div>
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-reply"></i> Phản hồi
+                </div>
+                <div class="card-body">
+                    <form asp-action="Reply" method="post" enctype="multipart/form-data">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="ticketId" value="@Model.Ticket.TicketId" />
+                        <div class="mb-3">
+                            <textarea name="content" class="form-control" rows="3" placeholder="Nhập nội dung phản hồi..." required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <input type="file" name="attachments" class="form-control" multiple />
+                            <small class="text-muted">Có thể đính kèm nhiều file</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-send"></i> Gửi phản hồi
+                        </button>
+                    </form>
+                </div>
+            </div>
         }
     </div>
 
-    <div class="col-md-4">
-        <div class="card">
-            <div class="card-header">Thông tin</div>
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Ticket info card -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Thông tin
+            </div>
             <div class="card-body">
-                <p><strong>Trạng thái:</strong>
-                    @switch (Model.Status)
-                    {
-                        case TicketStatus.Open: <span class="badge bg-primary">Mở</span> break;
-                        case TicketStatus.InProgress: <span class="badge bg-info">Đang xử lý</span> break;
-                        case TicketStatus.Resolved: <span class="badge bg-success">Đã giải quyết</span> break;
-                        case TicketStatus.Closed: <span class="badge bg-secondary">Đóng</span> break;
-                    }
-                </p>
-                <p><strong>Độ ưu tiên:</strong>
-                    @switch (Model.Priority)
-                    {
-                        case TicketPriority.Low: <span class="badge bg-secondary">Thấp</span> break;
-                        case TicketPriority.Medium: <span class="badge bg-info">Trung bình</span> break;
-                        case TicketPriority.High: <span class="badge bg-warning">Cao</span> break;
-                        case TicketPriority.Critical: <span class="badge bg-danger">Khẩn cấp</span> break;
-                    }
-                </p>
-                <p><strong>Người tạo:</strong> @Model.Creator?.FullName</p>
-                <p><strong>Người xử lý:</strong> @(Model.Assignee?.FullName ?? "Chưa gán")</p>
-                <p><strong>Ngày tạo:</strong> @Model.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</p>
-                @if (Model.ResolvedDate.HasValue)
+                <div class="mb-2">
+                    <small class="text-muted">Trạng thái</small>
+                    <div>
+                        @switch (Model.Ticket.Status)
+                        {
+                            case TicketStatus.Open:
+                                <span class="badge bg-primary">Mở</span>
+                                break;
+                            case TicketStatus.InProgress:
+                                <span class="badge bg-info">Đang xử lý</span>
+                                break;
+                            case TicketStatus.Resolved:
+                                <span class="badge bg-success">Đã giải quyết</span>
+                                break;
+                            case TicketStatus.Closed:
+                                <span class="badge bg-secondary">Đóng</span>
+                                break;
+                            case TicketStatus.Forwarded:
+                                <span class="badge bg-warning text-dark">Đã chuyển tiếp</span>
+                                break;
+                            case TicketStatus.OnHold:
+                                <span class="badge bg-dark">Tạm dừng</span>
+                                break;
+                            case TicketStatus.Cancelled:
+                                <span class="badge bg-danger">Đã hủy</span>
+                                break;
+                        }
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <small class="text-muted">Độ ưu tiên</small>
+                    <div>
+                        @switch (Model.Ticket.Priority)
+                        {
+                            case TicketPriority.Low:
+                                <span class="badge bg-secondary">Thấp</span>
+                                break;
+                            case TicketPriority.Medium:
+                                <span class="badge bg-info">Trung bình</span>
+                                break;
+                            case TicketPriority.High:
+                                <span class="badge bg-warning text-dark">Cao</span>
+                                break;
+                            case TicketPriority.Critical:
+                                <span class="badge bg-danger">Khẩn cấp</span>
+                                break;
+                        }
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <small class="text-muted">Độ khẩn</small>
+                    <div>
+                        @switch (Model.Ticket.Urgency)
+                        {
+                            case TicketUrgency.Normal:
+                                <span class="badge bg-light text-dark">Bình thường</span>
+                                break;
+                            case TicketUrgency.Urgent:
+                                <span class="badge bg-warning text-dark">Gấp</span>
+                                break;
+                            case TicketUrgency.VeryUrgent:
+                                <span class="badge text-white" style="background-color: #fd7e14;">Rất gấp</span>
+                                break;
+                            case TicketUrgency.Immediate:
+                                <span class="badge bg-danger">Ngay lập tức</span>
+                                break;
+                        }
+                    </div>
+                </div>
+                @if (Model.Ticket.Deadline.HasValue)
                 {
-                    <p><strong>Ngày giải quyết:</strong> @Model.ResolvedDate?.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</p>
+                    var isOverdue = Model.Ticket.Deadline.Value < DateTime.UtcNow;
+                    <div class="mb-2">
+                        <small class="text-muted">Deadline</small>
+                        <div class="@(isOverdue ? "text-danger fw-bold" : "")">
+                            @if (isOverdue)
+                            {
+                                <i class="bi bi-exclamation-triangle"></i>
+                            }
+                            @Model.Ticket.Deadline.Value.ToVietnamTime().ToString("dd/MM/yyyy")
+                        </div>
+                    </div>
+                }
+                <hr />
+                <div class="mb-2">
+                    <small class="text-muted">Người tạo</small>
+                    <div>@Model.Ticket.Creator?.FullName</div>
+                </div>
+                <div class="mb-0">
+                    <small class="text-muted">Ngày tạo</small>
+                    <div>@Model.Ticket.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recipients card -->
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-people"></i> Người nhận (@Model.Ticket.Recipients.Count)
+            </div>
+            <div class="card-body">
+                @if (Model.Ticket.Recipients.Any())
+                {
+                    @foreach (var r in Model.Ticket.Recipients)
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                            <div>
+                                <div class="fw-semibold">@r.Employee?.FullName</div>
+                                @if (r.ReadDate.HasValue)
+                                {
+                                    <small class="text-muted">
+                                        Đã đọc: @r.ReadDate.Value.ToVietnamTime().ToString("dd/MM HH:mm")
+                                    </small>
+                                }
+                            </div>
+                            <div>
+                                @switch (r.Status)
+                                {
+                                    case TicketRecipientStatus.Pending:
+                                        <span class="badge bg-secondary recipient-badge">Chờ xử lý</span>
+                                        break;
+                                    case TicketRecipientStatus.Read:
+                                        <span class="badge bg-info recipient-badge">Đã đọc</span>
+                                        break;
+                                    case TicketRecipientStatus.InProgress:
+                                        <span class="badge bg-primary recipient-badge">Đang xử lý</span>
+                                        break;
+                                    case TicketRecipientStatus.Completed:
+                                        <span class="badge bg-success recipient-badge">Hoàn thành</span>
+                                        break;
+                                    case TicketRecipientStatus.Forwarded:
+                                        <span class="badge bg-warning text-dark recipient-badge">Đã chuyển tiếp</span>
+                                        break;
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-muted mb-0">Không có người nhận</p>
                 }
             </div>
         </div>
 
-        @if (User.IsInRole("Admin"))
+        <!-- Update my status (for recipients) -->
+        @if (Model.CanUpdateStatus && Model.CurrentRecipient != null)
         {
-        <div class="card mt-3">
-            <div class="card-body">
-                @if (Model.Status == TicketStatus.Resolved)
-                {
-                    <form asp-action="Close" asp-route-id="@Model.TicketId" method="post">
+            <div class="card mb-3">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-check2-square"></i> Cập nhật trạng thái
+                </div>
+                <div class="card-body">
+                    <p class="small text-muted mb-2">
+                        Trạng thái hiện tại của bạn:
+                        <strong>
+                            @(Model.CurrentRecipient.Status switch
+                            {
+                                TicketRecipientStatus.Pending => "Chờ xử lý",
+                                TicketRecipientStatus.Read => "Đã đọc",
+                                TicketRecipientStatus.InProgress => "Đang xử lý",
+                                TicketRecipientStatus.Completed => "Hoàn thành",
+                                TicketRecipientStatus.Forwarded => "Đã chuyển tiếp",
+                                _ => "Không xác định"
+                            })
+                        </strong>
+                    </p>
+                    <form asp-action="UpdateStatus" method="post">
                         @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-secondary w-100"><i class="bi bi-x-circle"></i> Đóng ticket</button>
+                        <input type="hidden" name="ticketId" value="@Model.Ticket.TicketId" />
+                        <div class="d-grid gap-2">
+                            @if (Model.CurrentRecipient.Status != TicketRecipientStatus.InProgress)
+                            {
+                                <button type="submit" name="status" value="@((int)TicketRecipientStatus.InProgress)" class="btn btn-outline-primary btn-sm">
+                                    <i class="bi bi-play-circle"></i> Đang xử lý
+                                </button>
+                            }
+                            <button type="submit" name="status" value="@((int)TicketRecipientStatus.Completed)" class="btn btn-success btn-sm">
+                                <i class="bi bi-check-circle"></i> Đánh dấu hoàn thành
+                            </button>
+                        </div>
                     </form>
-                }
+                </div>
             </div>
-        </div>
+        }
+
+        <!-- Forward card -->
+        @if (Model.CanForward && Model.AvailableRecipients?.Any() == true)
+        {
+            <div class="card">
+                <div class="card-header bg-warning text-dark">
+                    <i class="bi bi-forward"></i> Chuyển tiếp
+                </div>
+                <div class="card-body">
+                    <form asp-action="Forward" method="post" enctype="multipart/form-data" id="forwardForm">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="ticketId" value="@Model.Ticket.TicketId" />
+                        <div class="mb-3">
+                            <label class="form-label small">Chọn người nhận</label>
+                            <div class="forward-recipient-selector" id="forwardRecipientSelector">
+                                <div class="forward-selected-recipients" id="forwardSelectedRecipients" tabindex="0">
+                                    <span class="forward-placeholder">Nhấp để chọn...</span>
+                                </div>
+                                <div class="forward-dropdown" id="forwardDropdown">
+                                    <div class="forward-search">
+                                        <input type="text" class="form-control form-control-sm" id="forwardSearch" placeholder="Tìm kiếm...">
+                                    </div>
+                                    <ul class="forward-list" id="forwardList">
+                                        @foreach (var item in Model.AvailableRecipients)
+                                        {
+                                            <li class="forward-item" data-id="@item.Value" data-name="@item.Text">
+                                                <input type="checkbox" id="forward_@item.Value">
+                                                <label for="forward_@item.Value">@item.Text</label>
+                                            </li>
+                                        }
+                                    </ul>
+                                    <div class="forward-no-results" id="forwardNoResults" style="display: none;">
+                                        Không tìm thấy
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="forwardInputs"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label small">Ghi chú (tùy chọn)</label>
+                            <textarea name="content" class="form-control form-control-sm" rows="2" placeholder="Thêm ghi chú khi chuyển tiếp..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <input type="file" name="attachments" class="form-control form-control-sm" multiple />
+                        </div>
+                        <button type="submit" class="btn btn-warning btn-sm w-100">
+                            <i class="bi bi-forward"></i> Chuyển tiếp
+                        </button>
+                    </form>
+                </div>
+            </div>
         }
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Forward recipient selector
+            const forwardSelector = document.getElementById('forwardRecipientSelector');
+            if (!forwardSelector) return;
+
+            const forwardSelectedArea = document.getElementById('forwardSelectedRecipients');
+            const forwardDropdown = document.getElementById('forwardDropdown');
+            const forwardSearch = document.getElementById('forwardSearch');
+            const forwardList = document.getElementById('forwardList');
+            const forwardInputs = document.getElementById('forwardInputs');
+            const forwardNoResults = document.getElementById('forwardNoResults');
+
+            let forwardSelected = new Map();
+
+            forwardSelectedArea.addEventListener('click', function(e) {
+                if (e.target.classList.contains('fw-remove-btn')) return;
+                forwardDropdown.classList.toggle('show');
+                if (forwardDropdown.classList.contains('show')) {
+                    forwardSearch.focus();
+                }
+            });
+
+            document.addEventListener('click', function(e) {
+                if (!forwardSelector.contains(e.target)) {
+                    forwardDropdown.classList.remove('show');
+                }
+            });
+
+            forwardSearch.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                const items = forwardList.querySelectorAll('.forward-item');
+                let hasVisible = false;
+
+                items.forEach(function(item) {
+                    const name = item.dataset.name.toLowerCase();
+                    if (name.includes(query)) {
+                        item.style.display = 'flex';
+                        hasVisible = true;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                forwardNoResults.style.display = hasVisible ? 'none' : 'block';
+            });
+
+            forwardList.addEventListener('change', function(e) {
+                if (e.target.type === 'checkbox') {
+                    const item = e.target.closest('.forward-item');
+                    const id = item.dataset.id;
+                    const name = item.dataset.name;
+
+                    if (e.target.checked) {
+                        forwardSelected.set(id, name);
+                        item.classList.add('selected');
+                    } else {
+                        forwardSelected.delete(id);
+                        item.classList.remove('selected');
+                    }
+
+                    updateForwardDisplay();
+                }
+            });
+
+            forwardList.addEventListener('click', function(e) {
+                const item = e.target.closest('.forward-item');
+                if (item && e.target.type !== 'checkbox') {
+                    const checkbox = item.querySelector('input[type="checkbox"]');
+                    checkbox.checked = !checkbox.checked;
+                    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+
+            function updateForwardDisplay() {
+                forwardSelectedArea.innerHTML = '';
+
+                if (forwardSelected.size === 0) {
+                    forwardSelectedArea.innerHTML = '<span class="forward-placeholder">Nhấp để chọn...</span>';
+                } else {
+                    forwardSelected.forEach(function(name, id) {
+                        const badge = document.createElement('span');
+                        badge.className = 'fw-badge';
+                        badge.innerHTML = `${name} <span class="fw-remove-btn" data-id="${id}">&times;</span>`;
+                        forwardSelectedArea.appendChild(badge);
+                    });
+                }
+
+                forwardInputs.innerHTML = '';
+                forwardSelected.forEach(function(name, id) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'recipientIds';
+                    input.value = id;
+                    forwardInputs.appendChild(input);
+                });
+            }
+
+            forwardSelectedArea.addEventListener('click', function(e) {
+                if (e.target.classList.contains('fw-remove-btn')) {
+                    const id = e.target.dataset.id;
+                    forwardSelected.delete(id);
+
+                    const checkbox = forwardList.querySelector(`.forward-item[data-id="${id}"] input[type="checkbox"]`);
+                    if (checkbox) {
+                        checkbox.checked = false;
+                        checkbox.closest('.forward-item').classList.remove('selected');
+                    }
+
+                    updateForwardDisplay();
+                    e.stopPropagation();
+                }
+            });
+
+            document.getElementById('forwardForm')?.addEventListener('submit', function(e) {
+                if (forwardSelected.size === 0) {
+                    e.preventDefault();
+                    alert('Vui lòng chọn ít nhất một người nhận!');
+                    forwardDropdown.classList.add('show');
+                    forwardSearch.focus();
+                }
+            });
+        });
+    </script>
+}

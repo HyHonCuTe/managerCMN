@@ -21,6 +21,9 @@ public class UnitOfWork : IUnitOfWork
         Assets = new AssetRepository(context);
         AssetAssignments = new AssetAssignmentRepository(context);
         Tickets = new TicketRepository(context);
+        TicketRecipients = new TicketRecipientRepository(context);
+        TicketMessages = new TicketMessageRepository(context);
+        TicketAttachments = new TicketAttachmentRepository(context);
         Users = new UserRepository(context);
         SystemLogs = new SystemLogRepository(context);
         Notifications = new NotificationRepository(context);
@@ -38,6 +41,9 @@ public class UnitOfWork : IUnitOfWork
     public IAssetRepository Assets { get; }
     public IAssetAssignmentRepository AssetAssignments { get; }
     public ITicketRepository Tickets { get; }
+    public ITicketRecipientRepository TicketRecipients { get; }
+    public ITicketMessageRepository TicketMessages { get; }
+    public ITicketAttachmentRepository TicketAttachments { get; }
     public IUserRepository Users { get; }
     public ISystemLogRepository SystemLogs { get; }
     public INotificationRepository Notifications { get; }

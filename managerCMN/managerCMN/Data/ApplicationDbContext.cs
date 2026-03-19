@@ -46,6 +46,9 @@ public class ApplicationDbContext : DbContext
 
     // Tickets
     public DbSet<Ticket> Tickets => Set<Ticket>();
+    public DbSet<TicketRecipient> TicketRecipients => Set<TicketRecipient>();
+    public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
+    public DbSet<TicketAttachment> TicketAttachments => Set<TicketAttachment>();
 
     // System
     public DbSet<SystemLog> SystemLogs => Set<SystemLog>();
@@ -225,6 +228,67 @@ public class ApplicationDbContext : DbContext
             .WithMany(e => e.AssignedTickets)
             .HasForeignKey(t => t.AssignedTo)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // TicketRecipient configurations
+        modelBuilder.Entity<TicketRecipient>()
+            .HasOne(tr => tr.Ticket)
+            .WithMany(t => t.Recipients)
+            .HasForeignKey(tr => tr.TicketId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TicketRecipient>()
+            .HasOne(tr => tr.Employee)
+            .WithMany()
+            .HasForeignKey(tr => tr.EmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TicketRecipient>()
+            .HasOne(tr => tr.AddedBy)
+            .WithMany()
+            .HasForeignKey(tr => tr.AddedById)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<TicketRecipient>()
+            .HasIndex(tr => new { tr.TicketId, tr.EmployeeId })
+            .IsUnique();
+
+        // TicketMessage configurations
+        modelBuilder.Entity<TicketMessage>()
+            .HasOne(tm => tm.Ticket)
+            .WithMany(t => t.Messages)
+            .HasForeignKey(tm => tm.TicketId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TicketMessage>()
+            .HasOne(tm => tm.Sender)
+            .WithMany()
+            .HasForeignKey(tm => tm.SenderId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<TicketMessage>()
+            .HasOne(tm => tm.ForwardedTo)
+            .WithMany()
+            .HasForeignKey(tm => tm.ForwardedToId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // TicketAttachment configurations
+        modelBuilder.Entity<TicketAttachment>()
+            .HasOne(ta => ta.Ticket)
+            .WithMany(t => t.Attachments)
+            .HasForeignKey(ta => ta.TicketId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TicketAttachment>()
+            .HasOne(ta => ta.TicketMessage)
+            .WithMany(tm => tm.Attachments)
+            .HasForeignKey(ta => ta.TicketMessageId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<TicketAttachment>()
+            .HasOne(ta => ta.UploadedBy)
+            .WithMany()
+            .HasForeignKey(ta => ta.UploadedById)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // SystemLog index
         modelBuilder.Entity<SystemLog>()

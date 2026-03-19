@@ -13,6 +13,9 @@ public interface IUnitOfWork : IDisposable
     IAssetRepository Assets { get; }
     IAssetAssignmentRepository AssetAssignments { get; }
     ITicketRepository Tickets { get; }
+    ITicketRecipientRepository TicketRecipients { get; }
+    ITicketMessageRepository TicketMessages { get; }
+    ITicketAttachmentRepository TicketAttachments { get; }
     IUserRepository Users { get; }
     ISystemLogRepository SystemLogs { get; }
     INotificationRepository Notifications { get; }

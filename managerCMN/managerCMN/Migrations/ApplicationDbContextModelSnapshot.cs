@@ -1913,7 +1913,7 @@ namespace managerCMN.Migrations
                     b.HasOne("managerCMN.Models.Entities.Employee", "Employee")
                         .WithMany("AssetAssignments")
                         .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("ApprovedBy");

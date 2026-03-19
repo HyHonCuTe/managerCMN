@@ -195,6 +195,13 @@ public class ApplicationDbContext : DbContext
             .WithOne(a => a.Configuration)
             .HasForeignKey<AssetConfiguration>(ac => ac.AssetId);
 
+        // AssetAssignment -> Employee (main employee relationship)
+        modelBuilder.Entity<AssetAssignment>()
+            .HasOne(aa => aa.Employee)
+            .WithMany(e => e.AssetAssignments)
+            .HasForeignKey(aa => aa.EmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         // AssetAssignment -> Employee (ApprovedBy)
         modelBuilder.Entity<AssetAssignment>()
             .HasOne(aa => aa.ApprovedBy)

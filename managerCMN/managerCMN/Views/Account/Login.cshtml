@@ -56,12 +56,14 @@
             padding: 44px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: center;
+            align-items: center;
             background: linear-gradient(155deg, #8f2300 0%, var(--cmn-primary) 45%, var(--cmn-primary-soft) 100%);
         }
 
         .brand-top {
             display: flex;
+            flex-direction: column;
             align-items: center;
             gap: 14px;
         }
@@ -77,6 +79,7 @@
 
         .brand-title {
             line-height: 1.2;
+            text-align: center;
         }
 
         .brand-title h1 {
@@ -92,28 +95,6 @@
             opacity: 0.86;
         }
 
-        .brand-copy h2 {
-            margin: 0 0 12px;
-            font-size: 2rem;
-            line-height: 1.2;
-            font-weight: 700;
-        }
-
-        .brand-copy p {
-            margin: 0;
-            max-width: 440px;
-            font-size: 1rem;
-            opacity: 0.92;
-            line-height: 1.65;
-        }
-
-        .brand-foot {
-            font-size: 0.83rem;
-            opacity: 0.78;
-            border-top: 1px solid rgba(255, 255, 255, 0.22);
-            padding-top: 14px;
-            margin-top: 30px;
-        }
 
         .login-panel {
             background: #fff;
@@ -186,11 +167,7 @@
 
             .login-brand {
                 padding: 30px;
-                min-height: 260px;
-            }
-
-            .brand-copy h2 {
-                font-size: 1.55rem;
+                min-height: 200px;
             }
 
             .login-panel {
@@ -233,16 +210,6 @@
                 </div>
             </div>
 
-            <div class="brand-copy">
-                <h2>Đăng nhập an toàn, làm việc liền mạch.</h2>
-                <p>
-                    Truy cập hệ thống quản trị nhân sự, ticket và đơn từ bằng tài khoản công ty để đồng bộ dữ liệu và theo dõi công việc tập trung.
-                </p>
-            </div>
-
-            <div class="brand-foot">
-                CMN Internal Platform · Phiên bản doanh nghiệp
-            </div>
         </aside>
 
         <main class="login-panel">
@@ -269,7 +236,7 @@
                 </button>
             </form>
 
-            @if ((bool?)ViewData["IsDevelopment"] == true)
+            @* @if ((bool?)ViewData["IsDevelopment"] == true)
             {
                 <div class="dev-box">
                     <p class="text-muted small mb-2">Chế độ Development</p>
@@ -300,7 +267,7 @@
                         </form>
                     </details>
                 </div>
-            }
+            } *@
         </main>
     </div>
 

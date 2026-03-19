@@ -12,8 +12,8 @@ using managerCMN.Data;
 namespace managerCMN.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260316015706_AddRequestApprovalAndEnhanceRequest")]
-    partial class AddRequestApprovalAndEnhanceRequest
+    [Migration("20260319041235_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -86,11 +86,24 @@ namespace managerCMN.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AssignmentId"));
 
+                    b.Property<int?>("ApprovedById")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ApprovedDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<int>("AssetId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("AssignedDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("AssignmentCondition")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("AssignmentReason")
+                        .HasColumnType("int");
 
                     b.Property<string>("Condition")
                         .HasMaxLength(500)
@@ -103,13 +116,22 @@ namespace managerCMN.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("ReturnCondition")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<DateTime?>("ReturnDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReturnReason")
+                        .HasColumnType("int");
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
                     b.HasKey("AssignmentId");
+
+                    b.HasIndex("ApprovedById");
 
                     b.HasIndex("AssetId");
 
@@ -175,6 +197,56 @@ namespace managerCMN.Migrations
                     b.HasKey("AssetId");
 
                     b.ToTable("AssetConfigurations");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.AssetLifecycleHistory", b =>
+                {
+                    b.Property<int>("HistoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("HistoryId"));
+
+                    b.Property<int>("AssetId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("EventDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EventDescription")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("EventType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("NewValue")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int?>("PerformedById")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PreviousValue")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.HasKey("HistoryId");
+
+                    b.HasIndex("AssetId");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("PerformedById");
+
+                    b.ToTable("AssetLifecycleHistories");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Attendance", b =>
@@ -379,6 +451,9 @@ namespace managerCMN.Migrations
                     b.Property<string>("InsuranceCode")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("IsApprover")
+                        .HasColumnType("bit");
 
                     b.Property<int?>("JobTitleId")
                         .HasColumnType("int");
@@ -668,9 +743,304 @@ namespace managerCMN.Migrations
 
                     b.HasKey("NotificationId");
 
-                    b.HasIndex("UserId");
+                    b.HasIndex("UserId", "CreatedDate");
+
+                    b.HasIndex("UserId", "IsRead", "CreatedDate");
 
                     b.ToTable("Notifications");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.Permission", b =>
+                {
+                    b.Property<int>("PermissionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("PermissionId"));
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PermissionKey")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PermissionName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("PermissionId");
+
+                    b.HasIndex("PermissionKey")
+                        .IsUnique();
+
+                    b.ToTable("Permissions");
+
+                    b.HasData(
+                        new
+                        {
+                            PermissionId = 1,
+                            Category = "Employee",
+                            Description = "Xem thông tin nhân viên",
+                            IsActive = true,
+                            PermissionKey = "Employee.View",
+                            PermissionName = "Xem danh sách nhân viên",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            PermissionId = 2,
+                            Category = "Employee",
+                            Description = "Thêm nhân viên mới vào hệ thống",
+                            IsActive = true,
+                            PermissionKey = "Employee.Create",
+                            PermissionName = "Tạo nhân viên mới",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            PermissionId = 3,
+                            Category = "Employee",
+                            Description = "Chỉnh sửa thông tin nhân viên",
+                            IsActive = true,
+                            PermissionKey = "Employee.Edit",
+                            PermissionName = "Sửa thông tin nhân viên",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            PermissionId = 4,
+                            Category = "Employee",
+                            Description = "Xóa nhân viên khỏi hệ thống",
+                            IsActive = true,
+                            PermissionKey = "Employee.Delete",
+                            PermissionName = "Xóa nhân viên",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            PermissionId = 5,
+                            Category = "Employee",
+                            Description = "Xem thông tin lương và hợp đồng nhân viên",
+                            IsActive = true,
+                            PermissionKey = "Employee.ViewSalary",
+                            PermissionName = "Xem lương nhân viên",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            PermissionId = 6,
+                            Category = "Request",
+                            Description = "Xem danh sách đơn từ",
+                            IsActive = true,
+                            PermissionKey = "Request.View",
+                            PermissionName = "Xem đơn từ",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            PermissionId = 7,
+                            Category = "Request",
+                            Description = "Tạo đơn từ mới",
+                            IsActive = true,
+                            PermissionKey = "Request.Create",
+                            PermissionName = "Tạo đơn từ",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            PermissionId = 8,
+                            Category = "Request",
+                            Description = "Duyệt hoặc từ chối đơn từ",
+                            IsActive = true,
+                            PermissionKey = "Request.Approve",
+                            PermissionName = "Duyệt đơn từ",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            PermissionId = 9,
+                            Category = "Request",
+                            Description = "Xóa đơn từ khỏi hệ thống",
+                            IsActive = true,
+                            PermissionKey = "Request.Delete",
+                            PermissionName = "Xóa đơn từ",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            PermissionId = 10,
+                            Category = "Attendance",
+                            Description = "Xem dữ liệu chấm công",
+                            IsActive = true,
+                            PermissionKey = "Attendance.View",
+                            PermissionName = "Xem chấm công",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            PermissionId = 11,
+                            Category = "Attendance",
+                            Description = "Chỉnh sửa dữ liệu chấm công",
+                            IsActive = true,
+                            PermissionKey = "Attendance.Edit",
+                            PermissionName = "Sửa chấm công",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            PermissionId = 12,
+                            Category = "Attendance",
+                            Description = "Xuất file báo cáo chấm công",
+                            IsActive = true,
+                            PermissionKey = "Attendance.Export",
+                            PermissionName = "Xuất báo cáo chấm công",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            PermissionId = 13,
+                            Category = "Asset",
+                            Description = "Xem danh sách tài sản",
+                            IsActive = true,
+                            PermissionKey = "Asset.View",
+                            PermissionName = "Xem tài sản",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            PermissionId = 14,
+                            Category = "Asset",
+                            Description = "Thêm tài sản mới",
+                            IsActive = true,
+                            PermissionKey = "Asset.Create",
+                            PermissionName = "Tạo tài sản",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            PermissionId = 15,
+                            Category = "Asset",
+                            Description = "Chỉnh sửa thông tin tài sản",
+                            IsActive = true,
+                            PermissionKey = "Asset.Edit",
+                            PermissionName = "Sửa tài sản",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            PermissionId = 16,
+                            Category = "Asset",
+                            Description = "Xóa tài sản khỏi hệ thống",
+                            IsActive = true,
+                            PermissionKey = "Asset.Delete",
+                            PermissionName = "Xóa tài sản",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            PermissionId = 17,
+                            Category = "Asset",
+                            Description = "Gán tài sản cho nhân viên",
+                            IsActive = true,
+                            PermissionKey = "Asset.Assign",
+                            PermissionName = "Gán tài sản",
+                            SortOrder = 5
+                        },
+                        new
+                        {
+                            PermissionId = 18,
+                            Category = "Settings",
+                            Description = "Xem phòng ban, chức vụ, vị trí",
+                            IsActive = true,
+                            PermissionKey = "Settings.ViewDepartments",
+                            PermissionName = "Xem cài đặt danh mục",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            PermissionId = 19,
+                            Category = "Settings",
+                            Description = "Thêm, sửa, xóa phòng ban và danh mục",
+                            IsActive = true,
+                            PermissionKey = "Settings.ManageDepartments",
+                            PermissionName = "Quản lý danh mục",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            PermissionId = 20,
+                            Category = "Settings",
+                            Description = "Xem phân quyền hệ thống",
+                            IsActive = true,
+                            PermissionKey = "Settings.ViewPermissions",
+                            PermissionName = "Xem phân quyền",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            PermissionId = 21,
+                            Category = "Settings",
+                            Description = "Thêm, sửa, xóa quyền và phân quyền cho vai trò",
+                            IsActive = true,
+                            PermissionKey = "Settings.ManagePermissions",
+                            PermissionName = "Quản lý phân quyền",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            PermissionId = 22,
+                            Category = "System",
+                            Description = "Xem nhật ký hệ thống",
+                            IsActive = true,
+                            PermissionKey = "System.ViewLogs",
+                            PermissionName = "Xem system logs",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            PermissionId = 23,
+                            Category = "System",
+                            Description = "Quản lý tài khoản người dùng",
+                            IsActive = true,
+                            PermissionKey = "System.ManageUsers",
+                            PermissionName = "Quản lý người dùng",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            PermissionId = 24,
+                            Category = "System",
+                            Description = "Xem các báo cáo hệ thống",
+                            IsActive = true,
+                            PermissionKey = "System.ViewReports",
+                            PermissionName = "Xem báo cáo",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            PermissionId = 25,
+                            Category = "System",
+                            Description = "Quyền cao nhất - Được làm mọi thứ trong hệ thống",
+                            IsActive = true,
+                            PermissionKey = "System.ALL",
+                            PermissionName = "⭐ TOÀN QUYỀN HỆ THỐNG",
+                            SortOrder = 99
+                        });
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Position", b =>
@@ -715,6 +1085,9 @@ namespace managerCMN.Migrations
                     b.Property<int?>("ApproverId")
                         .HasColumnType("int");
 
+                    b.Property<int?>("CheckInOutType")
+                        .HasColumnType("int");
+
                     b.Property<bool>("CountsAsWork")
                         .HasColumnType("bit");
 
@@ -733,7 +1106,13 @@ namespace managerCMN.Migrations
                     b.Property<bool>("IsHalfDayEnd")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsHalfDayEndMorning")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsHalfDayStart")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsHalfDayStartMorning")
                         .HasColumnType("bit");
 
                     b.Property<int?>("LeaveReason")
@@ -880,6 +1259,294 @@ namespace managerCMN.Migrations
                         });
                 });
 
+            modelBuilder.Entity("managerCMN.Models.Entities.RolePermission", b =>
+                {
+                    b.Property<int>("RolePermissionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RolePermissionId"));
+
+                    b.Property<DateTime>("AssignedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PermissionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("int");
+
+                    b.HasKey("RolePermissionId");
+
+                    b.HasIndex("PermissionId");
+
+                    b.HasIndex("RoleId", "PermissionId")
+                        .IsUnique();
+
+                    b.ToTable("RolePermissions");
+
+                    b.HasData(
+                        new
+                        {
+                            RolePermissionId = 1,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 1,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 2,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 2,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 3,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 3,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 4,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 4,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 5,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 5,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 6,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 6,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 7,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 7,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 8,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 8,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 9,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 9,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 10,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 10,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 11,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 11,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 12,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 12,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 13,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 13,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 14,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 14,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 15,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 15,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 16,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 16,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 17,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 17,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 18,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 18,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 19,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 19,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 20,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 20,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 21,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 21,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 22,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 22,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 23,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 23,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 24,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 24,
+                            RoleId = 1
+                        },
+                        new
+                        {
+                            RolePermissionId = 25,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 1,
+                            RoleId = 2
+                        },
+                        new
+                        {
+                            RolePermissionId = 26,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 2,
+                            RoleId = 2
+                        },
+                        new
+                        {
+                            RolePermissionId = 27,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 3,
+                            RoleId = 2
+                        },
+                        new
+                        {
+                            RolePermissionId = 28,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 6,
+                            RoleId = 2
+                        },
+                        new
+                        {
+                            RolePermissionId = 29,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 7,
+                            RoleId = 2
+                        },
+                        new
+                        {
+                            RolePermissionId = 30,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 8,
+                            RoleId = 2
+                        },
+                        new
+                        {
+                            RolePermissionId = 31,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 10,
+                            RoleId = 2
+                        },
+                        new
+                        {
+                            RolePermissionId = 32,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 11,
+                            RoleId = 2
+                        },
+                        new
+                        {
+                            RolePermissionId = 33,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 12,
+                            RoleId = 2
+                        },
+                        new
+                        {
+                            RolePermissionId = 34,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 13,
+                            RoleId = 2
+                        },
+                        new
+                        {
+                            RolePermissionId = 35,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 6,
+                            RoleId = 3
+                        },
+                        new
+                        {
+                            RolePermissionId = 36,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 7,
+                            RoleId = 3
+                        },
+                        new
+                        {
+                            RolePermissionId = 37,
+                            AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
+                            PermissionId = 10,
+                            RoleId = 3
+                        });
+                });
+
             modelBuilder.Entity("managerCMN.Models.Entities.Supplier", b =>
                 {
                     b.Property<int>("SupplierId")
@@ -966,9 +1633,12 @@ namespace managerCMN.Migrations
                     b.Property<DateTime>("CreatedDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("Deadline")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Description")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<int>("Priority")
                         .HasColumnType("int");
@@ -988,6 +1658,9 @@ namespace managerCMN.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("Urgency")
+                        .HasColumnType("int");
+
                     b.HasKey("TicketId");
 
                     b.HasIndex("AssignedTo");
@@ -995,6 +1668,134 @@ namespace managerCMN.Migrations
                     b.HasIndex("CreatedBy");
 
                     b.ToTable("Tickets");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.TicketAttachment", b =>
+                {
+                    b.Property<int>("TicketAttachmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TicketAttachmentId"));
+
+                    b.Property<string>("ContentType")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<long>("FileSize")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("TicketId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TicketMessageId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UploadedById")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UploadedDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("TicketAttachmentId");
+
+                    b.HasIndex("TicketId");
+
+                    b.HasIndex("TicketMessageId");
+
+                    b.HasIndex("UploadedById");
+
+                    b.ToTable("TicketAttachments");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.TicketMessage", b =>
+                {
+                    b.Property<int>("TicketMessageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TicketMessageId"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ForwardedToId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MessageType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SenderId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TicketId")
+                        .HasColumnType("int");
+
+                    b.HasKey("TicketMessageId");
+
+                    b.HasIndex("ForwardedToId");
+
+                    b.HasIndex("SenderId");
+
+                    b.HasIndex("TicketId");
+
+                    b.ToTable("TicketMessages");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.TicketRecipient", b =>
+                {
+                    b.Property<int>("TicketRecipientId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TicketRecipientId"));
+
+                    b.Property<int?>("AddedById")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("AddedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("CompletedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("ReadDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TicketId")
+                        .HasColumnType("int");
+
+                    b.HasKey("TicketRecipientId");
+
+                    b.HasIndex("AddedById");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TicketId", "EmployeeId")
+                        .IsUnique();
+
+                    b.ToTable("TicketRecipients");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.User", b =>
@@ -1101,6 +1902,11 @@ namespace managerCMN.Migrations
 
             modelBuilder.Entity("managerCMN.Models.Entities.AssetAssignment", b =>
                 {
+                    b.HasOne("managerCMN.Models.Entities.Employee", "ApprovedBy")
+                        .WithMany()
+                        .HasForeignKey("ApprovedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("managerCMN.Models.Entities.Asset", "Asset")
                         .WithMany("Assignments")
                         .HasForeignKey("AssetId")
@@ -1110,8 +1916,10 @@ namespace managerCMN.Migrations
                     b.HasOne("managerCMN.Models.Entities.Employee", "Employee")
                         .WithMany("AssetAssignments")
                         .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("ApprovedBy");
 
                     b.Navigation("Asset");
 
@@ -1127,6 +1935,31 @@ namespace managerCMN.Migrations
                         .IsRequired();
 
                     b.Navigation("Asset");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.AssetLifecycleHistory", b =>
+                {
+                    b.HasOne("managerCMN.Models.Entities.Asset", "Asset")
+                        .WithMany()
+                        .HasForeignKey("AssetId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("managerCMN.Models.Entities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("managerCMN.Models.Entities.Employee", "PerformedBy")
+                        .WithMany()
+                        .HasForeignKey("PerformedById")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Asset");
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("PerformedBy");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Attendance", b =>
@@ -1270,6 +2103,25 @@ namespace managerCMN.Migrations
                     b.Navigation("Request");
                 });
 
+            modelBuilder.Entity("managerCMN.Models.Entities.RolePermission", b =>
+                {
+                    b.HasOne("managerCMN.Models.Entities.Permission", "Permission")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("PermissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("managerCMN.Models.Entities.Role", "Role")
+                        .WithMany("RolePermissions")
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Permission");
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("managerCMN.Models.Entities.Ticket", b =>
                 {
                     b.HasOne("managerCMN.Models.Entities.Employee", "Assignee")
@@ -1286,6 +2138,83 @@ namespace managerCMN.Migrations
                     b.Navigation("Assignee");
 
                     b.Navigation("Creator");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.TicketAttachment", b =>
+                {
+                    b.HasOne("managerCMN.Models.Entities.Ticket", "Ticket")
+                        .WithMany("Attachments")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("managerCMN.Models.Entities.TicketMessage", "TicketMessage")
+                        .WithMany("Attachments")
+                        .HasForeignKey("TicketMessageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("managerCMN.Models.Entities.Employee", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Ticket");
+
+                    b.Navigation("TicketMessage");
+
+                    b.Navigation("UploadedBy");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.TicketMessage", b =>
+                {
+                    b.HasOne("managerCMN.Models.Entities.Employee", "ForwardedTo")
+                        .WithMany()
+                        .HasForeignKey("ForwardedToId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("managerCMN.Models.Entities.Employee", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("managerCMN.Models.Entities.Ticket", "Ticket")
+                        .WithMany("Messages")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ForwardedTo");
+
+                    b.Navigation("Sender");
+
+                    b.Navigation("Ticket");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.TicketRecipient", b =>
+                {
+                    b.HasOne("managerCMN.Models.Entities.Employee", "AddedBy")
+                        .WithMany()
+                        .HasForeignKey("AddedById")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("managerCMN.Models.Entities.Employee", "Employee")
+                        .WithMany()
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("managerCMN.Models.Entities.Ticket", "Ticket")
+                        .WithMany("Recipients")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AddedBy");
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Ticket");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.User", b =>
@@ -1367,6 +2296,11 @@ namespace managerCMN.Migrations
                     b.Navigation("Employees");
                 });
 
+            modelBuilder.Entity("managerCMN.Models.Entities.Permission", b =>
+                {
+                    b.Navigation("RolePermissions");
+                });
+
             modelBuilder.Entity("managerCMN.Models.Entities.Position", b =>
                 {
                     b.Navigation("Employees");
@@ -1381,12 +2315,28 @@ namespace managerCMN.Migrations
 
             modelBuilder.Entity("managerCMN.Models.Entities.Role", b =>
                 {
+                    b.Navigation("RolePermissions");
+
                     b.Navigation("UserRoles");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Supplier", b =>
                 {
                     b.Navigation("Assets");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.Ticket", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Messages");
+
+                    b.Navigation("Recipients");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.TicketMessage", b =>
+                {
+                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.User", b =>

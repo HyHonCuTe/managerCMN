@@ -89,12 +89,12 @@ builder.Services.AddControllersWithViews(options =>
 var app = builder.Build();
 
 // ── Auto-migrate database ──
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    db.Database.Migrate();
-    await DataSeeder.SeedAsync(db);
-}
+// using (var scope = app.Services.CreateScope())
+// {
+//     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+//     db.Database.Migrate();
+//     await DataSeeder.SeedAsync(db);
+// }
 
 // ── Middleware pipeline ──
 if (!app.Environment.IsDevelopment())

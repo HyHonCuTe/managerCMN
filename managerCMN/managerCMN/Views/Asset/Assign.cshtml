@@ -12,11 +12,15 @@
             <div class="row g-3">
                 <div class="col-md-6">
                     <label class="form-label">Nhân viên <span class="text-danger">*</span></label>
-                    <select name="EmployeeId" class="form-select" asp-items="@ViewBag.Employees">
+                    <select name="EmployeeId" class="form-select" required asp-items="@ViewBag.Employees">
                         <option value="">-- Chọn nhân viên --</option>
                     </select>
                 </div>
                 <div class="col-md-6">
+                    <label class="form-label">Ngày cấp phát <span class="text-danger">*</span></label>
+                    <input type="date" name="AssignedDate" class="form-control" value="@DateTime.Now.ToString("yyyy-MM-dd")" required />
+                </div>
+                <div class="col-md-12">
                     <label class="form-label">Ghi chú</label>
                     <input name="Note" class="form-control" />
                 </div>

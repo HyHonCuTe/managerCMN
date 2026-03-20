@@ -41,6 +41,8 @@ public class RequestCreateViewModel
 
     public string? Description { get; set; }
 
+    public bool CountsAsWork { get; set; } = true;
+
     public int? Approver1Id { get; set; }
     public string? Approver1Name { get; set; }
     public bool NeedsManualApprover1Selection { get; set; }

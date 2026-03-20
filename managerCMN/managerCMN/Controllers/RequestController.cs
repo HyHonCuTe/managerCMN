@@ -69,21 +69,24 @@ public class RequestController : Controller
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
 
-        // Add leave balance validation for paid leave requests
+        // Check leave balance and auto-convert to unpaid if insufficient
+        bool autoConvertedToUnpaid = false;
         if (model.RequestType == RequestType.Leave && model.LeaveReason.HasValue)
         {
             var isUnpaid = !LeaveReasonHelper.GetCountsAsWork(model.LeaveReason.Value);
-            if (!isUnpaid) // Only validate paid leave
+            if (!isUnpaid) // Only check paid leave
             {
-                // Calculate total days for validation
+                // Calculate total days for checking
                 var totalDays = _requestService.CalculateTotalDays(model.StartTime, model.EndTime,
                     model.HalfDayStartOption > 0, model.HalfDayEndOption > 0);
 
                 var summary = await _leaveService.GetBalanceSummaryAsync(employeeId, model.StartTime);
                 if (summary.TotalRemaining < totalDays)
                 {
-                    ModelState.AddModelError("LeaveReason",
-                        $"Không đủ số dư phép. Còn lại {summary.TotalRemaining} ngày, cần {totalDays} ngày.");
+                    // Auto-convert to unpaid instead of blocking
+                    model.CountsAsWork = false;
+                    autoConvertedToUnpaid = true;
+                    TempData["Warning"] = $"Không đủ số dư phép (còn {summary.TotalRemaining} ngày, cần {totalDays} ngày). Đơn được chuyển sang không tính công.";
                 }
             }
         }
@@ -119,33 +122,48 @@ public class RequestController : Controller
             LeaveReason = model.LeaveReason,
             Reason = model.Reason,
             Description = model.Description,
-            TotalDays = _requestService.CalculateTotalDays(model.StartTime, model.EndTime, model.IsHalfDayStart, model.IsHalfDayEnd)
+            TotalDays = _requestService.CalculateTotalDays(model.StartTime, model.EndTime, model.IsHalfDayStart, model.IsHalfDayEnd),
+            CountsAsWork = model.CountsAsWork // Use the potentially auto-converted value
         };
 
-        // Handle attachments
+        // Handle attachments with error handling
         if (model.Attachments?.Count > 0)
         {
-            var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "requests");
-            Directory.CreateDirectory(uploadsDir);
-
-            foreach (var file in model.Attachments)
+            try
             {
-                if (file.Length == 0) continue;
-                var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-                var filePath = Path.Combine(uploadsDir, fileName);
-                using var stream = new FileStream(filePath, FileMode.Create);
-                await file.CopyToAsync(stream);
+                var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "requests");
+                Directory.CreateDirectory(uploadsDir);
 
-                request.Attachments.Add(new RequestAttachment
+                foreach (var file in model.Attachments)
                 {
-                    FileName = file.FileName,
-                    FilePath = $"/uploads/requests/{fileName}"
-                });
+                    if (file.Length == 0) continue;
+
+                    var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+                    var filePath = Path.Combine(uploadsDir, fileName);
+
+                    using var stream = new FileStream(filePath, FileMode.Create);
+                    await file.CopyToAsync(stream);
+
+                    request.Attachments.Add(new RequestAttachment
+                    {
+                        FileName = file.FileName,
+                        FilePath = $"/uploads/requests/{fileName}"
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                TempData["Warning"] = $"Đơn đã được tạo nhưng không thể upload file đính kèm: {ex.Message}";
             }
         }
 
         await _requestService.CreateAsync(request, model.Approver1Id!.Value, model.Approver2Id);
-        TempData["Success"] = "Đã gửi đơn thành công!";
+
+        if (!autoConvertedToUnpaid && string.IsNullOrEmpty(TempData["Warning"]?.ToString()))
+        {
+            TempData["Success"] = "Đã gửi đơn thành công!";
+        }
+
         return RedirectToAction(nameof(Index));
     }
 
@@ -357,7 +375,17 @@ public class RequestController : Controller
         var employeeId = GetCurrentEmployeeId();
         var request = await _requestService.GetWithDetailsAsync(id);
         if (request == null) return NotFound();
-        if (request.EmployeeId != employeeId || request.Status != RequestStatus.Pending)
+
+        // Admin/Manager can edit any pending request, regular users can only edit their own
+        bool isAdminOrManager = User.IsInRole("Admin") || User.IsInRole("Manager");
+        if (!isAdminOrManager && request.EmployeeId != employeeId)
+        {
+            TempData["Error"] = "Bạn không có quyền chỉnh sửa đơn này.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        // Check status - only pending requests can be edited (for everyone)
+        if (request.Status != RequestStatus.Pending)
         {
             TempData["Error"] = "Chỉ có thể chỉnh sửa đơn đang chờ duyệt.";
             return RedirectToAction(nameof(Index));
@@ -381,7 +409,7 @@ public class RequestController : Controller
             TotalDays = request.TotalDays
         };
 
-        await PopulateCreateViewModel(model, employeeId);
+        await PopulateCreateViewModel(model, request.EmployeeId); // Use request owner's ID for proper context
         return View(model);
     }
 
@@ -392,7 +420,17 @@ public class RequestController : Controller
         var employeeId = GetCurrentEmployeeId();
         var request = await _requestService.GetWithDetailsAsync(id);
         if (request == null) return NotFound();
-        if (request.EmployeeId != employeeId || request.Status != RequestStatus.Pending)
+
+        // Admin/Manager can edit any pending request, regular users can only edit their own
+        bool isAdminOrManager = User.IsInRole("Admin") || User.IsInRole("Manager");
+        if (!isAdminOrManager && request.EmployeeId != employeeId)
+        {
+            TempData["Error"] = "Bạn không có quyền chỉnh sửa đơn này.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        // Check status - only pending requests can be edited (for everyone)
+        if (request.Status != RequestStatus.Pending)
         {
             TempData["Error"] = "Chỉ có thể chỉnh sửa đơn đang chờ duyệt.";
             return RedirectToAction(nameof(Index));

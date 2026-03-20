@@ -253,7 +253,7 @@ public class AssetController : Controller
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Assign(AssetAssignment assignment, AssetAssignmentReason assignmentReason, string? assignmentCondition)
     {
-        assignment.AssignedDate = DateTime.UtcNow;
+        // AssignedDate is now provided from form input (manual entry)
         assignment.Status = AssetAssignmentStatus.Assigned;
 
         // Use enhanced assignment method with reason
@@ -266,10 +266,10 @@ public class AssetController : Controller
     [HttpPost]
     [ValidateAntiForgeryToken]
     [Authorize(Policy = "AdminOnly")]
-    public async Task<IActionResult> Return(int assignmentId, AssetReturnReason returnReason, string? returnCondition)
+    public async Task<IActionResult> Return(int assignmentId, DateTime returnDate, AssetReturnReason returnReason, string? returnCondition)
     {
-        // Use enhanced return method with reason
-        await _assetService.ReturnAssetAsync(assignmentId, returnReason, returnCondition);
+        // Use enhanced return method with reason and manual return date
+        await _assetService.ReturnAssetAsync(assignmentId, returnDate, returnReason, returnCondition);
 
         TempData["Success"] = "Tài sản đã được thu hồi thành công!";
         return RedirectToAction(nameof(Index));
@@ -283,23 +283,31 @@ public class AssetController : Controller
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> Import(IFormFile excelFile)
     {
-        // Validate using FileUploadHelper
-        var validationResult = FileUploadHelper.ValidateFile(
-            excelFile,
-            FileUploadHelper.AllowedExcelExtensions,
-            true);
-
-        if (validationResult != ValidationResult.Success)
+        try
         {
-            ModelState.AddModelError("", validationResult.ErrorMessage ?? "File không hợp lệ.");
+            // Validate using FileUploadHelper
+            var validationResult = FileUploadHelper.ValidateFile(
+                excelFile,
+                FileUploadHelper.AllowedExcelExtensions,
+                true);
+
+            if (validationResult != ValidationResult.Success)
+            {
+                ModelState.AddModelError("", validationResult.ErrorMessage ?? "File không hợp lệ.");
+                return View();
+            }
+
+            using var stream = excelFile.OpenReadStream();
+            await _assetService.ImportFromExcelAsync(stream);
+
+            TempData["Success"] = "Import tài sản thành công!";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"Lỗi khi import tài sản: {ex.Message}";
             return View();
         }
-
-        using var stream = excelFile.OpenReadStream();
-        await _assetService.ImportFromExcelAsync(stream);
-
-        TempData["Success"] = "Import tài sản thành công!";
-        return RedirectToAction(nameof(Index));
     }
 
     [HttpPost]

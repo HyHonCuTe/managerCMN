@@ -322,28 +322,36 @@ public class TicketService : ITicketService
 
     private async Task SaveAttachmentsAsync(ICollection<TicketAttachment> attachmentCollection, List<IFormFile> files, int uploadedById, string subFolder)
     {
-        var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", subFolder);
-        Directory.CreateDirectory(uploadsDir);
-
-        foreach (var file in files)
+        try
         {
-            if (file.Length == 0) continue;
+            var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", subFolder);
+            Directory.CreateDirectory(uploadsDir);
 
-            var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-            var filePath = Path.Combine(uploadsDir, fileName);
-
-            using var stream = new FileStream(filePath, FileMode.Create);
-            await file.CopyToAsync(stream);
-
-            attachmentCollection.Add(new TicketAttachment
+            foreach (var file in files)
             {
-                FileName = file.FileName,
-                FilePath = $"/uploads/{subFolder}/{fileName}",
-                FileSize = file.Length,
-                ContentType = file.ContentType,
-                UploadedById = uploadedById,
-                UploadedDate = DateTime.UtcNow
-            });
+                if (file.Length == 0) continue;
+
+                var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
+                var filePath = Path.Combine(uploadsDir, fileName);
+
+                using var stream = new FileStream(filePath, FileMode.Create);
+                await file.CopyToAsync(stream);
+
+                attachmentCollection.Add(new TicketAttachment
+                {
+                    FileName = file.FileName,
+                    FilePath = $"/uploads/{subFolder}/{fileName}",
+                    FileSize = file.Length,
+                    ContentType = file.ContentType,
+                    UploadedById = uploadedById,
+                    UploadedDate = DateTime.UtcNow
+                });
+            }
+        }
+        catch (Exception)
+        {
+            // Log error but don't stop the ticket creation/reply
+            // The ticket will be created without attachments
         }
     }
 

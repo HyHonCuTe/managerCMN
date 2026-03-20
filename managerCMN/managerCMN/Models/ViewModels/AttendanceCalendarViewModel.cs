@@ -20,7 +20,6 @@ public class RequestDayInfo
         RequestType.CheckInOut => "Checkin/out",
         RequestType.Absence => "Vắng mặt",
         RequestType.WorkFromHome => "WFH",
-        _ => "Khác"
     };
 
     public string TypeBadgeClass => RequestType switch

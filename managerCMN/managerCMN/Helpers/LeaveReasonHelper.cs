@@ -15,7 +15,6 @@ public static class LeaveReasonHelper
         new(LeaveReason.BereavementLeave, "Nghỉ tang (tối đa 3 ngày)", true, RequestType.Leave),
         new(LeaveReason.MaternityLeave, "Nghỉ thai sản", true, RequestType.Leave),
         new(LeaveReason.MarriageLeave, "Nghỉ kết hôn (tối đa 3 ngày)", true, RequestType.Leave),
-        new(LeaveReason.OtherLeave, "Khác", true, RequestType.Leave),
 
         // CheckInOut
         new(LeaveReason.ForgotCheckInOut, "Quên checkin/out", true, RequestType.CheckInOut),

@@ -17,7 +17,7 @@ public interface IAssetService
     Task AssignToEmployeeAsync(AssetAssignment assignment);
     Task AssignToEmployeeAsync(AssetAssignment assignment, AssetAssignmentReason reason, string? condition = null);
     Task ReturnAssetAsync(int assignmentId, string? condition);
-    Task ReturnAssetAsync(int assignmentId, AssetReturnReason reason, string? condition = null);
+    Task ReturnAssetAsync(int assignmentId, DateTime returnDate, AssetReturnReason reason, string? condition = null);
 
     // Employee and filtering
     Task<IEnumerable<AssetAssignment>> GetAssignmentsByEmployeeAsync(int employeeId);

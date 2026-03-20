@@ -156,14 +156,14 @@ public class AssetService : IAssetService
         await _unitOfWork.SaveChangesAsync();
     }
 
-    // Enhanced return with reason
-    public async Task ReturnAssetAsync(int assignmentId, AssetReturnReason reason, string? condition = null)
+    // Enhanced return with reason and manual return date
+    public async Task ReturnAssetAsync(int assignmentId, DateTime returnDate, AssetReturnReason reason, string? condition = null)
     {
         var assignment = await _unitOfWork.AssetAssignments.GetByIdAsync(assignmentId);
         if (assignment == null) return;
 
         assignment.Status = AssetAssignmentStatus.Returned;
-        assignment.ReturnDate = DateTime.UtcNow;
+        assignment.ReturnDate = returnDate; // Use manual return date from form
         assignment.ReturnReason = reason;
         assignment.ReturnCondition = condition;
         _unitOfWork.AssetAssignments.Update(assignment);

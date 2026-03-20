@@ -248,12 +248,22 @@
 @section Scripts {
 <script>
     $(document).ready(function () {
+        // Determine column count based on privilege status
+        var isPrivileged = @((ViewBag.IsPrivileged == true).ToString().ToLower());
+        var columnCount = isPrivileged ? 10 : 9;
+
         var dtOpts = {
             language: { url: '//cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json' },
-            paging: false, scrollY: '520px', scrollCollapse: true, order: []
+            paging: false,
+            scrollY: '520px',
+            scrollCollapse: true,
+            order: [],
+            columns: Array(columnCount).fill(null)  // Explicit column count to prevent warning
         };
+
         // Init the active (visible) tab's table
         $('#tabAll .request-tab-table').DataTable(dtOpts);
+
         // Init hidden tab tables when they become visible
         $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
             var target = $(e.target).attr('data-bs-target');

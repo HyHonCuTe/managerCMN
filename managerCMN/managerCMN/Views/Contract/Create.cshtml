@@ -1,4 +1,5 @@
 @model ContractCreateViewModel
+@using managerCMN.Models.Enums
 @{
     ViewData["Title"] = "Thêm Hợp đồng";
 }
@@ -6,42 +7,130 @@
 <div class="card">
     <div class="card-header"><i class="bi bi-plus-lg"></i> Thêm hợp đồng mới</div>
     <div class="card-body">
-        <form asp-action="Create" method="post" enctype="multipart/form-data">
-            @Html.AntiForgeryToken()
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label asp-for="EmployeeId" class="form-label">Nhân viên <span class="text-danger">*</span></label>
-                    <select asp-for="EmployeeId" asp-items="@ViewBag.Employees" class="form-select">
-                        <option value="">-- Chọn --</option>
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="ContractType" class="form-label">Loại hợp đồng</label>
-                    <select asp-for="ContractType" asp-items="Html.GetEnumSelectList<ContractType>()" class="form-select"></select>
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="StartDate" class="form-label">Ngày bắt đầu</label>
-                    <input asp-for="StartDate" class="form-control" type="date" />
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="EndDate" class="form-label">Ngày kết thúc</label>
-                    <input asp-for="EndDate" class="form-control" type="date" />
-                </div>
-                <div class="col-md-4">
-                    <label asp-for="Salary" class="form-label">Lương</label>
-                    <input asp-for="Salary" class="form-control" type="number" />
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="ContractFile" class="form-label">File hợp đồng (PDF)</label>
-                    <input asp-for="ContractFile" class="form-control" type="file" accept=".pdf,.doc,.docx" />
-                </div>
+
+        @* Error/Success Messages *@
+        @if (TempData["ImportSuccess"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="bi bi-check-circle"></i> @TempData["ImportSuccess"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
-            <div class="mt-4">
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
-                <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+        }
+        @if (TempData["ImportError"] != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-x-circle"></i> @TempData["ImportError"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
-        </form>
+        }
+        @if (TempData["ImportErrors"] != null)
+        {
+            var errors = TempData["ImportErrors"]?.ToString()?.Split('|') ?? Array.Empty<string>();
+            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle"></i> <strong>Một số lỗi xảy ra khi import:</strong>
+                <ul class="mb-0 mt-2">
+                    @foreach (var err in errors)
+                    {
+                        <li>@err</li>
+                    }
+                </ul>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+
+        @* Tab navigation *@
+        <ul class="nav nav-tabs mb-3" id="contractTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button" role="tab">
+                    <i class="bi bi-pencil"></i> Nhập thủ công
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="import-tab" data-bs-toggle="tab" data-bs-target="#import" type="button" role="tab">
+                    <i class="bi bi-file-earmark-excel"></i> Import Excel
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="contractTabsContent">
+            @* Manual entry tab *@
+            <div class="tab-pane fade show active" id="manual" role="tabpanel">
+                <form asp-action="Create" method="post" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label asp-for="EmployeeId" class="form-label">Nhân viên <span class="text-danger">*</span></label>
+                            <select asp-for="EmployeeId" asp-items="@ViewBag.Employees" class="form-select">
+                                <option value="">-- Chọn --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ContractType" class="form-label">Loại hợp đồng</label>
+                            <select asp-for="ContractType" asp-items="Html.GetEnumSelectList<ContractType>()" class="form-select"></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="StartDate" class="form-label">Ngày bắt đầu</label>
+                            <input asp-for="StartDate" class="form-control" type="date" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="EndDate" class="form-label">Ngày kết thúc</label>
+                            <input asp-for="EndDate" class="form-control" type="date" />
+                        </div>
+                        <input asp-for="Salary" type="hidden" value="0" />
+                        <div class="col-md-12">
+                            <label asp-for="ContractFile" class="form-label">File hợp đồng (PDF)</label>
+                            <input asp-for="ContractFile" class="form-control" type="file" accept=".pdf,.doc,.docx" />
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+                        <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+                    </div>
+                </form>
+            </div>
+
+            @* Import Excel tab *@
+            <div class="tab-pane fade" id="import" role="tabpanel">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Hướng dẫn:</strong>
+                    <ol class="mb-0 mt-2">
+                        <li>Tải file mẫu Excel</li>
+                        <li>Điền thông tin hợp đồng theo định dạng:
+                            <ul>
+                                <li>Mã NV (bắt buộc)</li>
+                                <li>Loại HĐ: <em>Thử việc</em>, <em>Xác định thời hạn</em>, <em>Không xác định thời hạn</em>, hoặc <em>Thời vụ</em></li>
+                                <li>Ngày bắt đầu (dd/MM/yyyy)</li>
+                                <li>Ngày kết thúc (dd/MM/yyyy, không bắt buộc)</li>
+                                <li>Lương (mặc định = 0)</li>
+                            </ul>
+                        </li>
+                        <li>Upload file và hệ thống sẽ tự động tạo hợp đồng</li>
+                    </ol>
+                </div>
+
+                <form asp-action="ImportExcel" method="post" enctype="multipart/form-data">
+                    @Html.AntiForgeryToken()
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">File Excel <span class="text-danger">*</span></label>
+                            <input type="file" name="file" class="form-control" accept=".xlsx,.xls" required />
+                            <div class="form-text">Chỉ chấp nhận file .xlsx hoặc .xls, tối đa 5MB</div>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <a asp-action="DownloadTemplate" class="btn btn-success">
+                            <i class="bi bi-download"></i> Tải file mẫu
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload"></i> Upload và Import
+                        </button>
+                        <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 

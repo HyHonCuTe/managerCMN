@@ -210,7 +210,7 @@ sudo apt install -y mssql-server
 # Cấu hình SQL Server
 sudo /opt/mssql/bin/mssql-conf setup
 # Chọn: 3 (Express - Free)
-# Đặt password cho SA account (ví dụ: YourStrong@Passw0rd)
+# Đặt password cho SA account (ví dụ: CMN@2026)
 # Lưu ý: Password phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt
 
 # Kiểm tra SQL Server đang chạy
@@ -236,21 +236,21 @@ echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc
 source ~/.bashrc
 
 # Kiểm tra kết nối
-sqlcmd -S localhost -U SA -P 'YourStrong@Passw0rd' -C -Q "SELECT @@VERSION"
+sqlcmd -S localhost -U SA -P 'CMN@2026' -C -Q "SELECT @@VERSION"
 ```
 
 ### Bước 5: Tạo Database
 
 ```bash
 # Kết nối SQL Server
-sqlcmd -S localhost -U SA -P 'YourStrong@Passw0rd' -C
+sqlcmd -S localhost -U SA -P 'CMN@2026' -C
 
 # Trong sqlcmd, chạy các lệnh sau:
 CREATE DATABASE managerCMN;
 GO
 
 # Tạo user cho ứng dụng (optional, khuyến nghị)
-CREATE LOGIN cmnapp WITH PASSWORD = 'AppStrong@Passw0rd';
+CREATE LOGIN cmnapp WITH PASSWORD = 'CMN@2026';
 GO
 USE managerCMN;
 GO
@@ -280,7 +280,7 @@ sudo nano /etc/nginx/sites-available/cmnmanager
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;  # Hoặc IP server
+    server_name hyhon.io.vn;  # Hoặc IP server
 
     location / {
         proxy_pass http://localhost:5000;
@@ -462,7 +462,7 @@ sudo ufw status
 sudo apt install -y certbot python3-certbot-nginx
 
 # Lấy SSL certificate (thay your-domain.com bằng domain thực)
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d hyhon.io.vn
 
 # Tự động renew
 sudo systemctl enable certbot.timer
@@ -476,7 +476,7 @@ sudo systemctl enable certbot.timer
 
 ```bash
 # Kết nối SQL Server
-sqlcmd -S localhost -U SA -P 'YourStrong@Passw0rd' -C
+sqlcmd -S localhost -U SA -P 'CMN@2026' -C
 
 # Các lệnh hữu ích trong sqlcmd:
 
@@ -553,7 +553,7 @@ sudo nano /etc/nginx/sites-available/adminer
 ```nginx
 server {
     listen 8080;
-    server_name _;
+    server_name 103.68.253.22;
 
     root /var/www/adminer;
     index index.php;
@@ -602,8 +602,7 @@ GROUP BY u.UserId, u.Email, u.FullName, u.IsActive;
 GO
 
 -- Tạo user mới và gán role Admin
-INSERT INTO Users (Email, FullName, IsActive, CreatedAt)
-VALUES ('admin@yourcompany.com', N'Administrator', 1, GETDATE());
+
 
 DECLARE @NewUserId INT = SCOPE_IDENTITY();
 INSERT INTO UserRoles (UserId, RoleId, AssignedDate)
@@ -649,6 +648,11 @@ VALUES (N'Phòng Kỹ Thuật', 'KT', 1, GETDATE());
 GO
 ```
 
+
+
+INSERT [dbo].[Employees] ([EmployeeId], [EmployeeCode], [FullName], [DateOfBirth], [Gender], [Email], [Phone], [PermanentAddress], [TemporaryAddress], [TaxCode], [BankAccount], [BankName], [DepartmentId], [Qualifications], [StartWorkingDate], [Status], [CreatedAt], [AttendanceCode], [PositionId], [AttendanceName], [Ethnicity], [IdCardIssueDate], [IdCardIssuePlace], [IdCardNumber], [JobTitleId], [Nationality], [ResignationDate], [ResignationReason], [VehiclePlate], [FacebookUrl], [InsuranceCode], [IsApprover]) VALUES (1, N'A00000', N'HR', CAST(N'1977-12-03T00:00:00.0000000' AS DateTime2), 0, N'hr@cmn.com.vn', N'903974848', N'A1411 CC HAGL 1, P. Tân Quy, Q7', N'Số 7 đường số 9, KDC Phước Kiển A, Nhà Bè', N'8049806155', N'0071001014424', N'Vietcombank CN Sài Gòn', 1, N'Đại học', CAST(N'2012-05-15T00:00:00.0000000' AS DateTime2), 0, CAST(N'2026-03-13T08:07:15.9286699' AS DateTime2), N'4', 4, N'KhoiMX', N'Kinh', CAST(N'2021-10-07T00:00:00.0000000' AS DateTime2), N'CTCCS QLHC về TTXH', N'83077014783', 1, N'Việt Nam', NULL, NULL, N'51G-340.86', NULL, N'200133112', 0)
+
+
 ### Seed Data ban đầu
 
 ```sql
@@ -656,10 +660,10 @@ GO
 -- Chạy sau khi migrate database
 
 -- Tạo admin user nếu chưa có
-IF NOT EXISTS (SELECT 1 FROM Users WHERE Email = 'admin@company.local')
+IF NOT EXISTS (SELECT 1 FROM Users WHERE Email = 'hr@cmn.com.vn')
 BEGIN
     INSERT INTO Users (Email, FullName, IsActive, CreatedAt)
-    VALUES ('admin@company.local', 'System Administrator', 1, GETDATE());
+    VALUES ('hr@cmn.com.vn', 'System Administrator', 1, GETDATE());
 
     DECLARE @AdminUserId INT = SCOPE_IDENTITY();
     INSERT INTO UserRoles (UserId, RoleId, AssignedDate)

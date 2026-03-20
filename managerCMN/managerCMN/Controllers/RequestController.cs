@@ -206,14 +206,21 @@ public class RequestController : Controller
         if (to.HasValue)
             requests = requests.Where(r => r.CreatedDate <= to.Value.AddDays(1));
 
+        var requestList = requests.ToList();
+
+        // Batch fetch leave balances for all employees in the requests
+        var employeeIds = requestList.Select(r => r.EmployeeId).Distinct().ToList();
+        var leaveBalances = await _leaveService.GetBalanceSummariesAsync(employeeIds);
+
         var model = new PendingApprovalsViewModel
         {
-            Requests = requests.ToList(),
+            Requests = requestList,
             FilterStatus = status,
             FilterType = type,
             FilterDateFrom = from,
             FilterDateTo = to,
-            CurrentEmployeeId = employeeId
+            CurrentEmployeeId = employeeId,
+            EmployeeLeaveBalances = leaveBalances
         };
 
         ViewBag.IsAdminOrManager = isAdminOrManager;

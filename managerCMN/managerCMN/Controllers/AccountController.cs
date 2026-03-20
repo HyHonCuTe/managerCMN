@@ -223,11 +223,15 @@ public class AccountController : Controller
         {
             claims.Add(new Claim("EmployeeId", user.EmployeeId.Value.ToString()));
 
-            // Check if employee is an approver (IsApprover or is a department manager)
+            // Check if employee is an approver (IsApprover, JobTitleId=2 Trưởng phòng, or is a department manager)
             var employee = await _unitOfWork.Employees.GetByIdAsync(user.EmployeeId.Value);
             if (employee != null)
             {
                 bool isApprover = employee.IsApprover;
+                // Check if employee is "Trưởng phòng" (JobTitleId = 2)
+                if (!isApprover)
+                    isApprover = employee.JobTitleId == 2;
+                // Also check if they are set as ManagerId of their department
                 if (!isApprover && employee.DepartmentId.HasValue)
                 {
                     var dept = await _unitOfWork.Departments.GetByIdAsync(employee.DepartmentId.Value);

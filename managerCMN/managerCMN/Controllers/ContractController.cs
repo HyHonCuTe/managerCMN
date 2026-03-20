@@ -1,7 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.EntityFrameworkCore;
+using ClosedXML.Excel;
 using managerCMN.Models.Entities;
+using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
 using managerCMN.Helpers;
@@ -134,6 +137,7 @@ public class ContractController : Controller
         contract.Status       = model.Status;
 
         await _contractService.UpdateAsync(contract);
+        TempData["Success"] = "Đã cập nhật hợp đồng thành công!";
         return RedirectToAction(nameof(Index));
     }
 
@@ -141,5 +145,215 @@ public class ContractController : Controller
     {
         var employees = await _employeeService.GetAllAsync();
         ViewBag.Employees = new SelectList(employees, "EmployeeId", "FullName");
+    }
+
+    [HttpGet]
+    public IActionResult DownloadTemplate()
+    {
+        using var workbook = new XLWorkbook();
+        var ws = workbook.Worksheets.Add("HopDong");
+
+        string[] headers = {
+            "Mã NV*",
+            "Loại HĐ (Thử việc/Xác định thời hạn/Không xác định thời hạn/Thời vụ)*",
+            "Ngày bắt đầu (dd/MM/yyyy)*",
+            "Ngày kết thúc (dd/MM/yyyy)",
+            "Lương"
+        };
+
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var cell = ws.Cell(1, i + 1);
+            cell.Value = headers[i];
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.BackgroundColor = XLColor.LightBlue;
+        }
+
+        // Sample data row
+        ws.Cell(2, 1).Value = "NV001";
+        ws.Cell(2, 2).Value = "Thử việc";
+        ws.Cell(2, 3).Value = "01/01/2026";
+        ws.Cell(2, 4).Value = "31/12/2026";
+        ws.Cell(2, 5).Value = "0";
+
+        ws.Columns().AdjustToContents();
+
+        using var ms = new MemoryStream();
+        workbook.SaveAs(ms);
+        return File(ms.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "mau_nhap_hopdong.xlsx");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ImportExcel(IFormFile file)
+    {
+        try
+        {
+            // Validate file
+            var validationResult = FileUploadHelper.ValidateFile(
+                file, FileUploadHelper.AllowedExcelExtensions, true);
+
+            if (validationResult != ValidationResult.Success)
+            {
+                TempData["ImportError"] = validationResult.ErrorMessage ?? "File không hợp lệ.";
+                return RedirectToAction(nameof(Create));
+            }
+
+            // Load employees for FK lookup
+            var employees = (await _employeeService.GetAllAsync()).ToList();
+            var employeeByCode = employees
+                .Where(e => !string.IsNullOrEmpty(e.EmployeeCode))
+                .ToDictionary(e => e.EmployeeCode.ToLower(), e => e);
+
+            var errors = new List<string>();
+            var toCreate = new List<Contract>();
+
+            using var ms = new MemoryStream();
+            await file.CopyToAsync(ms);
+            ms.Position = 0;
+
+            using var workbook = new XLWorkbook(ms);
+            var ws = workbook.Worksheets.First();
+            int lastRow = ws.LastRowUsed()?.RowNumber() ?? 1;
+
+            for (int row = 2; row <= lastRow; row++)
+            {
+                var empCode = ws.Cell(row, 1).GetString().Trim();
+                var contractTypeStr = ws.Cell(row, 2).GetString().Trim();
+                var startDateStr = ws.Cell(row, 3).GetString().Trim();
+                var endDateStr = ws.Cell(row, 4).GetString().Trim();
+                var salaryStr = ws.Cell(row, 5).GetString().Trim();
+
+                // Skip empty rows
+                if (string.IsNullOrEmpty(empCode) && string.IsNullOrEmpty(contractTypeStr))
+                    continue;
+
+                // Validate employee code
+                if (string.IsNullOrEmpty(empCode))
+                {
+                    errors.Add($"Dòng {row}: Thiếu Mã NV.");
+                    continue;
+                }
+
+                if (!employeeByCode.TryGetValue(empCode.ToLower(), out var employee))
+                {
+                    errors.Add($"Dòng {row}: Không tìm thấy nhân viên với mã '{empCode}'.");
+                    continue;
+                }
+
+                // Parse ContractType enum
+                var contractType = ParseContractType(contractTypeStr);
+                if (!contractType.HasValue)
+                {
+                    errors.Add($"Dòng {row}: Loại hợp đồng '{contractTypeStr}' không hợp lệ. Vui lòng dùng: Thử việc, Xác định thời hạn, Không xác định thời hạn, hoặc Thời vụ.");
+                    continue;
+                }
+
+                // Parse start date
+                var startDate = ParseDate(startDateStr);
+                if (!startDate.HasValue)
+                {
+                    errors.Add($"Dòng {row}: Ngày bắt đầu '{startDateStr}' không hợp lệ. Định dạng: dd/MM/yyyy.");
+                    continue;
+                }
+
+                // Parse end date (optional)
+                DateTime? endDate = null;
+                if (!string.IsNullOrEmpty(endDateStr))
+                {
+                    endDate = ParseDate(endDateStr);
+                    if (!endDate.HasValue)
+                    {
+                        errors.Add($"Dòng {row}: Ngày kết thúc '{endDateStr}' không hợp lệ. Định dạng: dd/MM/yyyy.");
+                        continue;
+                    }
+
+                    if (endDate.Value <= startDate.Value)
+                    {
+                        errors.Add($"Dòng {row}: Ngày kết thúc phải sau ngày bắt đầu.");
+                        continue;
+                    }
+                }
+
+                // Parse salary (default to 0)
+                decimal salary = 0;
+                if (!string.IsNullOrEmpty(salaryStr))
+                {
+                    if (!decimal.TryParse(salaryStr, out salary) || salary < 0)
+                    {
+                        errors.Add($"Dòng {row}: Lương '{salaryStr}' không hợp lệ. Phải là số >= 0.");
+                        continue;
+                    }
+                }
+
+                toCreate.Add(new Contract
+                {
+                    EmployeeId = employee.EmployeeId,
+                    ContractType = contractType.Value,
+                    StartDate = startDate.Value,
+                    EndDate = endDate,
+                    Salary = salary,
+                    Status = ContractStatus.Active
+                });
+            }
+
+            if (errors.Any())
+            {
+                TempData["ImportErrors"] = string.Join("|", errors);
+            }
+
+            if (toCreate.Any())
+            {
+                try
+                {
+                    foreach (var contract in toCreate)
+                    {
+                        await _contractService.CreateAsync(contract);
+                    }
+
+                    TempData["ImportSuccess"] = $"Đã nhập thành công {toCreate.Count} hợp đồng.";
+                }
+                catch (DbUpdateException dbEx)
+                {
+                    TempData["Error"] = "Lỗi khi lưu dữ liệu: " +
+                        (dbEx.InnerException?.Message ?? dbEx.Message) +
+                        ". Vui lòng kiểm tra dữ liệu và thử lại.";
+                }
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+        catch (Exception)
+        {
+            TempData["Error"] = "Lỗi nghiêm trọng khi xử lý file. Vui lòng kiểm tra định dạng file và thử lại.";
+            return RedirectToAction(nameof(Create));
+        }
+    }
+
+    private static DateTime? ParseDate(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return null;
+        if (DateTime.TryParseExact(s, "dd/MM/yyyy",
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var d)) return d;
+        if (DateTime.TryParse(s, out d)) return d;
+        return null;
+    }
+
+    private static ContractType? ParseContractType(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return null;
+        var normalized = s.Trim().ToLowerInvariant();
+
+        return normalized switch
+        {
+            "thử việc" or "thu viec" => ContractType.Probation,
+            "xác định thời hạn" or "xac dinh thoi han" or "có thời hạn" or "co thoi han" => ContractType.FixedTerm,
+            "không xác định thời hạn" or "khong xac dinh thoi han" or "vô thời hạn" or "vo thoi han" => ContractType.Indefinite,
+            "thời vụ" or "thoi vu" => ContractType.Seasonal,
+            _ => null
+        };
     }
 }

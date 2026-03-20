@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Authorization;
 using managerCMN.Data;
@@ -95,6 +96,12 @@ var app = builder.Build();
 //     db.Database.Migrate();
 //     await DataSeeder.SeedAsync(db);
 // }
+
+// ── Configure Forwarded Headers for Nginx proxy ──
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
 
 // ── Middleware pipeline ──
 if (!app.Environment.IsDevelopment())

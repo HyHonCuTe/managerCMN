@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using managerCMN.Helpers;
+using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
@@ -33,15 +34,24 @@ public class AttendanceController : Controller
 
         bool isAdminOrManager = User.IsInRole("Admin") || User.IsInRole("Manager");
         int? myEmployeeId = null;
+        Employee? currentEmployee = null;
         var empIdClaim = User.FindFirst("EmployeeId");
         if (empIdClaim != null && int.TryParse(empIdClaim.Value, out var eid))
+        {
             myEmployeeId = eid;
+            currentEmployee = (await _employeeService.GetAllAsync()).FirstOrDefault(e => e.EmployeeId == eid);
+        }
+
+        // Check if user is a department manager (JobTitleId = 2: Trưởng phòng)
+        bool isDepartmentManager = currentEmployee?.JobTitleId == 2;
+        int? myDepartmentId = currentEmployee?.DepartmentId;
 
         var employees = await _employeeService.GetAllAsync();
         List<EmployeeSelectItem> empList;
 
         if (isAdminOrManager)
         {
+            // Admin/Manager: Show all employees
             empList = employees
                 .OrderBy(e => e.Department?.DepartmentName).ThenBy(e => e.FullName)
                 .Select(e => new EmployeeSelectItem
@@ -53,8 +63,24 @@ public class AttendanceController : Controller
                 }).ToList();
             employeeId ??= empList.FirstOrDefault()?.EmployeeId;
         }
+        else if (isDepartmentManager && myDepartmentId.HasValue)
+        {
+            // Department Manager: Show employees in their department
+            empList = employees
+                .Where(e => e.DepartmentId == myDepartmentId.Value)
+                .OrderBy(e => e.FullName)
+                .Select(e => new EmployeeSelectItem
+                {
+                    EmployeeId = e.EmployeeId,
+                    EmployeeCode = e.EmployeeCode,
+                    FullName = e.FullName,
+                    DepartmentName = e.Department?.DepartmentName
+                }).ToList();
+            employeeId ??= empList.FirstOrDefault()?.EmployeeId;
+        }
         else
         {
+            // Regular employee: Show only self
             employeeId = myEmployeeId;
             empList = employees
                 .Where(e => e.EmployeeId == myEmployeeId)
@@ -272,6 +298,7 @@ public class AttendanceController : Controller
         }
 
         ViewBag.IsAdminOrManager = isAdminOrManager;
+        ViewBag.IsDepartmentManager = isDepartmentManager;
         return View(model);
     }
 

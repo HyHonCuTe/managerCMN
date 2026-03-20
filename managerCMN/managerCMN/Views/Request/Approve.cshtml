@@ -148,6 +148,7 @@
                         <th>Thời gian</th>
                         <th class="text-center">Ngày</th>
                         <th>Lý do</th>
+                        <th class="text-center">Số phép còn lại</th>
                         <th class="text-center">Tính công</th>
                         <th class="text-center">Trạng thái</th>
                         <th style="min-width:150px">Người duyệt</th>
@@ -210,6 +211,30 @@
                             </td>
                             <td class="text-center">@req.TotalDays</td>
                             <td><small>@(req.Reason ?? "-")</small></td>
+                            <td class="text-center">
+                                @{
+                                    var hasBalance = Model.EmployeeLeaveBalances.TryGetValue(req.EmployeeId, out var balance);
+                                }
+                                @if (hasBalance && balance != null)
+                                {
+                                    if (balance.TotalRemaining > 0)
+                                    {
+                                        <span class="badge bg-success">@balance.TotalRemaining.ToString("F1") ngày</span>
+                                    }
+                                    else if (balance.TotalRemaining == 0)
+                                    {
+                                        <span class="badge bg-warning text-dark">0 ngày</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">@balance.TotalRemaining.ToString("F1") ngày</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">-</span>
+                                }
+                            </td>
                             <td class="text-center">
                                 @if (req.CountsAsWork)
                                 {
@@ -290,7 +315,7 @@
                     @if (!requests.Any())
                     {
                         <tr>
-                            <td colspan="11" class="text-center py-5 text-muted">
+                            <td colspan="12" class="text-center py-5 text-muted">
                                 <i class="bi bi-inbox fs-1 d-block mb-2"></i>
                                 Không có đơn từ nào.
                             </td>

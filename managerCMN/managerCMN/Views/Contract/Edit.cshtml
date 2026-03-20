@@ -66,11 +66,7 @@ else if (isNearExpiry)
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label asp-for="Salary" class="form-label fw-semibold">Lương (VNĐ)</label>
-                        <input asp-for="Salary" class="form-control" type="number" step="500000" min="0" />
-                        <span asp-validation-for="Salary" class="text-danger small"></span>
-                    </div>
+                    <input asp-for="Salary" type="hidden" />
 
                     <div class="mb-4">
                         <label asp-for="Status" class="form-label fw-semibold">Trạng thái</label>

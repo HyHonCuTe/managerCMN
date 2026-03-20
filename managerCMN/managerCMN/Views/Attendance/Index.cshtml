@@ -66,12 +66,12 @@
     }
 
     @* === FILTER === *@
-    <form method="get" class="att-filter-bar mb-2">
-        @if (ViewBag.IsAdminOrManager == true)
+    <form method="get" class="att-filter-bar mb-2" id="attendanceFilterForm">
+        @if (ViewBag.IsAdminOrManager == true || ViewBag.IsDepartmentManager == true)
         {
         <div class="att-filter-group">
             <label class="att-filter-label">Nhân viên</label>
-            <select name="employeeId" class="form-select form-select-sm">
+            <select name="employeeId" class="form-select form-select-sm" onchange="submitFilterForm()">
                 @foreach (var emp in Model.Employees)
                 {
                     var dept = !string.IsNullOrEmpty(emp.DepartmentName) ? $" [{emp.DepartmentName}]" : "";
@@ -88,7 +88,7 @@
         }
         <div class="att-filter-group">
             <label class="att-filter-label">Tháng</label>
-            <select name="month" class="form-select form-select-sm">
+            <select name="month" class="form-select form-select-sm" onchange="submitFilterForm()">
                 @for (int m = 1; m <= 12; m++)
                 {
                     <option value="@m" selected="@(m == Model.Month)">Tháng @m</option>
@@ -469,3 +469,26 @@
         .att-points { font-size: 1rem; }
     }
 </style>
+
+<script>
+    function submitFilterForm() {
+        // Add a small delay to allow user to type in year input
+        setTimeout(function() {
+            document.getElementById('attendanceFilterForm').submit();
+        }, 300);
+    }
+
+    // For year input, only submit after user stops typing
+    let yearInputTimeout;
+    document.addEventListener('DOMContentLoaded', function() {
+        const yearInput = document.querySelector('input[name="year"]');
+        if (yearInput) {
+            yearInput.addEventListener('input', function() {
+                clearTimeout(yearInputTimeout);
+                yearInputTimeout = setTimeout(function() {
+                    document.getElementById('attendanceFilterForm').submit();
+                }, 1000); // Wait 1 second after user stops typing
+            });
+        }
+    });
+</script>

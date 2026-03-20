@@ -224,6 +224,7 @@ public class AssetController : Controller
         }
 
         await _assetService.UpdateAsync(asset);
+        TempData["Success"] = "Đã cập nhật thông tin tài sản thành công!";
         return RedirectToAction(nameof(Index));
     }
 

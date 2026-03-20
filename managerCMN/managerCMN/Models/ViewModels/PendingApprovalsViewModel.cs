@@ -11,4 +11,6 @@ public class PendingApprovalsViewModel
     public DateTime? FilterDateFrom { get; set; }
     public DateTime? FilterDateTo { get; set; }
     public int CurrentEmployeeId { get; set; }
+    public IReadOnlyDictionary<int, LeaveBalanceSummaryViewModel> EmployeeLeaveBalances { get; set; }
+        = new Dictionary<int, LeaveBalanceSummaryViewModel>();
 }

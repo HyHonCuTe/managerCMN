@@ -52,6 +52,7 @@ public class DepartmentController : Controller
         if (!ModelState.IsValid) return View(department);
 
         await _departmentService.UpdateAsync(department);
+        TempData["Success"] = "Đã cập nhật phòng ban thành công!";
         return RedirectToAction(nameof(Index));
     }
 

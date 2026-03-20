@@ -188,15 +188,6 @@
                                         </td>
                                     </tr>
                                 }
-                                @if (!requests.Any())
-                                {
-                                    <tr>
-                                        <td colspan="@(ViewBag.IsPrivileged == true ? 10 : 9)" class="text-center py-5 text-muted">
-                                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                            Chưa có đơn từ nào. <a asp-action="Create" class="text-decoration-none">Tạo đơn mới</a>
-                                        </td>
-                                    </tr>
-                                }
                             </tbody>
                         </table>
                     </div>
@@ -248,17 +239,15 @@
 @section Scripts {
 <script>
     $(document).ready(function () {
-        // Determine column count based on privilege status
-        var isPrivileged = @((ViewBag.IsPrivileged == true).ToString().ToLower());
-        var columnCount = isPrivileged ? 10 : 9;
-
         var dtOpts = {
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json' },
+            language: {
+                url: 'https://cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json',
+                emptyTable: '<div class="text-center py-4 text-muted"><i class="bi bi-inbox fs-1 d-block mb-2"></i>Chưa có đơn từ nào. <a href="@Url.Action("Create")" class="text-decoration-none">Tạo đơn mới</a></div>'
+            },
             paging: false,
             scrollY: '520px',
             scrollCollapse: true,
-            order: [],
-            columns: Array(columnCount).fill(null)  // Explicit column count to prevent warning
+            order: []
         };
 
         // Init the active (visible) tab's table

@@ -312,15 +312,6 @@
                             </td>
                         </tr>
                     }
-                    @if (!requests.Any())
-                    {
-                        <tr>
-                            <td colspan="12" class="text-center py-5 text-muted">
-                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
-                                Không có đơn từ nào.
-                            </td>
-                        </tr>
-                    }
                 </tbody>
             </table>
         </div>
@@ -653,13 +644,23 @@
     });
 
     $(document).ready(function () {
-        $('#approveTable').DataTable({
-            language: { url: '//cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json' },
-            paging: false, scrollY: '520px', scrollCollapse: true, order: [],
-            columnDefs: [
-                { targets: 0, orderable: false } // Disable sorting on checkbox column
-            ]
-        });
+        // Only initialize DataTable if table has proper structure
+        var table = $('#approveTable');
+        if (table.length && table.find('thead th').length > 0) {
+            table.DataTable({
+                language: {
+                    url: 'https://cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json',
+                    emptyTable: '<div class="text-center py-4 text-muted"><i class="bi bi-inbox fs-1 d-block mb-2"></i>Không có đơn từ nào.</div>'
+                },
+                paging: false,
+                scrollY: '520px',
+                scrollCollapse: true,
+                order: [],
+                columnDefs: [
+                    { targets: 0, orderable: false } // Disable sorting on checkbox column
+                ]
+            });
+        }
     });
 </script>
 }

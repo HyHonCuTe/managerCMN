@@ -19,6 +19,7 @@ NC='\033[0m'
 PROJECT_DIR="/var/www/cmnmanager-src"
 SERVICE_NAME="cmnmanager"
 BACKUP_DIR="/root/backups"
+GIT_ROOT="$PROJECT_DIR"  # Git root directory
 
 log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }

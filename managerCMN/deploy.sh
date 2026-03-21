@@ -20,6 +20,7 @@ PROJECT_DIR="/var/www/cmnmanager-src"
 SERVICE_NAME="cmnmanager"
 BACKUP_DIR="/root/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+GIT_ROOT="$PROJECT_DIR"  # Save the git root for later use
 
 echo -e "${BLUE}=== CMN Manager Production Deployment ===${NC}"
 echo "Timestamp: $(date)"
@@ -63,20 +64,20 @@ cd "$BACKUP_DIR/$TIMESTAMP"
 
 # Backup database
 log_info "Backing up database..."
-if [ -f "$PROJECT_DIR/cmnmanager.db" ]; then
-    cp "$PROJECT_DIR/cmnmanager.db" "./cmnmanager_backup.db"
+if [ -f "$GIT_ROOT/cmnmanager.db" ]; then
+    cp "$GIT_ROOT/cmnmanager.db" "./cmnmanager_backup.db"
     log_success "SQLite database backed up"
-elif [ -f "$PROJECT_DIR/wwwroot/cmnmanager.db" ]; then
-    cp "$PROJECT_DIR/wwwroot/cmnmanager.db" "./cmnmanager_backup.db"
+elif [ -f "$GIT_ROOT/wwwroot/cmnmanager.db" ]; then
+    cp "$GIT_ROOT/wwwroot/cmnmanager.db" "./cmnmanager_backup.db"
     log_success "SQLite database backed up"
 else
     log_warning "Database file not found. You may need to backup manually if using MySQL/PostgreSQL"
 fi
 
 # Backup uploads directory
-if [ -d "$PROJECT_DIR/wwwroot/uploads" ]; then
+if [ -d "$GIT_ROOT/wwwroot/uploads" ]; then
     log_info "Backing up uploads..."
-    cp -r "$PROJECT_DIR/wwwroot/uploads" "./uploads_backup/"
+    cp -r "$GIT_ROOT/wwwroot/uploads" "./uploads_backup/"
     log_success "Uploads directory backed up"
 fi
 
@@ -97,10 +98,15 @@ log_success "Code backed up to cmnmanager-src-backup-$TIMESTAMP"
 
 # Pull latest code
 log_info "Pulling latest code from GitHub..."
-cd $PROJECT_DIR
+cd "$GIT_ROOT"
 
-# Save any local config files
-cp appsettings.Production.json "/tmp/appsettings.Production.json.backup" 2>/dev/null || true
+# Save any local config files from potential locations
+for config_file in "appsettings.Production.json" "managerCMN/appsettings.Production.json"; do
+    if [ -f "$config_file" ]; then
+        cp "$config_file" "/tmp/appsettings.Production.json.backup"
+        break
+    fi
+done
 
 # Stash local changes and pull
 git stash push -m "Auto stash before deployment $TIMESTAMP"
@@ -110,11 +116,27 @@ git pull origin main
 
 # Restore production config if it was backed up
 if [ -f "/tmp/appsettings.Production.json.backup" ]; then
-    cp "/tmp/appsettings.Production.json.backup" appsettings.Production.json
+    if [ -f "managerCMN/appsettings.Production.json" ]; then
+        cp "/tmp/appsettings.Production.json.backup" "managerCMN/appsettings.Production.json"
+    elif [ -f "appsettings.Production.json" ]; then
+        cp "/tmp/appsettings.Production.json.backup" "appsettings.Production.json"
+    fi
     log_success "Production configuration restored"
 fi
 
 log_success "Code updated successfully"
+
+# Find and navigate to the project directory containing .csproj
+log_info "Locating project file (.csproj)..."
+CSPROJ_PATH=$(find "$PROJECT_DIR" -maxdepth 2 -name "*.csproj" -type f | head -1)
+if [ -z "$CSPROJ_PATH" ]; then
+    log_error "Could not find .csproj file in $PROJECT_DIR"
+    exit 1
+fi
+
+PROJECT_DIR=$(dirname "$CSPROJ_PATH")
+log_info "Found project at: $PROJECT_DIR"
+cd "$PROJECT_DIR"
 
 # Restore and build
 log_info "Restoring NuGet packages..."
@@ -137,9 +159,9 @@ log_success "Database updated successfully"
 
 # Set proper permissions
 log_info "Setting file permissions..."
-chown -R root:root $PROJECT_DIR
-chmod -R 755 $PROJECT_DIR
-chmod 644 $PROJECT_DIR/*.json $PROJECT_DIR/*.db 2>/dev/null || true
+chown -R root:root "$GIT_ROOT"
+chmod -R 755 "$GIT_ROOT"
+chmod 644 "$PROJECT_DIR"/*.json "$PROJECT_DIR"/*.db "$GIT_ROOT"/*.json "$GIT_ROOT"/*.db 2>/dev/null || true
 
 # Start the service
 log_info "Starting application service..."

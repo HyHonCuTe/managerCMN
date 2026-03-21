@@ -219,12 +219,21 @@ public class EmployeeController : Controller
     {
         try
         {
+            // Log parameters for debugging
+            Console.WriteLine($"AdjustLeaveBalance called: EmployeeId={id}, CurrentYear={currentYearAdjustment}, CarryForward={carryForwardAdjustment}");
+
             await _leaveService.AdjustBalanceAsync(id, DateTime.Today.Year, currentYearAdjustment, carryForwardAdjustment);
             TempData["Success"] = "Đã cập nhật số phép cho nhân viên.";
         }
         catch (InvalidOperationException ex)
         {
+            Console.WriteLine($"InvalidOperationException in AdjustLeaveBalance: {ex.Message}");
             TempData["Error"] = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception in AdjustLeaveBalance: {ex.Message} - Stack: {ex.StackTrace}");
+            TempData["Error"] = "Có lỗi xảy ra khi cập nhật số phép: " + ex.Message;
         }
 
         return RedirectToAction(nameof(Details), new { id });

@@ -1,278 +1,150 @@
-# 🏢 CMN Management System
+# CMN Management System
 
-**Complete enterprise HR management system with attendance tracking, holiday management, and advanced Excel reporting.**
+Hệ thống quản lý nhân sự doanh nghiệp toàn diện với chấm công, quản lý nghỉ phép, và báo cáo Excel.
 
-[![.NET 9.0](https://img.shields.io/badge/.NET-9.0-blue.svg)](https://dotnet.microsoft.com/)
-[![SQL Server](https://img.shields.io/badge/SQL%20Server-2019+-red.svg)](https://www.microsoft.com/en-us/sql-server)
-[![License](https://img.shields.io/badge/License-Private-yellow.svg)]()
+## Công nghệ sử dụng
 
----
+| Thành phần | Phiên bản | Mục đích |
+|------------|-----------|----------|
+| .NET | 9.0 | Backend Framework |
+| ASP.NET Core MVC | 9.0 | Web Framework |
+| Entity Framework Core | 9.0 | ORM & Database |
+| SQL Server | 2019+ | Database |
+| Google OAuth 2.0 | - | Xác thực |
+| ClosedXML | 0.104+ | Import/Export Excel |
+| Bootstrap | 5.3 | Giao diện |
 
-## 🚀 **Quick Start - Production Deployment**
+## Tính năng chính
 
-```bash
-# Connect to production server
-ssh root@103.68.253.22
+### Quản lý nhân viên
+- Hồ sơ nhân viên đầy đủ
+- Import/Export Excel
+- Quản lý phòng ban, chức vụ, vị trí
+- Liên hệ khẩn cấp
+- Xóa nhân viên (hard delete) kèm dữ liệu liên quan
 
-# Deploy latest version
-cd /var/www/cmnmanager-src/managerCMN
-./deploy.sh
-```
+### Quản lý hợp đồng
+- 5 loại hợp đồng: Thử việc, Có thời hạn, Không thời hạn, Thời vụ, Bán thời gian
+- Theo dõi lương và lịch sử
+- Upload file hợp đồng
 
-📖 **Complete Guides:**
-- 📋 **[Production Deployment & Operations Guide](./README_PRODUCTION.md)** - Comprehensive deployment and maintenance
-- ⚡ **[Quick Reference](./QUICK_REFERENCE.md)** - Emergency commands and shortcuts
-- 🛠️ **[Deployment Scripts Guide](./README_SCRIPTS.md)** - Automated deployment tools
+### Chấm công
+- Check in/out với tính thời gian tự động
+- Phát hiện đi muộn, làm thêm giờ
+- Tích hợp ngày nghỉ lễ
+- Xuất Excel với format P/K/L có màu
 
----
+### Quản lý nghỉ phép
+- Cấp phép theo quý (3 ngày/quý từ ngày 26)
+- Phép bảo lưu từ năm trước (hết hạn 31/03)
+- Điều chỉnh phép thủ công (Admin)
+- Tự động tính toán và hiển thị chính xác
 
-## ✨ **Latest Features (March 2026)**
+### Đơn từ & Phê duyệt
+- 4 loại: Nghỉ phép, Sửa chấm công, Vắng mặt, Làm việc từ xa
+- Quy trình phê duyệt nhiều cấp
+- Đính kèm file
+- Thông báo real-time
 
-### 🎉 **NEW: Holiday Management System**
-- ✅ **Admin Holiday Management**: Add/edit/delete company holidays via Settings
-- ✅ **Calendar Integration**: Holidays display as "Nghỉ lễ" with cyan-green styling
-- ✅ **Working Day Calculation**: Holidays automatically excluded from attendance calculations
-- ✅ **Recurring Holidays**: Support for annual recurring holidays
+### Quản lý tài sản
+- 7+ loại tài sản: Laptop, Màn hình, Điện thoại, Máy in...
+- Phân bổ tài sản cho nhân viên
+- Lịch sử và vòng đời tài sản
 
-### 📊 **NEW: Enhanced Excel Export**
-- ✅ **Simplified Display Rules**: Clean P/K/L format instead of verbose text
-- ✅ **Color Coding**: Visual indicators for different attendance types
-- ✅ **Improved Calculations**: Accurate summary columns for P/K/L values
-- ✅ **Export Format**:
-  - **"1"** = Full attendance or approved work-counting requests (Green)
-  - **"P"/"P/2"** = Paid leave full/half day (Yellow)
-  - **"K"/"K/2"** = Unpaid leave/forgot check-in full/half day (Pink)
-  - **"L"** = Company holiday (Cyan)
+### Hệ thống Ticket nội bộ
+- Tạo ticket nhiều người nhận
+- Tin nhắn theo luồng
+- Đính kèm file
+- Độ ưu tiên và phân loại
 
----
-
-## 📋 **System Overview**
-
-**CMN Management** is a comprehensive enterprise management system featuring:
-
-- 👥 **Employee Management** - Complete HR records and lifecycle
-- ⏰ **Attendance Tracking** - Clock in/out with overtime calculations
-- 🏖️ **Holiday Management** - Company holidays and calendar integration
-- 📝 **Request & Approval Workflow** - Multi-level approval process
-- 💼 **Asset Management** - Company asset tracking and assignment
-- 🎫 **Internal Ticketing** - Support ticket system
-- 📊 **Excel Integration** - Advanced import/export with P/K/L formatting
-- 🔐 **Role-Based Authorization** - Granular permission system
-
----
-
-## 🛠️ **Technology Stack**
-
-| Component | Version | Purpose |
-|-----------|---------|---------|
-| **.NET** | 9.0 | Backend Framework |
-| **ASP.NET Core MVC** | 9.0 | Web Framework |
-| **Entity Framework Core** | 9.0 | ORM & Database Access |
-| **SQL Server** | 2019+ | Primary Database |
-| **Google OAuth 2.0** | - | Authentication |
-| **ClosedXML** | 0.104+ | Excel Import/Export |
-| **Bootstrap** | 5.3 | UI Framework |
-
----
-
-## 🏗️ **Project Structure**
+## Cấu trúc dự án
 
 ```
 managerCMN/
-├── 📁 managerCMN/                    # Main ASP.NET Core project
-│   ├── 🎮 Controllers/               # 17+ MVC Controllers
-│   ├── 📊 Models/
-│   │   ├── 🏗️ Entities/              # 31+ Entity classes
-│   │   ├── 📋 Enums/                 # 21+ Enum definitions
-│   │   └── 📝 ViewModels/            # 21+ ViewModels
-│   ├── 🖼️ Views/                     # Razor Views & Components
-│   ├── 💾 Data/                      # Database Context & Seeding
-│   ├── 🧠 Services/                  # Business Logic Layer
-│   ├── 📚 Repositories/              # Data Access Layer
-│   ├── 🔐 Authorization/             # Custom Authorization
-│   ├── 🛠️ Helpers/                   # Utility Classes
-│   ├── 🌐 wwwroot/                   # Static Files
-│   └── 📦 Migrations/                # EF Database Migrations
-├── 📋 README_PRODUCTION.md           # Production deployment guide
-├── ⚡ QUICK_REFERENCE.md              # Quick commands reference
-├── 🚀 deploy.sh                      # Automated deployment script
-├── 🔄 rollback.sh                    # Emergency rollback script
-└── 💾 daily_backup.sh                # Automated backup script
+├── managerCMN/               # Dự án ASP.NET Core chính
+│   ├── Controllers/          # 17+ MVC Controllers
+│   ├── Models/
+│   │   ├── Entities/         # 31+ Entity classes
+│   │   ├── Enums/            # 21+ Enum definitions
+│   │   └── ViewModels/       # 21+ ViewModels
+│   ├── Views/                # Razor Views
+│   ├── Data/                 # Database Context
+│   ├── Services/             # Business Logic Layer
+│   ├── Repositories/         # Data Access Layer
+│   ├── Authorization/        # Custom Authorization
+│   ├── Helpers/              # Utility Classes
+│   ├── wwwroot/              # Static Files & Uploads
+│   └── Migrations/           # EF Database Migrations
+├── deploy.sh                 # Script deploy tự động
+├── README.md                 # File này
+└── DEPLOY.md                 # Hướng dẫn deploy chi tiết
 ```
 
----
+## Cài đặt Development
 
-## 🎯 **Key Features**
-
-### 🔐 **Authentication & Authorization**
-- **Google OAuth 2.0** integration
-- **3 Role Levels**: Admin, Manager, User
-- **25+ Granular Permissions** for fine-grained access control
-- **DevLogin** support for development environments
-
-### 👥 **Employee Management**
-- Complete employee lifecycle management
-- Excel import/export functionality
-- Department, position, and job title organization
-- Emergency contact information
-- Employee status tracking and reporting
-
-### 💼 **Contract Management**
-- **5 Contract Types**: Trial, Fixed-term, Indefinite, Seasonal, Part-time
-- Salary tracking and history
-- Contract status monitoring
-- Start/end date management
-
-### ⏰ **Advanced Attendance System**
-- Clock in/out with automatic time calculations
-- Overtime and late arrival detection
-- **Holiday Integration**: Automatic exclusion from working days
-- **Enhanced Calendar View**: Visual holiday indicators
-- **Excel Export**: P/K/L format with color coding
-- Monthly and custom date range reporting
-
-### 📝 **Request & Approval Workflow**
-- **4 Request Types**: Leave, Check-in/out correction, Absence, Work from home
-- Multi-level approval workflow
-- File attachments support
-- Real-time status tracking
-- Email notifications
-
-### 💻 **Asset Management**
-- **7+ Asset Categories**: Laptops, Monitors, Phones, Printers, etc.
-- Employee asset assignment tracking
-- Asset lifecycle and history
-- Supplier and brand management
-
-### 🎫 **Internal Ticketing System**
-- Multi-recipient ticket creation
-- Threaded messaging system
-- File attachment support
-- Priority and urgency levels
-- Department-specific routing
-
-### 📊 **Dashboard & Reporting**
-- Executive dashboard with key metrics
-- System activity logs
-- Real-time notifications
-- Custom report generation
-
----
-
-## 🚀 **Production Environment**
-
-- **Server**: Ubuntu 22.04.5 LTS @ 103.68.253.22
-- **Database**: SQL Server with connection pooling
-- **Web Server**: Nginx reverse proxy with SSL
-- **Domain**: https://hyhon.io.vn
-- **Service**: systemd with auto-restart
-- **Backup**: Automated daily backups with 30-day retention
-
----
-
-## 👨‍💻 **Development Setup**
-
-### Prerequisites
+### Yêu cầu
 - .NET 9.0 SDK
-- SQL Server 2019+ or SQL Server Express
+- SQL Server 2019+ hoặc SQL Server Express
 - Visual Studio 2022 / VS Code
 - Git
 
-### Quick Setup
+### Các bước
+
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/HyHonCuTe/managerCMN.git
 cd managerCMN/managerCMN
 
 # Restore packages
 dotnet restore
 
-# Configure connection string in appsettings.json
-# Update ConnectionStrings:DefaultConnection
+# Cấu hình connection string trong appsettings.json
+# Sửa ConnectionStrings:DefaultConnection
 
-# Apply migrations
+# Chạy migrations
 dotnet ef database update
 
-# Run application
+# Chạy ứng dụng
 dotnet run
 
-# Access: http://localhost:5257
+# Truy cập: http://localhost:5257
 ```
 
----
+## Production
 
-## 🧪 **Testing Features**
+- **Server**: Ubuntu 22.04.5 LTS
+- **Database**: SQL Server với connection pooling
+- **Web Server**: Nginx reverse proxy với SSL
+- **Domain**: https://hyhon.io.vn
+- **Service**: systemd với auto-restart
 
-### Holiday Management
-1. Login as Admin → **Settings** → **Ngày nghỉ lễ**
-2. Add holiday (e.g., 30/04/2026 - Giải phóng miền Nam)
-3. View **Attendance** calendar → verify "Nghỉ lễ" display
+Xem **[DEPLOY.md](./DEPLOY.md)** để biết chi tiết triển khai.
 
-### Excel Export
-1. Navigate to **Attendance** → Export Excel
-2. Verify new format:
-   - **"1"** = Full work (Green background)
-   - **"P"** = Paid leave (Yellow background)
-   - **"K"** = Unpaid leave (Pink background)
-   - **"L"** = Holiday (Cyan background)
+## Lệnh thường dùng
 
----
-
-## 📞 **Support & Maintenance**
-
-### Emergency Commands
 ```bash
-# Service management
+# Kiểm tra service
 systemctl status cmnmanager
-systemctl restart cmnmanager
 
-# View logs
+# Xem logs
 journalctl -u cmnmanager -f
 
-# Emergency rollback
-./rollback.sh [timestamp]
+# Restart service
+systemctl restart cmnmanager
+
+# Deploy mới
+./deploy.sh
 ```
 
-### Health Checks
-```bash
-# Application health
-curl -I http://localhost:5000
+## Phiên bản
 
-# Database connectivity
-dotnet ef migrations list
+- **v2.2 (03/2026)**: Sửa lỗi xóa nhân viên, cộng phép thủ công, deploy script
+- **v2.1 (03/2026)**: Quản lý ngày nghỉ lễ + Excel Export nâng cao
+- **v2.0**: Production deployment với các tính năng nâng cao
+- **v1.0**: Phiên bản đầu tiên với chức năng HR cơ bản
 
-# System resources
-free -h && df -h
-```
-
----
-
-## 📚 **Documentation Links**
-
-| Document | Purpose |
-|----------|---------|
-| [📋 README_PRODUCTION.md](./README_PRODUCTION.md) | Complete production deployment & operations guide |
-| [⚡ QUICK_REFERENCE.md](./QUICK_REFERENCE.md) | Emergency commands and quick troubleshooting |
-| [🛠️ README_SCRIPTS.md](./README_SCRIPTS.md) | Automated deployment tools documentation |
-| [🚀 DEPLOY_NOW.md](./DEPLOY_NOW.md) | Quick deployment commands |
-
----
-
-## 🔄 **Version History**
-
-- **v2.1 (March 2026)**: Holiday Management + Enhanced Excel Export
-- **v2.0**: Production deployment with advanced features
-- **v1.0**: Initial release with core HR functionality
-
----
-
-## 📄 **License & Contact**
+## Thông tin
 
 - **Developer**: hyhoncute
-- **Environment**: Production @ hyhon.io.vn
+- **Domain**: hyhon.io.vn
 - **License**: Private Enterprise License
-- **Last Updated**: March 21, 2026
-
----
-
-**🎉 Ready for enterprise deployment with comprehensive automation and monitoring!**

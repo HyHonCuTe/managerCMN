@@ -1,0 +1,48 @@
+# SSH vào server
+ssh root@your-server-ip
+
+# Vào thư mục project
+cd /var/www/cmnmanager-src/managerCMN/managerCMN
+
+# Pull code mới từ git
+git fetch origin
+git reset --hard origin/main
+
+# Chạy deploy script
+chmod +x deploy.sh
+./deploy.sh
+
+
+
+
+
+
+
+
+
+# 1. Stop service
+sudo systemctl stop cmnmanager
+
+# 2. Pull code mới
+cd /var/www/cmnmanager-src/managerCMN/managerCMN
+git fetch origin
+git reset --hard origin/main
+
+# 3. Build và publish
+cd managerCMN
+dotnet restore
+dotnet build --configuration Release
+dotnet publish --configuration Release --output ./bin/Release/publish
+
+# 4. Update database migrations
+export ASPNETCORE_ENVIRONMENT=Production
+dotnet ef database update
+
+# 5. Set quyền uploads
+sudo mkdir -p ./bin/Release/publish/wwwroot/uploads/{avatars,contracts,documents,tickets,temp}
+sudo chown -R www-data:www-data ./bin/Release/publish/wwwroot/uploads
+sudo chmod -R 777 ./bin/Release/publish/wwwroot/uploads
+
+# 6. Start service
+sudo systemctl start cmnmanager
+sudo systemctl status cmnmanager

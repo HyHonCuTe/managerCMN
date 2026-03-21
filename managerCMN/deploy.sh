@@ -163,6 +163,14 @@ chown -R root:root "$GIT_ROOT"
 chmod -R 755 "$GIT_ROOT"
 chmod 644 "$PROJECT_DIR"/*.json "$PROJECT_DIR"/*.db "$GIT_ROOT"/*.json "$GIT_ROOT"/*.db 2>/dev/null || true
 
+# Create and set permissions for uploads directory
+log_info "Setting up uploads directory..."
+UPLOADS_DIR="$PROJECT_DIR/bin/Release/publish/wwwroot/uploads"
+mkdir -p "$UPLOADS_DIR"
+chown -R root:root "$UPLOADS_DIR"
+chmod -R 775 "$UPLOADS_DIR"
+log_success "Uploads directory configured with proper permissions"
+
 # Start the service
 log_info "Starting application service..."
 systemctl daemon-reload

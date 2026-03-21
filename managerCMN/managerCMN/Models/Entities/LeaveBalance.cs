@@ -20,5 +20,7 @@ public class LeaveBalance
 
     public decimal CarryForward { get; set; }
 
+    public bool IsManuallyAdjusted { get; set; }
+
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 }

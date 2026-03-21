@@ -70,7 +70,8 @@
             <div class="col-sm-4 col-md-3">
                 <label class="form-label small mb-1 text-muted">Trạng thái</label>
                 <select id="filterStatus" class="form-select form-select-sm">
-                    <option value="">-- Tất cả trạng thái --</option>
+                    <option value="active" selected>Đang hoạt động</option>
+                    <option value="">-- Tất cả (kể cả đã nghỉ) --</option>
                     <option value="Đang làm">Đang làm</option>
                     <option value="Sắp hết HĐ">Sắp hết HĐ</option>
                     <option value="Hết hợp đồng">Hết hợp đồng</option>
@@ -157,23 +158,35 @@ $(document).ready(function () {
         var dept   = $('#filterDept').val();
         var status = $('#filterStatus').val();
         var row    = $(settings.aoData[dataIndex].nTr);
-        if (dept   && row.data('dept')   !== dept)   return false;
-        if (status && row.data('status') !== status) return false;
+        var rowStatus = row.data('status');
+
+        if (dept && row.data('dept') !== dept) return false;
+
+        // Handle "active" filter - hide resigned/terminated employees
+        if (status === 'active') {
+            if (rowStatus === 'Đã nghỉ' || rowStatus === 'Nghỉ việc') return false;
+        } else if (status && rowStatus !== status) {
+            return false;
+        }
         return true;
     });
 
     var table = $('#employeeTable').DataTable({
-        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json' },
+        language: { url: 'https://cdn.datatables.net/plug-ins/1.13.1/i18n/vi.json' },
         paging: false,
         scrollY: '520px',
         scrollCollapse: true,
         order: []
     });
 
+    // Trigger initial filter on page load
+    table.draw();
+
     $('#filterDept, #filterStatus').on('change', function () { table.draw(); });
 
     $('#clearFilters').on('click', function () {
-        $('#filterDept, #filterStatus').val('');
+        $('#filterDept').val('');
+        $('#filterStatus').val('active');
         table.draw();
     });
 });

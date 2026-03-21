@@ -40,13 +40,50 @@ public class EmployeeService : IEmployeeService
 
     public async Task DeleteAsync(int id)
     {
-        var employee = await _unitOfWork.Employees.GetByIdAsync(id);
-        if (employee != null)
+        var employee = await _unitOfWork.Employees.GetWithDetailsAsync(id);
+        if (employee == null) return;
+
+        // Remove related data to avoid foreign key constraint errors
+        // Remove LeaveBalances
+        var leaveBalances = await _unitOfWork.LeaveBalances.FindAsync(lb => lb.EmployeeId == id);
+        foreach (var lb in leaveBalances)
+            _unitOfWork.LeaveBalances.Remove(lb);
+
+        // Remove LeaveRequests
+        var leaveRequests = await _unitOfWork.LeaveRequests.FindAsync(lr => lr.EmployeeId == id);
+        foreach (var lr in leaveRequests)
+            _unitOfWork.LeaveRequests.Remove(lr);
+
+        // Remove Requests and RequestApprovals
+        var requests = await _unitOfWork.Requests.FindAsync(r => r.EmployeeId == id);
+        foreach (var r in requests)
         {
-            employee.Status = EmployeeStatus.Resigned;
-            _unitOfWork.Employees.Update(employee);
-            await _unitOfWork.SaveChangesAsync();
+            var approvals = await _unitOfWork.RequestApprovals.FindAsync(ra => ra.RequestId == r.RequestId);
+            foreach (var ra in approvals)
+                _unitOfWork.RequestApprovals.Remove(ra);
+            _unitOfWork.Requests.Remove(r);
         }
+
+        // Remove Attendances
+        var attendances = await _unitOfWork.Attendances.FindAsync(a => a.EmployeeId == id);
+        foreach (var a in attendances)
+            _unitOfWork.Attendances.Remove(a);
+
+        // Remove AssetAssignments
+        var assetAssignments = await _unitOfWork.AssetAssignments.FindAsync(aa => aa.EmployeeId == id);
+        foreach (var aa in assetAssignments)
+            _unitOfWork.AssetAssignments.Remove(aa);
+
+        // Remove Contracts
+        foreach (var contract in employee.Contracts.ToList())
+            _unitOfWork.Contracts.Remove(contract);
+
+        // Remove EmergencyContacts (handled by cascade or manually)
+        // EmergencyContacts are part of employee navigation, will be deleted with employee
+
+        // Finally remove the employee
+        _unitOfWork.Employees.Remove(employee);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     public async Task<string> GenerateEmployeeCodeAsync()

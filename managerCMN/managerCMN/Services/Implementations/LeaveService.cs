@@ -190,7 +190,7 @@ public class LeaveService : ILeaveService
         Console.WriteLine($"Input: EmployeeId={employeeId}, Year={year}, CurrentAdjustment={currentYearAdjustment}, CarryForwardAdjustment={carryForwardAdjustment}");
 
         var balance = await EnsureBalanceForYearAsync(employeeId, year, Today());
-        Console.WriteLine($"Retrieved balance: ID={balance.LeaveBalanceId}, EmployeeId={balance.EmployeeId}, Year={balance.Year}");
+        Console.WriteLine($"Retrieved balance: ID={balance.LeaveId}, EmployeeId={balance.EmployeeId}, Year={balance.Year}");
         Console.WriteLine($"Before adjustment: TotalLeave={balance.TotalLeave}, UsedLeave={balance.UsedLeave}, CarryForward={balance.CarryForward}, RemainingLeave={balance.RemainingLeave}");
 
         var newTotalLeave = balance.TotalLeave + currentYearAdjustment;
@@ -213,6 +213,7 @@ public class LeaveService : ILeaveService
         Console.WriteLine($"Applying changes to balance object...");
         balance.TotalLeave = newTotalLeave;
         balance.CarryForward = newCarryForward;
+        balance.IsManuallyAdjusted = true; // Mark as manually adjusted to prevent auto-recalculation
 
         Console.WriteLine($"Before UpdateRemainingLeave: TotalLeave={balance.TotalLeave}, UsedLeave={balance.UsedLeave}, CarryForward={balance.CarryForward}, RemainingLeave={balance.RemainingLeave}");
         UpdateRemainingLeave(balance);
@@ -295,7 +296,12 @@ public class LeaveService : ILeaveService
         }
 
         var accruedCurrentYearLeave = GetAccruedCurrentYearLeave(employee, year, asOfDate);
-        balance.TotalLeave = accruedCurrentYearLeave;
+
+        // Only auto-calculate TotalLeave if not manually adjusted
+        if (!balance.IsManuallyAdjusted)
+        {
+            balance.TotalLeave = accruedCurrentYearLeave;
+        }
 
         if (!IsCarryForwardWindowOpen(asOfDate) || asOfDate.Year != year)
         {

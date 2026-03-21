@@ -1,0 +1,161 @@
+@{
+    ViewData["Title"] = "Thiết lập hệ thống";
+    Layout = "_Layout";
+}
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0"><i class="bi bi-gear-fill"></i> Thiết lập hệ thống</h4>
+                </div>
+                <div class="card-body">
+                    @if (TempData["Success"] != null)
+                    {
+                        <div class="alert alert-success">@TempData["Success"]</div>
+                    }
+                    @if (TempData["Error"] != null)
+                    {
+                        <div class="alert alert-danger">@TempData["Error"]</div>
+                    }
+
+                    <div class="alert alert-info">
+                        <strong>Trạng thái hệ thống:</strong><br>
+                        @ViewBag.Message
+                    </div>
+
+                    @if (ViewBag.Users != null)
+                    {
+                        var users = ViewBag.Users as List<managerCMN.Models.Entities.User>;
+                        if (users?.Any() == true)
+                        {
+                            <div class="mb-4">
+                                <h5>Danh sách tài khoản hiện có:</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>Email</th>
+                                                <th>Họ tên</th>
+                                                <th>Google ID</th>
+                                                <th>Roles</th>
+                                                <th>Trạng thái</th>
+                                                @if (ViewBag.AdminExists == false)
+                                                {
+                                                    <th>Thao tác</th>
+                                                }
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var user in users)
+                                            {
+                                                var isAdmin = user.UserRoles?.Any(ur => ur.Role.RoleName == "Admin") ?? false;
+                                                <tr>
+                                                    <td>@user.Email</td>
+                                                    <td>@user.FullName</td>
+                                                    <td>
+                                                        @if (!string.IsNullOrEmpty(user.GoogleId))
+                                                        {
+                                                            <span class="badge bg-success">Có</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-secondary">Không</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @if (user.UserRoles?.Any() == true)
+                                                        {
+                                                            @foreach (var ur in user.UserRoles)
+                                                            {
+                                                                <span class="badge bg-@(ur.Role.RoleName == "Admin" ? "danger" : ur.Role.RoleName == "Manager" ? "warning text-dark" : "secondary") me-1">@ur.Role.RoleName</span>
+                                                            }
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">Chưa có role</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        @if (user.IsActive)
+                                                        {
+                                                            <span class="badge bg-success">Hoạt động</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="badge bg-secondary">Không hoạt động</span>
+                                                        }
+                                                    </td>
+                                                    @if (ViewBag.AdminExists == false)
+                                                    {
+                                                        <td>
+                                                            @if (!isAdmin && user.IsActive)
+                                                            {
+                                                                <form asp-action="AssignAdmin" method="post" class="d-inline"
+                                                                      onsubmit="return confirm('Bạn có chắc muốn gán quyền Admin cho @user.Email?')">
+                                                                    @Html.AntiForgeryToken()
+                                                                    <input type="hidden" name="userId" value="@user.UserId" />
+                                                                    <button type="submit" class="btn btn-sm btn-danger">
+                                                                        <i class="bi bi-shield-check"></i> Gán Admin
+                                                                    </button>
+                                                                </form>
+                                                            }
+                                                            else if (isAdmin)
+                                                            {
+                                                                <span class="text-success">Đã là Admin</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="text-muted">Tài khoản chưa kích hoạt</span>
+                                                            }
+                                                        </td>
+                                                    }
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            @if (ViewBag.AdminExists == false)
+                            {
+                                <div class="alert alert-warning">
+                                    <h6><i class="bi bi-exclamation-triangle"></i> Hướng dẫn gán quyền Admin:</h6>
+                                    <ol class="mb-0">
+                                        <li>Đăng nhập vào hệ thống bằng Google OAuth (nút "Đăng nhập với Google")</li>
+                                        <li>Sau khi đăng nhập, tài khoản sẽ xuất hiện trong danh sách trên</li>
+                                        <li>Nhấn nút "Gán Admin" để cấp quyền quản trị viên</li>
+                                    </ol>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-center">
+                                    <a asp-controller="Home" asp-action="Index" class="btn btn-primary">
+                                        <i class="bi bi-house"></i> Về trang chủ
+                                    </a>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="mb-4">
+                                <div class="alert alert-info">
+                                    <h6><i class="bi bi-info-circle"></i> Chưa có tài khoản nào trong hệ thống</h6>
+                                    <p class="mb-0">Vui lòng đăng nhập bằng Google để tạo tài khoản đầu tiên, sau đó quay lại để gán quyền Admin.</p>
+                                </div>
+
+                                <div class="text-center">
+                                    <a asp-controller="Account" asp-action="Login" class="btn btn-primary">
+                                        <i class="bi bi-google"></i> Đăng nhập với Google
+                                    </a>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

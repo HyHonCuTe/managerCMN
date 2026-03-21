@@ -208,7 +208,16 @@ public class EmployeeController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
     {
-        await _employeeService.DeleteAsync(id);
+        try
+        {
+            await _employeeService.DeleteAsync(id);
+            TempData["Success"] = "Đã xóa nhân viên thành công.";
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error deleting employee {EmployeeId}", id);
+            TempData["Error"] = "Có lỗi xảy ra khi xóa nhân viên: " + ex.Message;
+        }
         return RedirectToAction(nameof(Index));
     }
 

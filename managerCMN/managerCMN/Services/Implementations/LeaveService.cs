@@ -186,26 +186,59 @@ public class LeaveService : ILeaveService
 
     public async Task AdjustBalanceAsync(int employeeId, int year, decimal currentYearAdjustment, decimal carryForwardAdjustment)
     {
+        Console.WriteLine($"=== LeaveService.AdjustBalanceAsync START ===");
+        Console.WriteLine($"Input: EmployeeId={employeeId}, Year={year}, CurrentAdjustment={currentYearAdjustment}, CarryForwardAdjustment={carryForwardAdjustment}");
+
         var balance = await EnsureBalanceForYearAsync(employeeId, year, Today());
+        Console.WriteLine($"Retrieved balance: ID={balance.LeaveBalanceId}, EmployeeId={balance.EmployeeId}, Year={balance.Year}");
+        Console.WriteLine($"Before adjustment: TotalLeave={balance.TotalLeave}, UsedLeave={balance.UsedLeave}, CarryForward={balance.CarryForward}, RemainingLeave={balance.RemainingLeave}");
 
         var newTotalLeave = balance.TotalLeave + currentYearAdjustment;
         var newCarryForward = balance.CarryForward + carryForwardAdjustment;
+        Console.WriteLine($"Calculated new values: TotalLeave={newTotalLeave}, CarryForward={newCarryForward}");
 
         if (newTotalLeave < balance.UsedLeave)
         {
+            Console.WriteLine($"VALIDATION ERROR: newTotalLeave ({newTotalLeave}) < UsedLeave ({balance.UsedLeave})");
             throw new InvalidOperationException("Không thể giảm phép năm xuống thấp hơn số phép đã sử dụng.");
         }
 
         if (newCarryForward < 0)
         {
+            Console.WriteLine($"VALIDATION ERROR: newCarryForward ({newCarryForward}) < 0");
             throw new InvalidOperationException("Không thể giảm phép bảo lưu xuống nhỏ hơn 0.");
         }
 
+        // Apply changes
+        Console.WriteLine($"Applying changes to balance object...");
         balance.TotalLeave = newTotalLeave;
         balance.CarryForward = newCarryForward;
+
+        Console.WriteLine($"Before UpdateRemainingLeave: TotalLeave={balance.TotalLeave}, UsedLeave={balance.UsedLeave}, CarryForward={balance.CarryForward}, RemainingLeave={balance.RemainingLeave}");
         UpdateRemainingLeave(balance);
+        Console.WriteLine($"After UpdateRemainingLeave: TotalLeave={balance.TotalLeave}, UsedLeave={balance.UsedLeave}, CarryForward={balance.CarryForward}, RemainingLeave={balance.RemainingLeave}");
+        Console.WriteLine($"LastUpdated set to: {balance.LastUpdated}");
+
+        Console.WriteLine($"Calling _unitOfWork.LeaveBalances.Update...");
         _unitOfWork.LeaveBalances.Update(balance);
+
+        Console.WriteLine($"Calling _unitOfWork.SaveChangesAsync...");
         await _unitOfWork.SaveChangesAsync();
+        Console.WriteLine($"SaveChangesAsync completed successfully");
+
+        // Verify the save by re-querying
+        Console.WriteLine($"Re-querying balance to verify save...");
+        var verifyBalance = await _unitOfWork.LeaveBalances.GetByEmployeeAndYearAsync(employeeId, year);
+        if (verifyBalance != null)
+        {
+            Console.WriteLine($"Verification query result: TotalLeave={verifyBalance.TotalLeave}, UsedLeave={verifyBalance.UsedLeave}, CarryForward={verifyBalance.CarryForward}, RemainingLeave={verifyBalance.RemainingLeave}, LastUpdated={verifyBalance.LastUpdated}");
+        }
+        else
+        {
+            Console.WriteLine($"WARNING: Verification query returned null!");
+        }
+
+        Console.WriteLine($"=== LeaveService.AdjustBalanceAsync END ===");
     }
 
     /// <summary>
@@ -312,9 +345,18 @@ public class LeaveService : ILeaveService
 
     private static void UpdateRemainingLeave(LeaveBalance balance)
     {
+        Console.WriteLine($"UpdateRemainingLeave START: TotalLeave={balance.TotalLeave}, UsedLeave={balance.UsedLeave}, CarryForward={balance.CarryForward}");
+
         var currentYearRemaining = Math.Max(balance.TotalLeave - balance.UsedLeave, 0m);
-        balance.RemainingLeave = currentYearRemaining + Math.Max(balance.CarryForward, 0m);
+        Console.WriteLine($"Calculated currentYearRemaining: {currentYearRemaining}");
+
+        var finalCarryForward = Math.Max(balance.CarryForward, 0m);
+        Console.WriteLine($"Final CarryForward (after Math.Max): {finalCarryForward}");
+
+        balance.RemainingLeave = currentYearRemaining + finalCarryForward;
         balance.LastUpdated = DateTime.UtcNow;
+
+        Console.WriteLine($"UpdateRemainingLeave END: RemainingLeave={balance.RemainingLeave}, LastUpdated={balance.LastUpdated}");
     }
 
     private static bool IsCarryForwardWindowOpen(DateTime date)

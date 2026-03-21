@@ -16,7 +16,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-PROJECT_DIR="/var/www/cmnmanager-src"
+PROJECT_DIR="/var/www/cmnmanager-src/managerCMN/managerCMN"
 SERVICE_NAME="cmnmanager"
 BACKUP_DIR="/root/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)

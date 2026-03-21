@@ -10,6 +10,7 @@ public interface IUnitOfWork : IDisposable
     IRequestRepository Requests { get; }
     IRequestApprovalRepository RequestApprovals { get; }
     IAttendanceRepository Attendances { get; }
+    IHolidayRepository Holidays { get; }
     IAssetRepository Assets { get; }
     IAssetAssignmentRepository AssetAssignments { get; }
     ITicketRepository Tickets { get; }

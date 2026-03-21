@@ -37,6 +37,7 @@ public class SettingsController : Controller
         ViewBag.AssetCategories = await _db.AssetCategories.OrderBy(c => c.CategoryName).ToListAsync();
         ViewBag.Brands = await _db.Brands.OrderBy(b => b.BrandName).ToListAsync();
         ViewBag.Suppliers = await _db.Suppliers.OrderBy(s => s.SupplierName).ToListAsync();
+        ViewBag.Holidays = await _db.Holidays.OrderBy(h => h.Date).ToListAsync();
 
         var employees = await _employeeService.GetAllAsync();
         ViewBag.EmployeeList = new SelectList(employees.OrderBy(e => e.FullName), "EmployeeId", "FullName");
@@ -343,6 +344,73 @@ public class SettingsController : Controller
         }
         TempData["Success"] = "Xóa nhà cung cấp thành công!";
         return RedirectToAction(nameof(Index), new { tab = "suppliers" });
+    }
+
+    // === HOLIDAYS (Ngày nghỉ lễ) ===
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateHoliday(DateOnly date, string name, string? description, bool isRecurring)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            TempData["Error"] = "Tên ngày nghỉ không được để trống.";
+            return RedirectToAction(nameof(Index), new { tab = "holidays" });
+        }
+
+        // Check for duplicate date
+        if (await _db.Holidays.AnyAsync(h => h.Date == date))
+        {
+            TempData["Error"] = "Ngày này đã có trong danh sách nghỉ lễ.";
+            return RedirectToAction(nameof(Index), new { tab = "holidays" });
+        }
+
+        _db.Holidays.Add(new Holiday
+        {
+            Date = date,
+            Name = name.Trim(),
+            Description = description?.Trim(),
+            IsRecurring = isRecurring,
+            IsActive = true
+        });
+        await _db.SaveChangesAsync();
+        TempData["Success"] = "Thêm ngày nghỉ lễ thành công!";
+        return RedirectToAction(nameof(Index), new { tab = "holidays" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditHoliday(int holidayId, DateOnly date, string name, string? description, bool isRecurring, bool isActive)
+    {
+        var holiday = await _db.Holidays.FindAsync(holidayId);
+        if (holiday == null) return NotFound();
+
+        // Check for duplicate date (excluding current holiday)
+        if (await _db.Holidays.AnyAsync(h => h.Date == date && h.HolidayId != holidayId))
+        {
+            TempData["Error"] = "Ngày này đã có trong danh sách nghỉ lễ.";
+            return RedirectToAction(nameof(Index), new { tab = "holidays" });
+        }
+
+        holiday.Date = date;
+        holiday.Name = name.Trim();
+        holiday.Description = description?.Trim();
+        holiday.IsRecurring = isRecurring;
+        holiday.IsActive = isActive;
+        await _db.SaveChangesAsync();
+        TempData["Success"] = "Cập nhật ngày nghỉ lễ thành công!";
+        return RedirectToAction(nameof(Index), new { tab = "holidays" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteHoliday(int id)
+    {
+        var holiday = await _db.Holidays.FindAsync(id);
+        if (holiday != null)
+        {
+            _db.Holidays.Remove(holiday);
+            await _db.SaveChangesAsync();
+        }
+        TempData["Success"] = "Xóa ngày nghỉ lễ thành công!";
+        return RedirectToAction(nameof(Index), new { tab = "holidays" });
     }
 
     // === APPROVERS (Người duyệt đơn) ===

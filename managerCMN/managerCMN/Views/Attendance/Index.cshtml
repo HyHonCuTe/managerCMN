@@ -16,6 +16,10 @@
     var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
     var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
 
+    // Holidays
+    var holidays = ViewBag.Holidays as HashSet<DateOnly> ?? new HashSet<DateOnly>();
+    var holidayNames = ViewBag.HolidayNames as Dictionary<DateOnly, string> ?? new Dictionary<DateOnly, string>();
+
     // Build grid: start from Monday of periodStart's week
     var startDow = (int)periodStart.DayOfWeek;
     var mondayOffset = startDow == 0 ? 6 : startDow - 1;
@@ -129,6 +133,7 @@
         <span class="att-legend"><span class="att-dot att-dot-late"></span> Đi muộn</span>
         <span class="att-legend"><span class="att-dot att-dot-absent"></span> Vắng</span>
         <span class="att-legend"><span class="att-dot att-dot-rest"></span> Nghỉ</span>
+        <span class="att-legend"><span class="att-dot att-dot-holiday"></span> Nghỉ lễ</span>
         <span class="att-legend"><span class="att-dot att-dot-pending"></span> Đơn chờ duyệt</span>
         <span class="att-legend"><span class="att-dot att-dot-approved"></span> Đơn đã duyệt</span>
     </div>
@@ -152,7 +157,8 @@
             var isSat = dow == 6;
             var isFuture = date > today;
             var isToday = date == today;
-            var isWorkDay = AttendanceCalendarViewModel.IsWorkingDay(date);
+            var isHoliday = holidays.Contains(date);
+            var isWorkDay = AttendanceCalendarViewModel.IsWorkingDay(date, holidays);
             var hasData = inPeriod && Model.AttendanceByDate.ContainsKey(date);
             var att = hasData ? Model.AttendanceByDate[date] : null;
             var hasRequest = inPeriod && Model.RequestsByDate.ContainsKey(date);
@@ -340,6 +346,20 @@
                         }
                     </div>
                 }
+                else if (isHoliday)
+                {
+                    <div class="att-cell-body" style="background: linear-gradient(135deg, #0dcaf0, #20c997); color: white;">
+                        <span class="text-white small">
+                            <i class="bi bi-calendar-heart me-1"></i>Nghỉ lễ
+                        </span>
+                        @if (holidayNames.ContainsKey(date))
+                        {
+                            <div class="small" style="font-size: 0.65rem; margin-top: 2px; opacity: 0.9;">
+                                @holidayNames[date]
+                            </div>
+                        }
+                    </div>
+                }
                 else if (isSun || !isWorkDay)
                 {
                     <div class="att-cell-body att-cell-rest">
@@ -392,6 +412,7 @@
     .att-dot-half { background: #ffc107; }
     .att-dot-absent { background: #dc3545; }
     .att-dot-rest { background: #adb5bd; }
+    .att-dot-holiday { background: linear-gradient(135deg, #0dcaf0, #20c997); }
     .att-dot-pending { background: #ffc107; }
     .att-dot-approved { background: #6c757d; }
 

@@ -16,15 +16,18 @@ public class AttendanceController : Controller
     private readonly IAttendanceService _attendanceService;
     private readonly IEmployeeService _employeeService;
     private readonly IRequestService _requestService;
+    private readonly IHolidayService _holidayService;
 
     public AttendanceController(
         IAttendanceService attendanceService,
         IEmployeeService employeeService,
-        IRequestService requestService)
+        IRequestService requestService,
+        IHolidayService holidayService)
     {
         _attendanceService = attendanceService;
         _employeeService = employeeService;
         _requestService = requestService;
+        _holidayService = holidayService;
     }
 
     public async Task<IActionResult> Index(int? year, int? month, int? employeeId)
@@ -95,6 +98,14 @@ public class AttendanceController : Controller
 
         // Period: 26th prev month → 25th this month
         var (periodStart, periodEnd) = AttendanceCalendarViewModel.GetPeriodDates(year.Value, month.Value);
+
+        // Load holidays for the period
+        var holidays = (await _holidayService.GetByDateRangeAsync(periodStart, periodEnd))
+            .Select(h => h.Date)
+            .ToHashSet();
+        ViewBag.Holidays = holidays;
+        ViewBag.HolidayNames = (await _holidayService.GetByDateRangeAsync(periodStart, periodEnd))
+            .ToDictionary(h => h.Date, h => h.Name);
 
         var model = new AttendanceCalendarViewModel
         {

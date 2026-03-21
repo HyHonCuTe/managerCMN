@@ -8,6 +8,7 @@
     var assetCategories = ViewBag.AssetCategories as IEnumerable<AssetCategory> ?? Enumerable.Empty<AssetCategory>();
     var brands = ViewBag.Brands as IEnumerable<Brand> ?? Enumerable.Empty<Brand>();
     var suppliers = ViewBag.Suppliers as IEnumerable<Supplier> ?? Enumerable.Empty<Supplier>();
+    var holidays = ViewBag.Holidays as IEnumerable<Holiday> ?? Enumerable.Empty<Holiday>();
     var approvers = ViewBag.Approvers as List<Employee> ?? new List<Employee>();
     var nonApprovers = ViewBag.NonApprovers as List<Employee> ?? new List<Employee>();
     var users = ViewBag.Users as IEnumerable<User> ?? Enumerable.Empty<User>();
@@ -64,6 +65,11 @@
     <li class="nav-item">
         <a class="nav-link @(activeTab == "suppliers" ? "active" : "")" href="?tab=suppliers">
             <i class="bi bi-truck"></i> Nhà cung cấp
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "holidays" ? "active" : "")" href="?tab=holidays">
+            <i class="bi bi-calendar-heart"></i> Ngày nghỉ lễ
         </a>
     </li>
     <li class="nav-item">
@@ -751,6 +757,154 @@
                     <input name="isActive" type="checkbox" class="form-check-input" value="true" @(sup.IsActive ? "checked" : "") />
                     <input name="isActive" type="hidden" value="false" />
                     <label class="form-check-label">Hoạt động</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+}
+}
+
+@* ========== HOLIDAYS TAB ========== *@
+@if (activeTab == "holidays")
+{
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-calendar-heart"></i> Danh sách ngày nghỉ lễ</span>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addHolidayModal">
+            <i class="bi bi-plus-lg"></i> Thêm ngày nghỉ
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Ngày</th>
+                    <th>Tên</th>
+                    <th>Mô tả</th>
+                    <th>Loại</th>
+                    <th>Trạng thái</th>
+                    <th style="width:120px">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var h in holidays)
+                {
+                <tr>
+                    <td><strong>@h.Date.ToString("dd/MM/yyyy")</strong></td>
+                    <td>@h.Name</td>
+                    <td class="text-muted">@h.Description</td>
+                    <td>
+                        <span class="badge bg-@(h.IsRecurring ? "info" : "secondary")">
+                            @(h.IsRecurring ? "Hàng năm" : "Một lần")
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge bg-@(h.IsActive ? "success" : "secondary")">
+                            @(h.IsActive ? "Hoạt động" : "Ẩn")
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal"
+                                data-bs-target="#editHolidayModal-@h.HolidayId">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form asp-action="DeleteHoliday" asp-route-id="@h.HolidayId" method="post"
+                              class="d-inline" onsubmit="return confirm('Xóa ngày nghỉ này?')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                }
+                @if (!holidays.Any()) { <tr><td colspan="6" class="text-center text-muted py-3">Chưa có ngày nghỉ nào.</td></tr> }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@* Add Holiday Modal *@
+<div class="modal fade" id="addHolidayModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="CreateHoliday" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Thêm ngày nghỉ lễ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Ngày <span class="text-danger">*</span></label>
+                    <input name="date" type="date" class="form-control" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tên ngày nghỉ <span class="text-danger">*</span></label>
+                    <input name="name" class="form-control" placeholder="VD: Tết Nguyên Đán" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mô tả</label>
+                    <textarea name="description" class="form-control" rows="2" placeholder="Mô tả chi tiết (tùy chọn)"></textarea>
+                </div>
+                <div class="form-check">
+                    <input name="isRecurring" type="checkbox" class="form-check-input" value="true" />
+                    <input name="isRecurring" type="hidden" value="false" />
+                    <label class="form-check-label">Lặp lại hàng năm</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Thêm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* Edit Holiday Modals *@
+@foreach (var h in holidays)
+{
+<div class="modal fade" id="editHolidayModal-@h.HolidayId" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="EditHoliday" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="holidayId" value="@h.HolidayId" />
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Sửa ngày nghỉ lễ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Ngày <span class="text-danger">*</span></label>
+                    <input name="date" type="date" class="form-control" value="@h.Date.ToString("yyyy-MM-dd")" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tên ngày nghỉ <span class="text-danger">*</span></label>
+                    <input name="name" class="form-control" value="@h.Name" required />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mô tả</label>
+                    <textarea name="description" class="form-control" rows="2">@h.Description</textarea>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="form-check">
+                            <input name="isRecurring" type="checkbox" class="form-check-input" value="true" @(h.IsRecurring ? "checked" : "") />
+                            <input name="isRecurring" type="hidden" value="false" />
+                            <label class="form-check-label">Lặp lại hàng năm</label>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="form-check">
+                            <input name="isActive" type="checkbox" class="form-check-input" value="true" @(h.IsActive ? "checked" : "") />
+                            <input name="isActive" type="hidden" value="false" />
+                            <label class="form-check-label">Hoạt động</label>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">

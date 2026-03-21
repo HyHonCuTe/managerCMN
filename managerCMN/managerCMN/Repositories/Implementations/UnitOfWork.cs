@@ -18,6 +18,7 @@ public class UnitOfWork : IUnitOfWork
         Requests = new RequestRepository(context);
         RequestApprovals = new RequestApprovalRepository(context);
         Attendances = new AttendanceRepository(context);
+        Holidays = new HolidayRepository(context);
         Assets = new AssetRepository(context);
         AssetAssignments = new AssetAssignmentRepository(context);
         Tickets = new TicketRepository(context);
@@ -38,6 +39,7 @@ public class UnitOfWork : IUnitOfWork
     public IRequestRepository Requests { get; }
     public IRequestApprovalRepository RequestApprovals { get; }
     public IAttendanceRepository Attendances { get; }
+    public IHolidayRepository Holidays { get; }
     public IAssetRepository Assets { get; }
     public IAssetAssignmentRepository AssetAssignments { get; }
     public ITicketRepository Tickets { get; }

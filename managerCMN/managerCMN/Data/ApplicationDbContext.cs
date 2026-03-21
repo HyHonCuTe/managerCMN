@@ -35,6 +35,9 @@ public class ApplicationDbContext : DbContext
     // Attendance
     public DbSet<Attendance> Attendances => Set<Attendance>();
 
+    // Holidays
+    public DbSet<Holiday> Holidays => Set<Holiday>();
+
     // Assets
     public DbSet<Asset> Assets => Set<Asset>();
     public DbSet<AssetAssignment> AssetAssignments => Set<AssetAssignment>();
@@ -183,6 +186,11 @@ public class ApplicationDbContext : DbContext
             .Property(a => a.WorkingHours).HasColumnType("decimal(5,2)");
         modelBuilder.Entity<Attendance>()
             .Property(a => a.OvertimeHours).HasColumnType("decimal(5,2)");
+
+        // Holiday unique constraint on Date
+        modelBuilder.Entity<Holiday>()
+            .HasIndex(h => h.Date)
+            .IsUnique();
 
         // Asset
         modelBuilder.Entity<Asset>()

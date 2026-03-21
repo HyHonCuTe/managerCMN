@@ -26,6 +26,7 @@ public class ContractController : Controller
 
     public async Task<IActionResult> Index()
     {
+        await _contractService.FixEmptyContractNumbersAsync();
         await _contractService.SyncExpiredAsync();
         var contracts = await _contractService.GetAllAsync();
         return View(contracts);
@@ -49,6 +50,14 @@ public class ContractController : Controller
     {
         if (!ModelState.IsValid)
         {
+            await PopulateEmployees();
+            return View(model);
+        }
+
+        // Validate ContractNumber uniqueness
+        if (!await _contractService.IsContractNumberUniqueAsync(model.ContractNumber))
+        {
+            ModelState.AddModelError("ContractNumber", "Số hợp đồng này đã tồn tại.");
             await PopulateEmployees();
             return View(model);
         }
@@ -86,6 +95,7 @@ public class ContractController : Controller
 
         var contract = new Contract
         {
+            ContractNumber = model.ContractNumber.Trim(),
             EmployeeId = model.EmployeeId,
             ContractType = model.ContractType,
             StartDate = model.StartDate,
@@ -106,6 +116,7 @@ public class ContractController : Controller
         var vm = new ContractEditViewModel
         {
             ContractId   = contract.ContractId,
+            ContractNumber = contract.ContractNumber,
             EmployeeId   = contract.EmployeeId,
             ContractType = contract.ContractType,
             StartDate    = contract.StartDate,
@@ -126,9 +137,18 @@ public class ContractController : Controller
             return View(model);
         }
 
+        // Validate ContractNumber uniqueness (excluding current contract)
+        if (!await _contractService.IsContractNumberUniqueAsync(model.ContractNumber, model.ContractId))
+        {
+            ModelState.AddModelError("ContractNumber", "Số hợp đồng này đã tồn tại.");
+            await PopulateEmployees();
+            return View(model);
+        }
+
         var contract = await _contractService.GetByIdAsync(model.ContractId);
         if (contract == null) return NotFound();
 
+        contract.ContractNumber = model.ContractNumber.Trim();
         contract.EmployeeId   = model.EmployeeId;
         contract.ContractType = model.ContractType;
         contract.StartDate    = model.StartDate;
@@ -155,6 +175,7 @@ public class ContractController : Controller
 
         string[] headers = {
             "Mã NV*",
+            "Số HĐ*",
             "Loại HĐ (Thử việc/Xác định thời hạn/Không xác định thời hạn/Thời vụ)*",
             "Ngày bắt đầu (dd/MM/yyyy)*",
             "Ngày kết thúc (dd/MM/yyyy)",
@@ -171,10 +192,11 @@ public class ContractController : Controller
 
         // Sample data row
         ws.Cell(2, 1).Value = "NV001";
-        ws.Cell(2, 2).Value = "Thử việc";
-        ws.Cell(2, 3).Value = "01/01/2026";
-        ws.Cell(2, 4).Value = "31/12/2026";
-        ws.Cell(2, 5).Value = "0";
+        ws.Cell(2, 2).Value = "001/2026/HĐLĐ-CMN";
+        ws.Cell(2, 3).Value = "Thử việc";
+        ws.Cell(2, 4).Value = "01/01/2026";
+        ws.Cell(2, 5).Value = "31/12/2026";
+        ws.Cell(2, 6).Value = "0";
 
         ws.Columns().AdjustToContents();
 
@@ -221,10 +243,11 @@ public class ContractController : Controller
             for (int row = 2; row <= lastRow; row++)
             {
                 var empCode = ws.Cell(row, 1).GetString().Trim();
-                var contractTypeStr = ws.Cell(row, 2).GetString().Trim();
-                var startDateStr = ws.Cell(row, 3).GetString().Trim();
-                var endDateStr = ws.Cell(row, 4).GetString().Trim();
-                var salaryStr = ws.Cell(row, 5).GetString().Trim();
+                var contractNumberStr = ws.Cell(row, 2).GetString().Trim();
+                var contractTypeStr = ws.Cell(row, 3).GetString().Trim();
+                var startDateStr = ws.Cell(row, 4).GetString().Trim();
+                var endDateStr = ws.Cell(row, 5).GetString().Trim();
+                var salaryStr = ws.Cell(row, 6).GetString().Trim();
 
                 // Skip empty rows
                 if (string.IsNullOrEmpty(empCode) && string.IsNullOrEmpty(contractTypeStr))
@@ -240,6 +263,20 @@ public class ContractController : Controller
                 if (!employeeByCode.TryGetValue(empCode.ToLower(), out var employee))
                 {
                     errors.Add($"Dòng {row}: Không tìm thấy nhân viên với mã '{empCode}'.");
+                    continue;
+                }
+
+                // Validate contract number
+                if (string.IsNullOrEmpty(contractNumberStr))
+                {
+                    errors.Add($"Dòng {row}: Thiếu số hợp đồng.");
+                    continue;
+                }
+
+                // Check contract number uniqueness
+                if (!await _contractService.IsContractNumberUniqueAsync(contractNumberStr))
+                {
+                    errors.Add($"Dòng {row}: Số hợp đồng '{contractNumberStr}' đã tồn tại.");
                     continue;
                 }
 
@@ -290,6 +327,7 @@ public class ContractController : Controller
 
                 toCreate.Add(new Contract
                 {
+                    ContractNumber = contractNumberStr.Trim(),
                     EmployeeId = employee.EmployeeId,
                     ContractType = contractType.Value,
                     StartDate = startDate.Value,

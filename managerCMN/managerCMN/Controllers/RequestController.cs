@@ -275,6 +275,29 @@ public class RequestController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [Authorize(Policy = "AdminOnly")]
+    public async Task<IActionResult> RevertApproval(int requestId, string? comment = null)
+    {
+        try
+        {
+            var employeeId = GetCurrentEmployeeId();
+            await _requestService.RevertApprovalAsync(requestId, employeeId, comment);
+            TempData["Success"] = "Đã hoàn duyệt đơn thành công! Số phép đã được hoàn trả.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"Lỗi khi hoàn duyệt: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Approve));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> BulkApprove(string requestIds, string comment)
     {
         if (!IsPrivileged()) return Forbid();

@@ -14,12 +14,22 @@
 
     bool IsLive(Contract c) => c.Status == ContractStatus.Active || c.Status == ContractStatus.Renewed;
 
+    // Actually expired: end date has passed (regardless of DB status)
+    bool IsExpired(Contract c) =>
+        c.EndDate.HasValue && c.EndDate.Value.Date < today;
+
+    // Near expiry: end date is in the future but within 30 days
     bool IsNearExpiry(Contract c) =>
-        IsLive(c) && c.EndDate.HasValue && c.EndDate.Value.Date <= today.AddDays(30);
+        IsLive(c)
+        && c.EndDate.HasValue
+        && c.EndDate.Value.Date >= today
+        && c.EndDate.Value.Date <= today.AddDays(30);
 
     // Compute display status (NearExpiry is not stored in DB, derived here)
     (string cssClass, string label) GetStatusDisplay(Contract c)
     {
+        // Check actual expiry first (end date has passed)
+        if (IsExpired(c)) return ("bg-danger", "Hết hạn");
         if (IsNearExpiry(c)) return ("bg-warning text-dark", "Sắp hết hạn");
         return c.Status switch
         {
@@ -70,6 +80,7 @@
                     <thead class="table-light">
                         <tr>
                             <th>Nhân viên</th>
+                            <th>Số HĐ</th>
                             <th>Loại HĐ</th>
                             <th>Ngày bắt đầu</th>
                             <th>Ngày kết thúc</th>
@@ -84,6 +95,7 @@
                             var rowClass = IsNearExpiry(c) ? "table-warning" : "";
                         <tr class="@rowClass">
                             <td>@c.Employee?.FullName</td>
+                            <td><strong>@c.ContractNumber</strong></td>
                             <td>@GetContractTypeText(c.ContractType)</td>
                             <td>@c.StartDate.ToString("dd/MM/yyyy")</td>
                             <td>
@@ -119,11 +131,12 @@
                     <thead class="table-light">
                         <tr>
                             <th>Nhân viên</th>
+                            <th>Số HĐ</th>
                             <th>Loại HĐ</th>
                             <th>Ngày bắt đầu</th>
                             <th>Ngày kết thúc</th>
                             <th>Trạng thái</th>
-                            <th>Thao tác</th>
+                            @* <th>Thao tác</th> *@
                         </tr>
                     </thead>
                     <tbody>
@@ -132,17 +145,18 @@
                             var (css, label) = GetStatusDisplay(c);
                         <tr>
                             <td>@c.Employee?.FullName</td>
+                            <td><strong>@c.ContractNumber</strong></td>
                             <td>@GetContractTypeText(c.ContractType)</td>
                             <td>@c.StartDate.ToString("dd/MM/yyyy")</td>
                             <td>@c.EndDate?.ToString("dd/MM/yyyy")</td>
                             <td><span class="badge @css">@label</span></td>
-                            <td>
+                            @* <td>
                                 <a asp-action="Edit" asp-route-id="@c.ContractId" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
                                 @if (!string.IsNullOrEmpty(c.FilePath))
                                 {
                                     <a href="@c.FilePath" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-download"></i></a>
                                 }
-                            </td>
+                            </td> *@
                         </tr>
                         }
                     </tbody>

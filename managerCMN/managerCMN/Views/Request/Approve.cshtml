@@ -305,6 +305,19 @@
                                             <i class="bi bi-x-lg"></i>
                                         </button>
                                     }
+                                    @* Revert Approval Button (Admin Only) *@
+                                    @if (User.IsInRole("Admin") &&
+                                        (req.Status == RequestStatus.Approver1Approved ||
+                                         req.Status == RequestStatus.Approver2Approved ||
+                                         req.Status == RequestStatus.FullyApproved))
+                                    {
+                                        <button type="button" class="btn btn-warning btn-revert-action"
+                                                data-bs-toggle="modal" data-bs-target="#revertModal"
+                                                data-request-id="@req.RequestId" data-request-title="@req.Title"
+                                                title="Hoàn duyệt">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </button>
+                                    }
                                     <a asp-action="Details" asp-route-id="@req.RequestId" class="btn btn-outline-info" title="Chi tiết">
                                         <i class="bi bi-eye"></i>
                                     </a>
@@ -436,6 +449,48 @@
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
                     <button type="submit" class="btn btn-danger px-4"><i class="bi bi-x-lg"></i> Từ chối</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@* Revert Approval Modal *@
+<div class="modal fade" id="revertModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form asp-action="RevertApproval" method="post">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="RequestId" id="revertRequestId" />
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">
+                        <i class="bi bi-arrow-counterclockwise"></i> Hoàn duyệt đơn
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning border-0 mb-3">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Bạn đang hoàn duyệt đơn: <strong id="revertTitle"></strong>
+                        <div class="mt-2 small">
+                            <i class="bi bi-info-circle"></i>
+                            Số phép sẽ được hoàn trả lại cho nhân viên.
+                        </div>
+                    </div>
+                    <div class="mb-0">
+                        <label class="form-label">
+                            Lý do hoàn duyệt <span class="text-danger">*</span>
+                        </label>
+                        <textarea name="Comment" class="form-control" rows="3"
+                                  placeholder="Vui lòng nhập lý do hoàn duyệt..."
+                                  id="revertComment" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-warning px-4">
+                        <i class="bi bi-arrow-counterclockwise"></i> Hoàn duyệt
+                    </button>
                 </div>
             </form>
         </div>
@@ -621,6 +676,53 @@
                 }
 
                 // Form will submit normally
+                return true;
+            });
+        }
+
+        // Revert modal - capture data when modal is shown
+        var revertModal = document.getElementById('revertModal');
+        if (revertModal) {
+            revertModal.addEventListener('show.bs.modal', function(event) {
+                var button = event.relatedTarget;
+                var requestId = button.getAttribute('data-request-id');
+                var requestTitle = button.getAttribute('data-request-title');
+
+                document.getElementById('revertRequestId').value = requestId;
+                document.getElementById('revertTitle').textContent = requestTitle;
+
+                // Clear previous comment
+                var commentField = document.getElementById('revertComment');
+                if (commentField) commentField.value = '';
+            });
+        }
+
+        // Handle revert form submission with validation
+        var revertForm = document.querySelector('#revertModal form');
+        if (revertForm) {
+            revertForm.addEventListener('submit', function(e) {
+                var requestId = document.getElementById('revertRequestId').value;
+                var comment = document.getElementById('revertComment').value;
+
+                if (!requestId || requestId === '0' || requestId === '') {
+                    e.preventDefault();
+                    alert('Lỗi: Không tìm thấy mã đơn. Vui lòng thử lại.');
+                    return false;
+                }
+
+                if (!comment || comment.trim() === '') {
+                    e.preventDefault();
+                    alert('Vui lòng nhập lý do hoàn duyệt.');
+                    document.getElementById('revertComment').focus();
+                    return false;
+                }
+
+                // Confirm action
+                if (!confirm('Bạn chắc chắn muốn hoàn duyệt đơn này? Số phép sẽ được hoàn trả.')) {
+                    e.preventDefault();
+                    return false;
+                }
+
                 return true;
             });
         }

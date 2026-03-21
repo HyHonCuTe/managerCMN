@@ -223,6 +223,38 @@
                 </div>
             </div>
         }
+
+        @* Admin-only revert action *@
+        @if (User.IsInRole("Admin") &&
+            (req.Status == RequestStatus.Approver1Approved ||
+             req.Status == RequestStatus.Approver2Approved ||
+             req.Status == RequestStatus.FullyApproved))
+        {
+            <div class="card border-warning mb-3">
+                <div class="card-header bg-warning text-dark fw-semibold">
+                    <i class="bi bi-shield-exclamation"></i> Thao tác Admin
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning border-0 mb-3">
+                        <small>
+                            <i class="bi bi-info-circle"></i> Hoàn duyệt sẽ hủy đơn đã duyệt và hoàn trả số phép cho nhân viên.
+                        </small>
+                    </div>
+                    <form asp-action="RevertApproval" method="post" id="revertApprovalForm">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="RequestId" value="@req.RequestId" />
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Lý do hoàn duyệt <span class="text-danger">*</span></label>
+                            <textarea name="Comment" class="form-control" rows="3"
+                                      placeholder="Nhập lý do hoàn duyệt..." required id="revertReasonText"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-warning px-4">
+                            <i class="bi bi-arrow-counterclockwise"></i> Hoàn duyệt đơn
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
     </div>
 
     @* ===== RIGHT COLUMN ===== *@
@@ -277,3 +309,30 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+<script>
+    // Handle revert approval form submission with validation
+    var revertForm = document.getElementById('revertApprovalForm');
+    if (revertForm) {
+        revertForm.addEventListener('submit', function(e) {
+            var comment = document.getElementById('revertReasonText').value;
+
+            if (!comment || comment.trim() === '') {
+                e.preventDefault();
+                alert('Vui lòng nhập lý do hoàn duyệt.');
+                document.getElementById('revertReasonText').focus();
+                return false;
+            }
+
+            // Confirm action
+            if (!confirm('Bạn chắc chắn muốn hoàn duyệt đơn này? Số phép sẽ được hoàn trả cho nhân viên.')) {
+                e.preventDefault();
+                return false;
+            }
+
+            return true;
+        });
+    }
+</script>
+}

@@ -24,5 +24,11 @@ public class Contract
     [MaxLength(500)]
     public string? FilePath { get; set; }
 
+    [Required]
+    [MaxLength(50)]
+    public string ContractNumber { get; set; } = string.Empty;
+
+    public DateTime? ModifiedAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

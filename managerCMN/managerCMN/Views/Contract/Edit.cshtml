@@ -7,6 +7,8 @@
         && Model.EndDate.HasValue
         && Model.EndDate.Value.Date <= today.AddDays(30);
     var daysLeft = Model.EndDate.HasValue ? (Model.EndDate.Value.Date - today).Days : (int?)null;
+    var isFixedTerm = Model.ContractType == ContractType.FixedTerm;
+    var isIndefinite = Model.ContractType == ContractType.Indefinite;
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -41,6 +43,12 @@ else if (isNearExpiry)
                     <input type="hidden" asp-for="ContractId" />
 
                     <div class="mb-3">
+                        <label asp-for="ContractNumber" class="form-label fw-semibold">Số hợp đồng <span class="text-danger">*</span></label>
+                        <input asp-for="ContractNumber" class="form-control" />
+                        <span asp-validation-for="ContractNumber" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
                         <label asp-for="EmployeeId" class="form-label fw-semibold">Nhân viên</label>
                         <select asp-for="EmployeeId" asp-items="@ViewBag.Employees" class="form-select">
                             <option value="">-- Chọn nhân viên --</option>
@@ -50,7 +58,7 @@ else if (isNearExpiry)
 
                     <div class="mb-3">
                         <label asp-for="ContractType" class="form-label fw-semibold">Loại hợp đồng</label>
-                        <select asp-for="ContractType" asp-items="Html.GetEnumSelectList<ContractType>()" class="form-select"></select>
+                        <select asp-for="ContractType" id="contractTypeSelect" asp-items="Html.GetEnumSelectList<ContractType>()" class="form-select"></select>
                     </div>
 
                     <div class="row g-3 mb-3">
@@ -59,7 +67,7 @@ else if (isNearExpiry)
                             <input asp-for="StartDate" class="form-control" type="date" />
                             <span asp-validation-for="StartDate" class="text-danger small"></span>
                         </div>
-                        <div class="col-sm-6">
+                        <div class="col-sm-6" id="endDateWrapper" style="@(isIndefinite ? "display:none;" : "")">
                             <label asp-for="EndDate" class="form-label fw-semibold">Ngày kết thúc</label>
                             <input asp-for="EndDate" id="endDateInput" class="form-control" type="date" />
                             <div class="form-text">Để trống nếu không xác định thời hạn</div>
@@ -84,8 +92,8 @@ else if (isNearExpiry)
         </div>
     </div>
 
-    <!-- Renewal Panel -->
-    <div class="col-lg-5">
+    <!-- Renewal Panel (Only for FixedTerm contracts) -->
+    @* <div class="col-lg-5" id="renewalPanel" style="@(isFixedTerm ? "" : "display:none;")">
         <div class="card border-warning">
             <div class="card-header bg-warning bg-opacity-10 fw-semibold">
                 <i class="bi bi-arrow-clockwise me-1"></i> Gia hạn hợp đồng
@@ -99,8 +107,8 @@ else if (isNearExpiry)
                     <button type="button" class="btn btn-outline-primary" onclick="renew(1)">
                         <i class="bi bi-plus-circle"></i> Gia hạn thêm 1 năm
                     </button>
-                    <button type="button" class="btn btn-outline-primary" onclick="renew(2)">
-                        <i class="bi bi-plus-circle"></i> Gia hạn thêm 2 năm
+                    <button type="button" class="btn btn-outline-primary" onclick="renew(3)">
+                        <i class="bi bi-plus-circle"></i> Gia hạn thêm 3 năm
                     </button>
                 </div>
 
@@ -117,13 +125,40 @@ else if (isNearExpiry)
                 <div id="renewInfo" class="alert alert-success small py-2 mt-3 d-none"></div>
             </div>
         </div>
-    </div>
+    </div> *@
 </div>
 
 @section Scripts {
 <script>
     var endInput  = document.getElementById('endDateInput');
     var statusSel = document.getElementById('statusSelect');
+    var contractTypeSel = document.getElementById('contractTypeSelect');
+    var endDateWrapper = document.getElementById('endDateWrapper');
+    var renewalPanel = document.getElementById('renewalPanel');
+
+    // ContractType enum values: Probation=0, FixedTerm=1, Indefinite=2, Seasonal=3
+    var FIXED_TERM = '1';
+    var INDEFINITE = '2';
+
+    function updateVisibility() {
+        var selectedType = contractTypeSel.value;
+        var isFixedTerm = selectedType === FIXED_TERM;
+        var isIndefinite = selectedType === INDEFINITE;
+
+        // Show/hide end date field
+        endDateWrapper.style.display = isIndefinite ? 'none' : '';
+
+        // Clear end date when switching to indefinite
+        if (isIndefinite) {
+            endInput.value = '';
+        }
+
+        // Show renewal panel only for FixedTerm contracts
+        renewalPanel.style.display = isFixedTerm ? '' : 'none';
+    }
+
+    // Listen for contract type changes
+    contractTypeSel.addEventListener('change', updateVisibility);
 
     function pad(n) { return String(n).padStart(2, '0'); }
 

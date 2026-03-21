@@ -32,6 +32,7 @@ public class ContractService : IContractService
 
     public async Task UpdateAsync(Contract contract)
     {
+        contract.ModifiedAt = DateTime.UtcNow;
         _unitOfWork.Contracts.Update(contract);
         await _unitOfWork.SaveChangesAsync();
     }
@@ -59,5 +60,33 @@ public class ContractService : IContractService
 
         if (expired.Any())
             await _unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task<bool> IsContractNumberUniqueAsync(string contractNumber, int? excludeContractId = null)
+    {
+        var existing = await _unitOfWork.Contracts.FindAsync(c =>
+            c.ContractNumber.ToLower() == contractNumber.ToLower());
+
+        if (excludeContractId.HasValue)
+            existing = existing.Where(c => c.ContractId != excludeContractId.Value);
+
+        return !existing.Any();
+    }
+
+    public async Task FixEmptyContractNumbersAsync()
+    {
+        var contractsWithEmptyNumber = await _unitOfWork.Contracts.FindAsync(c =>
+            string.IsNullOrEmpty(c.ContractNumber));
+
+        if (!contractsWithEmptyNumber.Any())
+            return;
+
+        foreach (var contract in contractsWithEmptyNumber)
+        {
+            contract.ContractNumber = $"LEGACY-{contract.ContractId}-{contract.StartDate.Year}";
+            _unitOfWork.Contracts.Update(contract);
+        }
+
+        await _unitOfWork.SaveChangesAsync();
     }
 }

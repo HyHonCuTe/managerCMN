@@ -21,6 +21,7 @@ public interface IRequestService
     Task RejectAsync(int requestId, int approverEmployeeId, string? comment = null);
     Task ForceApproveAsync(int requestId, int adminEmployeeId, string? comment = null);
     Task ForceRejectAsync(int requestId, int adminEmployeeId, string? comment = null);
+    Task RevertApprovalAsync(int requestId, int adminEmployeeId, string? comment = null);
     Task CancelAsync(int requestId, int employeeId);
 
     Task<int?> GetDefaultApprover1Async(int employeeId);

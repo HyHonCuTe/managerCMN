@@ -8,6 +8,11 @@ public class ContractCreateViewModel
 {
     public int EmployeeId { get; set; }
 
+    [Required(ErrorMessage = "Vui lòng nhập số hợp đồng")]
+    [MaxLength(50, ErrorMessage = "Số hợp đồng không quá 50 ký tự")]
+    [Display(Name = "Số hợp đồng")]
+    public string ContractNumber { get; set; } = string.Empty;
+
     public ContractType ContractType { get; set; }
 
     [Required]

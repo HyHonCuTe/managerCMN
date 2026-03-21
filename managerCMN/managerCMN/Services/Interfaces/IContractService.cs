@@ -12,4 +12,6 @@ public interface IContractService
     Task UpdateAsync(Contract contract);
     Task DeleteAsync(int id);
     Task SyncExpiredAsync();
+    Task<bool> IsContractNumberUniqueAsync(string contractNumber, int? excludeContractId = null);
+    Task FixEmptyContractNumbersAsync();
 }

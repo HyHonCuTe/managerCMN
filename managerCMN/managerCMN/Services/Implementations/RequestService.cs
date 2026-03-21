@@ -265,6 +265,59 @@ public class RequestService : IRequestService
             + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""));
     }
 
+    public async Task RevertApprovalAsync(int requestId, int adminEmployeeId, string? comment = null)
+    {
+        var request = await _unitOfWork.Requests.GetWithApprovalsAsync(requestId);
+        if (request == null) return;
+
+        // Only allow reverting approved requests (any approval level)
+        if (request.Status != RequestStatus.Approver1Approved
+            && request.Status != RequestStatus.Approver2Approved
+            && request.Status != RequestStatus.FullyApproved)
+        {
+            throw new InvalidOperationException("Chỉ có thể hoàn duyệt đơn đã được duyệt.");
+        }
+
+        // Mark all approvals as rejected with admin comment (for audit trail)
+        foreach (var approval in request.Approvals)
+        {
+            approval.Status = ApprovalStatus.Rejected;
+            approval.ApprovedDate = DateTime.UtcNow;
+            approval.Comment = $"[HOÀN DUYỆT BỞI ADMIN] {comment}";
+            _unitOfWork.RequestApprovals.Update(approval);
+        }
+
+        // Change request status to Cancelled (not Rejected)
+        request.Status = RequestStatus.Cancelled;
+        _unitOfWork.Requests.Update(request);
+
+        // If Leave type, restore leave balance using existing rejection logic
+        if (request.RequestType == RequestType.Leave)
+        {
+            var startDate = request.StartTime.Date;
+            var endDate = request.EndTime.Date;
+            var leaveRequests = await _unitOfWork.LeaveRequests
+                .FindAsync(lr => lr.EmployeeId == request.EmployeeId
+                              && lr.StartDate.Date == startDate
+                              && lr.EndDate.Date == endDate);
+            var leaveReq = leaveRequests.FirstOrDefault();
+            if (leaveReq != null)
+            {
+                await _leaveService.RejectRequestAsync(leaveReq.RequestId, adminEmployeeId);
+            }
+        }
+
+        await _unitOfWork.SaveChangesAsync();
+
+        // Notify employee
+        var admin = await _unitOfWork.Employees.GetByIdAsync(adminEmployeeId);
+        var adminName = admin?.FullName ?? "Admin";
+        await NotifyEmployee(request.EmployeeId,
+            "Đơn đã được hoàn duyệt",
+            $"{adminName} đã hoàn duyệt đơn: {request.Title}"
+            + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""));
+    }
+
     public async Task CancelAsync(int requestId, int employeeId)
     {
         var request = await _unitOfWork.Requests.GetByIdAsync(requestId);

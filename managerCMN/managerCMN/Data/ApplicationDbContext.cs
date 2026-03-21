@@ -126,6 +126,10 @@ public class ApplicationDbContext : DbContext
             .Property(c => c.Salary)
             .HasColumnType("decimal(18,2)");
 
+        modelBuilder.Entity<Contract>()
+            .HasIndex(c => c.ContractNumber)
+            .IsUnique();
+
         // LeaveBalance
         modelBuilder.Entity<LeaveBalance>()
             .HasIndex(lb => new { lb.EmployeeId, lb.Year })

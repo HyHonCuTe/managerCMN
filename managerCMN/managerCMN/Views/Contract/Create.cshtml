@@ -66,16 +66,34 @@
                             </select>
                         </div>
                         <div class="col-md-6">
+                            <label asp-for="ContractNumber" class="form-label">Số hợp đồng <span class="text-danger">*</span></label>
+                            <input asp-for="ContractNumber" class="form-control" placeholder="VD: 003/2025/HĐLĐ-CMN" />
+                            <span asp-validation-for="ContractNumber" class="text-danger small"></span>
+                            <div class="form-text">Định dạng: XXX/YYYY/HĐLĐ-CMN</div>
+                        </div>
+                        <div class="col-md-6">
                             <label asp-for="ContractType" class="form-label">Loại hợp đồng</label>
-                            <select asp-for="ContractType" asp-items="Html.GetEnumSelectList<ContractType>()" class="form-select"></select>
+                            <select asp-for="ContractType" id="contractTypeSelect" asp-items="Html.GetEnumSelectList<ContractType>()" class="form-select"></select>
                         </div>
                         <div class="col-md-6">
                             <label asp-for="StartDate" class="form-label">Ngày bắt đầu</label>
-                            <input asp-for="StartDate" class="form-control" type="date" />
+                            <input asp-for="StartDate" id="startDateInput" class="form-control" type="date" />
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-md-6" id="endDateWrapper">
                             <label asp-for="EndDate" class="form-label">Ngày kết thúc</label>
-                            <input asp-for="EndDate" class="form-control" type="date" />
+                            <input asp-for="EndDate" id="endDateInput" class="form-control" type="date" />
+                            <!-- Quick duration options for FixedTerm -->
+                            <div id="durationOptions" class="mt-2" style="display:none;">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary" onclick="setDuration(1)">
+                                        <i class="bi bi-calendar-plus"></i> 1 năm
+                                    </button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="setDuration(3)">
+                                        <i class="bi bi-calendar-plus"></i> 3 năm
+                                    </button>
+                                </div>
+                                <span class="text-muted small ms-2">hoặc nhập ngày thủ công</span>
+                            </div>
                         </div>
                         <input asp-for="Salary" type="hidden" value="0" />
                         <div class="col-md-12">
@@ -100,6 +118,7 @@
                         <li>Điền thông tin hợp đồng theo định dạng:
                             <ul>
                                 <li>Mã NV (bắt buộc)</li>
+                                <li>Số HĐ (bắt buộc) - VD: 001/2026/HĐLĐ-CMN</li>
                                 <li>Loại HĐ: <em>Thử việc</em>, <em>Xác định thời hạn</em>, <em>Không xác định thời hạn</em>, hoặc <em>Thời vụ</em></li>
                                 <li>Ngày bắt đầu (dd/MM/yyyy)</li>
                                 <li>Ngày kết thúc (dd/MM/yyyy, không bắt buộc)</li>
@@ -136,4 +155,57 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
+    <script>
+        (function() {
+            var contractTypeSel = document.getElementById('contractTypeSelect');
+            var endDateWrapper = document.getElementById('endDateWrapper');
+            var endDateInput = document.getElementById('endDateInput');
+            var startDateInput = document.getElementById('startDateInput');
+            var durationOptions = document.getElementById('durationOptions');
+
+            // ContractType enum: Probation=0, FixedTerm=1, Indefinite=2, Seasonal=3
+            var FIXED_TERM = '1';
+            var INDEFINITE = '2';
+
+            function updateVisibility() {
+                var selectedType = contractTypeSel.value;
+                var isIndefinite = selectedType === INDEFINITE;
+                var isFixedTerm = selectedType === FIXED_TERM;
+
+                // Show/hide end date wrapper
+                endDateWrapper.style.display = isIndefinite ? 'none' : '';
+                if (isIndefinite) {
+                    endDateInput.value = '';
+                }
+
+                // Show/hide duration options (only for FixedTerm)
+                durationOptions.style.display = isFixedTerm ? '' : 'none';
+            }
+
+            contractTypeSel.addEventListener('change', updateVisibility);
+            // Run on page load
+            updateVisibility();
+
+            // Expose setDuration globally
+            window.setDuration = function(years) {
+                var startVal = startDateInput.value;
+                if (!startVal) {
+                    alert('Vui lòng chọn ngày bắt đầu trước.');
+                    startDateInput.focus();
+                    return;
+                }
+                var startDate = new Date(startVal);
+                startDate.setFullYear(startDate.getFullYear() + years);
+                endDateInput.value = toIso(startDate);
+            };
+
+            function toIso(d) {
+                return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+            }
+
+            function pad(n) {
+                return String(n).padStart(2, '0');
+            }
+        })();
+    </script>
 }

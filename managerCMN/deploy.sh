@@ -164,12 +164,30 @@ chmod -R 755 "$GIT_ROOT"
 chmod 644 "$PROJECT_DIR"/*.json "$PROJECT_DIR"/*.db "$GIT_ROOT"/*.json "$GIT_ROOT"/*.db 2>/dev/null || true
 
 # Create and set permissions for uploads directory
-log_info "Setting up uploads directory..."
+log_info "Setting up uploads directory with full write permissions..."
 UPLOADS_DIR="$PROJECT_DIR/bin/Release/publish/wwwroot/uploads"
+
+# Create all necessary subdirectories
 mkdir -p "$UPLOADS_DIR"
-chown -R root:root "$UPLOADS_DIR"
-chmod -R 775 "$UPLOADS_DIR"
-log_success "Uploads directory configured with proper permissions"
+mkdir -p "$UPLOADS_DIR/avatars"
+mkdir -p "$UPLOADS_DIR/contracts"
+mkdir -p "$UPLOADS_DIR/documents"
+mkdir -p "$UPLOADS_DIR/tickets"
+mkdir -p "$UPLOADS_DIR/temp"
+
+# Set ownership to www-data (web server user) for write access
+chown -R www-data:www-data "$UPLOADS_DIR"
+
+# Set full write permissions (rwxrwxrwx)
+chmod -R 777 "$UPLOADS_DIR"
+
+# Also set permissions on the source wwwroot/uploads if exists
+if [ -d "$PROJECT_DIR/wwwroot/uploads" ]; then
+    chown -R www-data:www-data "$PROJECT_DIR/wwwroot/uploads"
+    chmod -R 777 "$PROJECT_DIR/wwwroot/uploads"
+fi
+
+log_success "Uploads directory configured with full write permissions (777)"
 
 # Start the service
 log_info "Starting application service..."

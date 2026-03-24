@@ -95,35 +95,101 @@ public class AssetService : IAssetService
 
         foreach (var row in rows)
         {
+            // Get and validate required fields
             var assetCode = row.Cell(1).GetString().Trim();
+            var assetName = row.Cell(2).GetString().Trim();
+
+            // Skip if required fields are empty
+            if (string.IsNullOrWhiteSpace(assetCode) || string.IsNullOrWhiteSpace(assetName))
+                continue;
+
+            // Check if asset code already exists
             var existing = await _unitOfWork.Assets.GetByCodeAsync(assetCode);
             if (existing != null) continue;
 
             var asset = new Asset
             {
                 AssetCode = assetCode,
-                AssetName = row.Cell(2).GetString(),
-                PurchaseDate = row.Cell(6).IsEmpty() ? null : row.Cell(6).GetDateTime(),
+                AssetName = assetName,
                 Status = AssetStatus.Available
             };
 
+            // Category (optional) - Column 3
             if (!row.Cell(3).IsEmpty())
             {
                 var catName = row.Cell(3).GetString().Trim();
-                var cat = await _db.AssetCategories.FirstOrDefaultAsync(c => c.CategoryName == catName);
-                if (cat != null) asset.AssetCategoryId = cat.AssetCategoryId;
+                if (!string.IsNullOrWhiteSpace(catName))
+                {
+                    var cat = await _db.AssetCategories.FirstOrDefaultAsync(c => c.CategoryName == catName);
+                    if (cat != null) asset.AssetCategoryId = cat.AssetCategoryId;
+                }
             }
+
+            // Brand (optional) - Column 4
             if (!row.Cell(4).IsEmpty())
             {
                 var brandName = row.Cell(4).GetString().Trim();
-                var brand = await _db.Brands.FirstOrDefaultAsync(b => b.BrandName == brandName);
-                if (brand != null) asset.BrandId = brand.BrandId;
+                if (!string.IsNullOrWhiteSpace(brandName))
+                {
+                    var brand = await _db.Brands.FirstOrDefaultAsync(b => b.BrandName == brandName);
+                    if (brand != null) asset.BrandId = brand.BrandId;
+                }
             }
+
+            // Supplier (optional) - Column 5
             if (!row.Cell(5).IsEmpty())
             {
                 var supName = row.Cell(5).GetString().Trim();
-                var sup = await _db.Suppliers.FirstOrDefaultAsync(s => s.SupplierName == supName);
-                if (sup != null) asset.SupplierId = sup.SupplierId;
+                if (!string.IsNullOrWhiteSpace(supName))
+                {
+                    var sup = await _db.Suppliers.FirstOrDefaultAsync(s => s.SupplierName == supName);
+                    if (sup != null) asset.SupplierId = sup.SupplierId;
+                }
+            }
+
+            // Purchase Date (optional) - Column 6
+            if (!row.Cell(6).IsEmpty())
+            {
+                try
+                {
+                    // Try to get as DateTime first
+                    asset.PurchaseDate = row.Cell(6).GetDateTime();
+                }
+                catch
+                {
+                    // If that fails, try to parse as string
+                    var dateStr = row.Cell(6).GetString().Trim();
+                    if (DateTime.TryParse(dateStr, out var parsedDate))
+                    {
+                        asset.PurchaseDate = parsedDate;
+                    }
+                }
+            }
+
+            // Purchase Price (optional) - Column 7
+            if (!row.Cell(7).IsEmpty())
+            {
+                try
+                {
+                    // Try to get as double first
+                    asset.PurchasePrice = Convert.ToDecimal(row.Cell(7).GetDouble());
+                }
+                catch
+                {
+                    // If that fails, try to parse as string
+                    try
+                    {
+                        var priceStr = row.Cell(7).GetString().Trim();
+                        if (decimal.TryParse(priceStr, out var parsedPrice))
+                        {
+                            asset.PurchasePrice = parsedPrice;
+                        }
+                    }
+                    catch
+                    {
+                        // If parsing fails, leave as null
+                    }
+                }
             }
 
             await _unitOfWork.Assets.AddAsync(asset);

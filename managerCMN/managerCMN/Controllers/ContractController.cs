@@ -161,6 +161,40 @@ public class ContractController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(int id)
+    {
+        try
+        {
+            var contract = await _contractService.GetByIdAsync(id);
+            if (contract == null)
+            {
+                TempData["Error"] = "Không tìm thấy hợp đồng cần xóa.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            // Delete associated file if exists
+            if (!string.IsNullOrEmpty(contract.FilePath))
+            {
+                var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", contract.FilePath.TrimStart('/'));
+                if (System.IO.File.Exists(fullPath))
+                {
+                    System.IO.File.Delete(fullPath);
+                }
+            }
+
+            await _contractService.DeleteAsync(id);
+            TempData["Success"] = "Đã xóa hợp đồng thành công!";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"Lỗi khi xóa hợp đồng: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
     private async Task PopulateEmployees()
     {
         var employees = await _employeeService.GetAllAsync();

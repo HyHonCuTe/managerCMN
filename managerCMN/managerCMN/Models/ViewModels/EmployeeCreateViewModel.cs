@@ -58,8 +58,8 @@ public class EmployeeCreateViewModel
     [MaxLength(500, ErrorMessage = "Địa chỉ liên hệ không được vượt quá 500 ký tự")]
     public string? TemporaryAddress { get; set; }
 
-    [MaxLength(20, ErrorMessage = "Mã số thuế không được vượt quá 20 ký tự")]
-    [RegularExpression(@"^[0-9]{10}(-[0-9]{3})?$", ErrorMessage = "Mã số thuế không hợp lệ (VD: 0123456789 hoặc 0123456789-001)")]
+    [MaxLength(12, ErrorMessage = "Mã số thuế không được vượt quá 12 ký tự")]
+    [RegularExpression(@"^[0-9]{12}$", ErrorMessage = "Mã số thuế phải là 12 chữ số")]
     public string? TaxCode { get; set; }
 
     [MaxLength(50, ErrorMessage = "Số tài khoản không được vượt quá 50 ký tự")]

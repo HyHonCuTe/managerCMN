@@ -113,6 +113,23 @@ public class ProfileController : Controller
         var empId = GetEmployeeId();
         if (empId == null) return RedirectToAction("Index", "Dashboard");
 
+        // Validate TaxCode if provided
+        if (!string.IsNullOrWhiteSpace(TaxCode))
+        {
+            TaxCode = TaxCode.Trim();
+            if (!System.Text.RegularExpressions.Regex.IsMatch(TaxCode, @"^[0-9]{12}$"))
+            {
+                TempData["Error"] = "Mã số thuế phải là 12 chữ số.";
+                var emp = await _db.Employees
+                    .Include(e => e.Department)
+                    .Include(e => e.JobTitle)
+                    .Include(e => e.Position)
+                    .Include(e => e.EmergencyContacts)
+                    .FirstOrDefaultAsync(e => e.EmployeeId == empId.Value);
+                return View(emp);
+            }
+        }
+
         var employee = await _db.Employees
             .Include(e => e.EmergencyContacts)
             .FirstOrDefaultAsync(e => e.EmployeeId == empId.Value);

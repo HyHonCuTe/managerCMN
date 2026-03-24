@@ -55,10 +55,18 @@
 
 @section Scripts {
 <script>
+    const logForm = document.getElementById('logFilterForm');
+
+    // Debounced auto-submit for module input
     let _logFilterTimer;
     document.getElementById('moduleFilter').addEventListener('input', function () {
         clearTimeout(_logFilterTimer);
-        _logFilterTimer = setTimeout(() => document.getElementById('logFilterForm').submit(), 600);
+        _logFilterTimer = setTimeout(() => logForm.submit(), 600);
+    });
+
+    // Auto-submit for date inputs
+    document.querySelectorAll('input[type="date"]').forEach(dateInput => {
+        dateInput.addEventListener('change', () => logForm.submit());
     });
 </script>
 }

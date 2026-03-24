@@ -1,11 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using managerCMN.Services.Interfaces;
+using managerCMN.Attributes;
 
 namespace managerCMN.Controllers;
 
 [ApiController]
 [Route("api/attendance")]
+[ApiKeyAuthentication]
 public class AttendanceApiController : ControllerBase
 {
     private readonly IAttendanceService _attendanceService;

@@ -56,7 +56,7 @@ PublishProfiles/
 
 # ── User uploads ──
 wwwroot/uploads/
-
+PY_post/
 # ── Logs ──
 *.log
 logs/

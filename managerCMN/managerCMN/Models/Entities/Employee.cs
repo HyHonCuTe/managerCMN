@@ -36,7 +36,7 @@ public class Employee
     [MaxLength(50)]
     public string? AttendanceName { get; set; }
 
-    [MaxLength(20)]
+    [MaxLength(12)]
     public string? TaxCode { get; set; }
 
     [MaxLength(50)]

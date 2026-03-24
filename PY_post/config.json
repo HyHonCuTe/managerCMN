@@ -1,0 +1,23 @@
+{
+  "device": {
+    "ip": "192.168.100.13",
+    "port": 4370,
+    "timeout": 10
+  },
+  "api": {
+    "endpoint": "https://hyhon.io.vn/api/attendance/punch",
+    "key": "att_sync_key_2026_secure_hyhon",
+    "timeout": 30
+  },
+  "sync": {
+    "interval_minutes": 5,
+    "skip_night_hours": true,
+    "max_retries": 3,
+    "retry_delay_seconds": 30
+  },
+  "logging": {
+    "level": "INFO",
+    "max_log_files": 7,
+    "log_file_size_mb": 10
+  }
+}

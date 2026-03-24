@@ -45,6 +45,24 @@
     var expiredList = Model.Where(c => c.Status == ContractStatus.Expired || c.Status == ContractStatus.Terminated).ToList();
 }
 
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        <i class="bi bi-check-circle me-1"></i>
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0"><i class="bi bi-file-earmark-text"></i> Danh sách Hợp đồng</h4>
     <div>
@@ -109,11 +127,20 @@
                             </td>
                             <td><span class="badge @css">@label</span></td>
                             <td>
-                                <a asp-action="Edit" asp-route-id="@c.ContractId" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                                <a asp-action="Edit" asp-route-id="@c.ContractId" class="btn btn-sm btn-outline-warning" title="Chỉnh sửa">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
                                 @if (!string.IsNullOrEmpty(c.FilePath))
                                 {
-                                    <a href="@c.FilePath" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-download"></i></a>
+                                    <a href="@c.FilePath" target="_blank" class="btn btn-sm btn-outline-info" title="Tải file">
+                                        <i class="bi bi-download"></i>
+                                    </a>
                                 }
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        onclick="confirmDelete(@c.ContractId, '@c.ContractNumber', '@c.Employee?.FullName')"
+                                        title="Xóa hợp đồng">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                             </td>
                         </tr>
                         }
@@ -136,7 +163,7 @@
                             <th>Ngày bắt đầu</th>
                             <th>Ngày kết thúc</th>
                             <th>Trạng thái</th>
-                            @* <th>Thao tác</th> *@
+                            <th>Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -150,13 +177,22 @@
                             <td>@c.StartDate.ToString("dd/MM/yyyy")</td>
                             <td>@c.EndDate?.ToString("dd/MM/yyyy")</td>
                             <td><span class="badge @css">@label</span></td>
-                            @* <td>
-                                <a asp-action="Edit" asp-route-id="@c.ContractId" class="btn btn-sm btn-outline-warning"><i class="bi bi-pencil"></i></a>
+                            <td>
+                                <a asp-action="Edit" asp-route-id="@c.ContractId" class="btn btn-sm btn-outline-warning" title="Chỉnh sửa">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
                                 @if (!string.IsNullOrEmpty(c.FilePath))
                                 {
-                                    <a href="@c.FilePath" target="_blank" class="btn btn-sm btn-outline-info"><i class="bi bi-download"></i></a>
+                                    <a href="@c.FilePath" target="_blank" class="btn btn-sm btn-outline-info" title="Tải file">
+                                        <i class="bi bi-download"></i>
+                                    </a>
                                 }
-                            </td> *@
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        onclick="confirmDelete(@c.ContractId, '@c.ContractNumber', '@c.Employee?.FullName')"
+                                        title="Xóa hợp đồng">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
                         </tr>
                         }
                     </tbody>
@@ -165,6 +201,12 @@
         </div>
     </div>
 </div>
+
+<!-- Hidden form for delete operation -->
+<form id="deleteForm" method="post" style="display: none;">
+    @Html.AntiForgeryToken()
+    <input type="hidden" id="deleteId" name="id" value="" />
+</form>
 
 @section Scripts {
 <script>
@@ -185,5 +227,22 @@
             $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
         });
     });
+
+    // Delete confirmation function
+    function confirmDelete(contractId, contractNumber, employeeName) {
+        const message = `Bạn có chắc chắn muốn xóa hợp đồng sau?\n\n` +
+                       `• Số hợp đồng: ${contractNumber}\n` +
+                       `• Nhân viên: ${employeeName}\n\n` +
+                       `Hành động này không thể hoàn tác!`;
+
+        if (confirm(message)) {
+            const form = document.getElementById('deleteForm');
+            const deleteId = document.getElementById('deleteId');
+
+            deleteId.value = contractId;
+            form.action = '@Url.Action("Delete", "Contract")';
+            form.submit();
+        }
+    }
 </script>
 }

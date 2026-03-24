@@ -307,12 +307,26 @@
             window.location.href = '/Asset/Export?' + params.toString();
         }
 
-        // Auto-submit form when filter changes (optional)
+        // Auto-submit form when filter changes
+        const filterForm = document.querySelector('#filterPanel form');
+
+        // Auto-submit for select and date inputs
         document.querySelectorAll('#filterPanel select, #filterPanel input[type="date"]').forEach(element => {
             element.addEventListener('change', function() {
-                // Auto-submit on filter change (optional feature)
-                // this.form.submit();
+                filterForm.submit();
             });
         });
+
+        // Debounced auto-submit for search input (wait 500ms after user stops typing)
+        let searchTimeout;
+        const searchInput = document.querySelector('input[name="SearchTerm"]');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    filterForm.submit();
+                }, 500);
+            });
+        }
     </script>
 }

@@ -120,9 +120,9 @@ public class AttendanceService : IAttendanceService
             .Select(h => h.Date)
             .ToHashSet();
 
-        // Get all employees
+        // Get all employees sorted by Employee Code
         var employees = (await _unitOfWork.Employees.GetAllAsync())
-            .OrderBy(e => e.Department?.DepartmentName).ThenBy(e => e.FullName)
+            .OrderBy(e => e.EmployeeCode)
             .ToList();
 
         // Get all attendance for the period

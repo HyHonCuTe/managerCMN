@@ -12,6 +12,31 @@
     </div>
 }
 
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@* Show validation errors *@
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <h6 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Có lỗi trong thông tin nhập vào</h6>
+        <hr>
+        <ul class="mb-0">
+            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
+            {
+                <li>@error.ErrorMessage</li>
+            }
+        </ul>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
 <div class="mb-3">
     <h4><i class="bi bi-pencil-square"></i> Cập nhật thông tin cá nhân</h4>
     <small class="text-muted">Bạn có thể cập nhật tất cả thông tin cá nhân. Chức vụ, email và mã NV do quản lý cập nhật.</small>
@@ -147,7 +172,8 @@
                     <div class="row g-3">
                         <div class="col-md-4">
                             <label class="form-label">Mã số thuế</label>
-                            <input name="TaxCode" value="@Model.TaxCode" class="form-control" placeholder="10 số" pattern="^[0-9]{10}(-[0-9]{3})?$" />
+                            <input name="TaxCode" value="@Model.TaxCode" class="form-control" placeholder="12 chữ số" maxlength="12" pattern="^[0-9]{12}$" />
+                            <small class="text-muted">Nhập đúng 12 chữ số</small>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Số tài khoản</label>

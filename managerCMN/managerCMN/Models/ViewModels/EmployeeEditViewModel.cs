@@ -34,7 +34,8 @@ public class EmployeeEditViewModel
     [MaxLength(500)]
     public string? TemporaryAddress { get; set; }
 
-    [MaxLength(20)]
+    [MaxLength(12, ErrorMessage = "Mã số thuế không được vượt quá 12 ký tự")]
+    [RegularExpression(@"^[0-9]{12}$", ErrorMessage = "Mã số thuế phải là 12 chữ số")]
     public string? TaxCode { get; set; }
 
     [MaxLength(50)]

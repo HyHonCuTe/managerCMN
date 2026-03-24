@@ -150,10 +150,21 @@ else
         </div>
 
         <div class="card mb-3">
-            <div class="card-header"><i class="bi bi-shield-check"></i> BHXH & Khác</div>
+            <div class="card-header"><i class="bi bi-bank"></i> Tài chính & Bảo hiểm</div>
             <div class="card-body">
                 <div class="row g-2">
+                    <div class="col-sm-4"><strong>Mã số thuế:</strong></div><div class="col-sm-8">@(employee.TaxCode ?? "—")</div>
+                    <div class="col-sm-4"><strong>Số tài khoản:</strong></div><div class="col-sm-8">@(employee.BankAccount ?? "—")</div>
+                    <div class="col-sm-4"><strong>Ngân hàng:</strong></div><div class="col-sm-8">@(employee.BankName ?? "—")</div>
                     <div class="col-sm-4"><strong>Mã BHXH:</strong></div><div class="col-sm-8">@(employee.InsuranceCode ?? "—")</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-3">
+            <div class="card-header"><i class="bi bi-car-front"></i> Thông tin khác</div>
+            <div class="card-body">
+                <div class="row g-2">
                     <div class="col-sm-4"><strong>Số xe:</strong></div><div class="col-sm-8">@(employee.VehiclePlate ?? "—")</div>
                     <div class="col-sm-4"><strong>Facebook:</strong></div>
                     <div class="col-sm-8">

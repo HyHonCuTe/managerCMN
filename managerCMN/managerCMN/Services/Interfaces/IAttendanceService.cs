@@ -12,4 +12,10 @@ public interface IAttendanceService
     Task ProcessPunchRecordsAsync(IEnumerable<(string AttendanceCode, DateTime PunchTime)> punchRecords);
     Task<Attendance?> GetByIdAsync(int id);
     Task<byte[]> ExportToExcelAsync(int year, int month);
+
+    /// <summary>
+    /// Updates LateMinutes for existing attendance records that have IsLate = true but LateMinutes = 0
+    /// </summary>
+    /// <returns>Number of records updated</returns>
+    Task<int> UpdateExistingLateMinutesAsync();
 }

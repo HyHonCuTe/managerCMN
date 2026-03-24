@@ -22,6 +22,11 @@ public class Attendance
 
     public bool IsLate { get; set; }
 
+    /// <summary>
+    /// Số phút đi muộn (0 nếu không muộn)
+    /// </summary>
+    public int LateMinutes { get; set; }
+
     [MaxLength(500)]
     public string? Note { get; set; }
 }

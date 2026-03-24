@@ -186,6 +186,8 @@ public class ApplicationDbContext : DbContext
             .Property(a => a.WorkingHours).HasColumnType("decimal(5,2)");
         modelBuilder.Entity<Attendance>()
             .Property(a => a.OvertimeHours).HasColumnType("decimal(5,2)");
+        modelBuilder.Entity<Attendance>()
+            .Property(a => a.LateMinutes).HasDefaultValue(0);
 
         // Holiday unique constraint on Date
         modelBuilder.Entity<Holiday>()

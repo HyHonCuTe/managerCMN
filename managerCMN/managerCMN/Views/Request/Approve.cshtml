@@ -67,10 +67,10 @@
 @* Filter bar *@
 <div class="card mb-3">
     <div class="card-body py-2">
-        <form method="get" class="row g-2 align-items-end">
+        <form method="get" class="row g-2 align-items-end" id="filterForm">
             <div class="col-md-2">
                 <label class="form-label small mb-1">Trạng thái</label>
-                <select name="status" class="form-select form-select-sm">
+                <select name="status" class="form-select form-select-sm filter-field">
                     <option value="">Tất cả</option>
                     <option value="0" selected="@(Model.FilterStatus == RequestStatus.Pending)">Chờ duyệt</option>
                     <option value="1" selected="@(Model.FilterStatus == RequestStatus.Approver1Approved)">ND1 đã duyệt</option>
@@ -81,7 +81,7 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label small mb-1">Loại đơn</label>
-                <select name="type" class="form-select form-select-sm">
+                <select name="type" class="form-select form-select-sm filter-field">
                     <option value="">Tất cả</option>
                     <option value="0" selected="@(Model.FilterType == RequestType.Leave)">Xin nghỉ</option>
                     <option value="1" selected="@(Model.FilterType == RequestType.CheckInOut)">Checkin/out</option>
@@ -91,16 +91,13 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label small mb-1">Từ ngày</label>
-                <input type="date" name="from" class="form-control form-control-sm" value="@Model.FilterDateFrom?.ToString("yyyy-MM-dd")" />
+                <input type="date" name="from" class="form-control form-control-sm filter-field" value="@Model.FilterDateFrom?.ToString("yyyy-MM-dd")" />
             </div>
             <div class="col-md-2">
                 <label class="form-label small mb-1">Đến ngày</label>
-                <input type="date" name="to" class="form-control form-control-sm" value="@Model.FilterDateTo?.ToString("yyyy-MM-dd")" />
+                <input type="date" name="to" class="form-control form-control-sm filter-field" value="@Model.FilterDateTo?.ToString("yyyy-MM-dd")" />
             </div>
             <div class="col-md-4 d-flex gap-2">
-                <button type="submit" class="btn btn-primary btn-sm">
-                    <i class="bi bi-funnel me-1"></i> Lọc
-                </button>
                 <a asp-action="Approve" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-counterclockwise"></i> Bỏ lọc</a>
             </div>
         </form>
@@ -501,6 +498,18 @@
 <script>
     // Use Bootstrap modal events to get data from trigger button
     document.addEventListener('DOMContentLoaded', function() {
+        // Auto-submit filter form when any filter field changes
+        const filterForm = document.getElementById('filterForm');
+        const filterFields = document.querySelectorAll('.filter-field');
+
+        if (filterForm && filterFields.length > 0) {
+            filterFields.forEach(field => {
+                field.addEventListener('change', function() {
+                    filterForm.submit();
+                });
+            });
+        }
+
         // Bulk selection functionality
         const selectAllCheckbox = document.getElementById('selectAll');
         const requestCheckboxes = document.querySelectorAll('.request-checkbox');

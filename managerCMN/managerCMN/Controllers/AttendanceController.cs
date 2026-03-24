@@ -388,21 +388,30 @@ public class AttendanceController : Controller
             decimal totalCong = 0;
             decimal donCoPhep = 0;
             decimal donKhongPhep = 0;
-            int lateDays = 0;
-            
+            int totalLateMinutes = 0;
+
+            // Get approved checkin requests for this employee in this period
+            var approvedCheckinRequests = activeRequests
+                .Where(r => r.RequestType == RequestType.CheckInOut
+                         && r.Status == RequestStatus.FullyApproved
+                         && r.StartTime.Date >= periodStart.ToDateTime(TimeOnly.MinValue)
+                         && r.EndTime.Date <= periodEnd.ToDateTime(TimeOnly.MinValue))
+                .Select(r => DateOnly.FromDateTime(r.StartTime))
+                .ToHashSet();
+
             // Count attendance công
             var morningStart = AttendanceCalendarViewModel.MorningStart;
             var morningEnd = AttendanceCalendarViewModel.MorningEnd;
             var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
             var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
-            
+
             foreach (var att in attendances)
             {
                 if (att.CheckIn.HasValue && att.CheckOut.HasValue)
                 {
                     bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
                     bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= afternoonStart;
-                    
+
                     if (hasMorning && hasAfternoon)
                         totalCong += 1m;
                     else if (hasMorning || hasAfternoon)
@@ -412,11 +421,38 @@ public class AttendanceController : Controller
                 {
                     totalCong += 0.5m;
                 }
-                
-                if (att.IsLate)
-                    lateDays++;
+
+                // Calculate late minutes only if no approved checkin request for this date
+                if (att.IsLate && !approvedCheckinRequests.Contains(att.Date) && att.CheckIn.HasValue)
+                {
+                    // Calculate late minutes based on check-in time
+                    int lateMinutes = 0;
+
+                    // Check morning session (8:30 AM)
+                    if (att.CheckIn.Value > morningStart)
+                    {
+                        // If checked in after morning start, calculate late minutes for morning
+                        var morningLateMinutes = (int)(att.CheckIn.Value - morningStart).TotalMinutes;
+                        lateMinutes = Math.Max(0, morningLateMinutes);
+                    }
+
+                    // If attending afternoon session and late
+                    if (att.CheckIn.Value > afternoonStart && att.CheckOut.HasValue && att.CheckOut.Value >= afternoonStart)
+                    {
+                        // Check if this is afternoon-only attendance
+                        bool isMorningOnly = att.CheckOut.Value < afternoonStart;
+                        if (!isMorningOnly)
+                        {
+                            var afternoonLateMinutes = (int)(att.CheckIn.Value - afternoonStart).TotalMinutes;
+                            // Use afternoon late minutes if it's worse than morning
+                            lateMinutes = Math.Max(lateMinutes, Math.Max(0, afternoonLateMinutes));
+                        }
+                    }
+
+                    totalLateMinutes += lateMinutes;
+                }
             }
-            
+
             // Count approved requests
             foreach (var req in activeRequests)
             {
@@ -424,7 +460,7 @@ public class AttendanceController : Controller
                 {
                     var reqStart = DateOnly.FromDateTime(req.StartTime);
                     var reqEnd = DateOnly.FromDateTime(req.EndTime);
-                    
+
                     if (req.RequestType == RequestType.Leave)
                     {
                         if (req.CountsAsWork)
@@ -434,7 +470,7 @@ public class AttendanceController : Controller
                     }
                 }
             }
-            
+
             summaryList.Add(new AttendanceSummaryViewModel
             {
                 EmployeeId = emp.EmployeeId,
@@ -444,12 +480,37 @@ public class AttendanceController : Controller
                 TotalCong = totalCong,
                 DonCoPhep = donCoPhep,
                 DonKhongPhep = donKhongPhep,
-                LateDays = lateDays
+                LateMinutes = totalLateMinutes  // Thay đổi từ LateDays thành LateMinutes
             });
         }
         
         ViewBag.Year = year;
         ViewBag.Month = month;
         return View(summaryList);
+    }
+
+    [Authorize(Policy = "AdminOnly")]
+    [HttpPost]
+    public async Task<IActionResult> UpdateLateMinutes()
+    {
+        try
+        {
+            var updatedCount = await _attendanceService.UpdateExistingLateMinutesAsync();
+
+            if (updatedCount > 0)
+            {
+                TempData["Success"] = $"Đã cập nhật {updatedCount} bản ghi chấm công với thông tin phút đi muộn.";
+            }
+            else
+            {
+                TempData["Info"] = "Không có bản ghi nào cần cập nhật.";
+            }
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"Lỗi khi cập nhật: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Summary));
     }
 }

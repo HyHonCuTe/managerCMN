@@ -3,88 +3,373 @@
     ViewData["Title"] = "Cập nhật thông tin cá nhân";
 }
 
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        <i class="bi bi-check-circle me-1"></i>
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
 <div class="mb-3">
     <h4><i class="bi bi-pencil-square"></i> Cập nhật thông tin cá nhân</h4>
-    <small class="text-muted">Bạn chỉ có thể cập nhật các thông tin cá nhân. Chức vụ và Email do quản lý cập nhật.</small>
+    <small class="text-muted">Bạn có thể cập nhật tất cả thông tin cá nhân. Chức vụ, email và mã NV do quản lý cập nhật.</small>
 </div>
 
-<div class="row">
-    <div class="col-lg-8">
-        <div class="card">
-            <div class="card-body">
-                <form asp-action="Edit" method="post">
-                    @Html.AntiForgeryToken()
+<form asp-action="Edit" method="post">
+    @Html.AntiForgeryToken()
 
-                    <!-- Readonly info -->
-                    <div class="row g-3 mb-4">
-                        <div class="col-md-6">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Readonly info -->
+            <div class="card mb-3">
+                <div class="card-header bg-light">
+                    <i class="bi bi-lock"></i> Thông tin công việc (Chỉ xem)
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
                             <label class="form-label">Mã nhân viên</label>
                             <input value="@Model.EmployeeCode" class="form-control" readonly disabled />
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Họ tên</label>
-                            <input value="@Model.FullName" class="form-control" readonly disabled />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Email <i class="bi bi-lock text-muted" title="Do quản lý cập nhật"></i></label>
+                        <div class="col-md-8">
+                            <label class="form-label">Email</label>
                             <input value="@Model.Email" class="form-control" readonly disabled />
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Chức vụ <i class="bi bi-lock text-muted" title="Do quản lý cập nhật"></i></label>
+                        <div class="col-md-4">
+                            <label class="form-label">Phòng ban</label>
+                            <input value="@Model.Department?.DepartmentName" class="form-control" readonly disabled />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Chức vụ</label>
+                            <input value="@Model.JobTitle?.JobTitleName" class="form-control" readonly disabled />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Vị trí</label>
                             <input value="@Model.Position?.PositionName" class="form-control" readonly disabled />
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <hr/>
-
-                    <!-- Editable fields -->
-                    <h6 class="mb-3"><i class="bi bi-pencil"></i> Thông tin có thể cập nhật</h6>
+            <!-- Thông tin cá nhân -->
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-person"></i> Thông tin cá nhân
+                </div>
+                <div class="card-body">
                     <div class="row g-3">
                         <div class="col-md-6">
+                            <label class="form-label">Họ tên</label>
+                            <input name="FullName" value="@Model.FullName" class="form-control" required />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Ngày sinh</label>
+                            <input name="DateOfBirth" value="@Model.DateOfBirth?.ToString("yyyy-MM-dd")" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Giới tính</label>
+                            <select name="Gender" class="form-select" required>
+                                <option value="0" selected="@(Model.Gender == 0)">Nam</option>
+                                <option value="1" selected="@(Model.Gender == (managerCMN.Models.Enums.Gender)1)">Nữ</option>
+                                <option value="2" selected="@(Model.Gender == (managerCMN.Models.Enums.Gender)2)">Khác</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Dân tộc</label>
+                            <input name="Ethnicity" value="@Model.Ethnicity" class="form-control" placeholder="VD: Kinh" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Quốc tịch</label>
+                            <input name="Nationality" value="@Model.Nationality" class="form-control" placeholder="VD: Việt Nam" />
+                        </div>
+                        <div class="col-md-4">
                             <label class="form-label">Số điện thoại</label>
-                            <input name="Phone" value="@Model.Phone" class="form-control" />
+                            <input name="Phone" value="@Model.Phone" class="form-control" placeholder="VD: 0912345678" pattern="^(0|\+84)[0-9]{9,10}$" />
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Mã số thuế</label>
-                            <input name="TaxCode" value="@Model.TaxCode" class="form-control" />
+                        <div class="col-md-12">
+                            <label class="form-label">Bằng cấp</label>
+                            <input name="Qualifications" value="@Model.Qualifications" class="form-control" placeholder="VD: Đại học Kinh tế" />
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Số tài khoản ngân hàng</label>
-                            <input name="BankAccount" value="@Model.BankAccount" class="form-control" />
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Ngân hàng</label>
-                            <input name="BankName" value="@Model.BankName" class="form-control" />
-                        </div>
+                    </div>
+                </div>
+            </div>
 
+            <!-- CCCD / Giấy tờ -->
+            <div class="card mb-3">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-card-text"></i> CCCD / Giấy tờ
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Số CCCD</label>
+                            <input name="IdCardNumber" value="@Model.IdCardNumber" class="form-control" placeholder="9 hoặc 12 số" pattern="^[0-9]{9}$|^[0-9]{12}$" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ngày cấp</label>
+                            <input name="IdCardIssueDate" value="@Model.IdCardIssueDate?.ToString("yyyy-MM-dd")" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Nơi cấp</label>
+                            <input name="IdCardIssuePlace" value="@Model.IdCardIssuePlace" class="form-control" placeholder="VD: Công an TP.HCM" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Địa chỉ -->
+            <div class="card mb-3">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-geo-alt"></i> Địa chỉ
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
                         <div class="col-12">
                             <label class="form-label">Địa chỉ thường trú</label>
                             <input name="PermanentAddress" value="@Model.PermanentAddress" class="form-control" />
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Địa chỉ tạm trú</label>
+                            <label class="form-label">Địa chỉ liên hệ</label>
                             <input name="TemporaryAddress" value="@Model.TemporaryAddress" class="form-control" />
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <div class="mt-4">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu thay đổi</button>
-                        <a asp-action="Index" class="btn btn-secondary">Hủy</a>
+            <!-- Tài chính & Bảo hiểm -->
+            <div class="card mb-3">
+                <div class="card-header bg-warning text-dark">
+                    <i class="bi bi-bank"></i> Tài chính & Bảo hiểm
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Mã số thuế</label>
+                            <input name="TaxCode" value="@Model.TaxCode" class="form-control" placeholder="10 số" pattern="^[0-9]{10}(-[0-9]{3})?$" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Số tài khoản</label>
+                            <input name="BankAccount" value="@Model.BankAccount" class="form-control" placeholder="Chỉ nhập số" pattern="^[0-9]+$" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Ngân hàng</label>
+                            <input name="BankName" value="@Model.BankName" class="form-control" placeholder="VD: Vietcombank" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Mã BHXH</label>
+                            <input name="InsuranceCode" value="@Model.InsuranceCode" class="form-control" placeholder="10 số" pattern="^[0-9]{10}$" />
+                        </div>
                     </div>
-                </form>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header"><i class="bi bi-info-circle"></i> Lưu ý</div>
-            <div class="card-body">
-                <ul class="mb-0 ps-3">
-                    <li>Bạn <strong>không thể</strong> thay đổi Email và Chức vụ. Liên hệ quản lý hoặc admin để cập nhật.</li>
-                    <li>Mọi thay đổi sẽ được <strong>thông báo</strong> đến quản lý và admin.</li>
-                </ul>
+            <!-- Khác -->
+            <div class="card mb-3">
+                <div class="card-header bg-secondary text-white">
+                    <i class="bi bi-car-front"></i> Thông tin khác
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Số xe</label>
+                            <input name="VehiclePlate" value="@Model.VehiclePlate" class="form-control" placeholder="VD: 29A-12345" />
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Facebook URL</label>
+                            <input name="FacebookUrl" value="@Model.FacebookUrl" type="url" class="form-control" placeholder="https://facebook.com/..." />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Liên hệ người thân -->
+            <div class="card mb-3">
+                <div class="card-header bg-danger text-white d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-people"></i> Liên hệ người thân</span>
+                    <button type="button" class="btn btn-sm btn-light" id="addContactBtn">
+                        <i class="bi bi-plus-circle"></i> Thêm người liên hệ
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="emergencyContactsContainer">
+                        @if (Model.EmergencyContacts != null && Model.EmergencyContacts.Any())
+                        {
+                            @for (int i = 0; i < Model.EmergencyContacts.Count; i++)
+                            {
+                                var contact = Model.EmergencyContacts.ElementAt(i);
+                                <div class="contact-row border rounded p-3 mb-3">
+                                    <input type="hidden" name="EmergencyContacts[@i].Id" value="@contact.Id" />
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Họ tên <span class="text-danger">*</span></label>
+                                            <input name="EmergencyContacts[@i].FullName" value="@contact.FullName" class="form-control" required />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Mối quan hệ</label>
+                                            <input name="EmergencyContacts[@i].Relationship" value="@contact.Relationship" class="form-control" placeholder="VD: Bố, Mẹ" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Số điện thoại</label>
+                                            <input name="EmergencyContacts[@i].Phone" value="@contact.Phone" class="form-control" placeholder="VD: 0912345678" pattern="^(0|\+84)[0-9]{9,10}$" />
+                                        </div>
+                                        <div class="col-md-2 d-flex align-items-end">
+                                            <button type="button" class="btn btn-danger w-100 remove-contact">
+                                                <i class="bi bi-trash"></i> Xóa
+                                            </button>
+                                        </div>
+                                        <div class="col-12">
+                                            <label class="form-label">Địa chỉ</label>
+                                            <input name="EmergencyContacts[@i].Address" value="@contact.Address" class="form-control" />
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-0" id="noContactsMessage">
+                                <i class="bi bi-info-circle"></i> Chưa có thông tin liên hệ người thân. Nhấn "Thêm người liên hệ" để thêm.
+                            </p>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-check-lg"></i> Lưu tất cả thay đổi
+                    </button>
+                    <a asp-action="Index" class="btn btn-secondary btn-lg">
+                        <i class="bi bi-x-lg"></i> Hủy bỏ
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card sticky-top" style="top: 20px;">
+                <div class="card-header bg-light">
+                    <i class="bi bi-info-circle"></i> Hướng dẫn
+                </div>
+                <div class="card-body">
+                    <h6 class="text-success"><i class="bi bi-check-circle"></i> Bạn có thể cập nhật:</h6>
+                    <ul class="mb-3 ps-3 small">
+                        <li>Thông tin cá nhân (họ tên, ngày sinh, giới tính...)</li>
+                        <li>CCCD và giấy tờ tùy thân</li>
+                        <li>Địa chỉ thường trú và liên hệ</li>
+                        <li>Thông tin tài chính & bảo hiểm</li>
+                        <li>Số xe và Facebook</li>
+                        <li><strong>Liên hệ người thân (Thêm/Sửa/Xóa)</strong></li>
+                    </ul>
+
+                    <h6 class="text-danger"><i class="bi bi-lock"></i> Không thể thay đổi:</h6>
+                    <ul class="mb-3 ps-3 small">
+                        <li>Mã nhân viên</li>
+                        <li>Email công ty</li>
+                        <li>Phòng ban, chức vụ, vị trí</li>
+                    </ul>
+
+                    <div class="alert alert-warning small mb-0">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Mọi thay đổi sẽ được <strong>ghi nhận</strong> và thông báo đến quản lý.
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        let contactIndex = @(Model.EmergencyContacts?.Count ?? 0);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('form');
+            const container = document.getElementById('emergencyContactsContainer');
+            const addBtn = document.getElementById('addContactBtn');
+            const noContactsMessage = document.getElementById('noContactsMessage');
+
+            // Add new contact
+            addBtn.addEventListener('click', function() {
+                if (noContactsMessage) {
+                    noContactsMessage.remove();
+                }
+
+                const contactHtml = `
+                    <div class="contact-row border rounded p-3 mb-3">
+                        <input type="hidden" name="EmergencyContacts[${contactIndex}].Id" value="0" />
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Họ tên <span class="text-danger">*</span></label>
+                                <input name="EmergencyContacts[${contactIndex}].FullName" class="form-control" required placeholder="Nhập họ tên" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Mối quan hệ</label>
+                                <input name="EmergencyContacts[${contactIndex}].Relationship" class="form-control" placeholder="VD: Bố, Mẹ, Vợ/Chồng" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Số điện thoại</label>
+                                <input name="EmergencyContacts[${contactIndex}].Phone" class="form-control" placeholder="VD: 0912345678" pattern="^(0|\\+84)[0-9]{9,10}$" />
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="button" class="btn btn-danger w-100 remove-contact">
+                                    <i class="bi bi-trash"></i> Xóa
+                                </button>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Địa chỉ</label>
+                                <input name="EmergencyContacts[${contactIndex}].Address" class="form-control" placeholder="Địa chỉ người liên hệ" />
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', contactHtml);
+                contactIndex++;
+            });
+
+            // Remove contact (use event delegation)
+            container.addEventListener('click', function(e) {
+                if (e.target.closest('.remove-contact')) {
+                    const contactRow = e.target.closest('.contact-row');
+                    if (confirm('Bạn có chắc chắn muốn xóa người liên hệ này?')) {
+                        contactRow.remove();
+
+                        // Re-index remaining contacts
+                        const allContacts = container.querySelectorAll('.contact-row');
+                        if (allContacts.length === 0) {
+                            container.innerHTML = '<p class="text-muted mb-0" id="noContactsMessage"><i class="bi bi-info-circle"></i> Chưa có thông tin liên hệ người thân. Nhấn "Thêm người liên hệ" để thêm.</p>';
+                        } else {
+                            allContacts.forEach((row, idx) => {
+                                row.querySelectorAll('input').forEach(input => {
+                                    const name = input.getAttribute('name');
+                                    if (name) {
+                                        input.setAttribute('name', name.replace(/\[\d+\]/, `[${idx}]`));
+                                    }
+                                });
+                            });
+                            contactIndex = allContacts.length;
+                        }
+                    }
+                }
+            });
+
+            // Form validation
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    // Basic client-side validation
+                    const fullName = document.querySelector('input[name="FullName"]');
+                    if (fullName && fullName.value.trim().length < 2) {
+                        e.preventDefault();
+                        alert('Họ tên phải có ít nhất 2 ký tự');
+                        fullName.focus();
+                        return false;
+                    }
+                });
+            }
+        });
+    </script>
+}

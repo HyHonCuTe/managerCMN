@@ -9,5 +9,5 @@ public class AttendanceSummaryViewModel
     public decimal TotalCong { get; set; }
     public decimal DonCoPhep { get; set; }
     public decimal DonKhongPhep { get; set; }
-    public int LateDays { get; set; }
+    public int LateMinutes { get; set; }  // Thay đổi từ LateDays thành LateMinutes
 }

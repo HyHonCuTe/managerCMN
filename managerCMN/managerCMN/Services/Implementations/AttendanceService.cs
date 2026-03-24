@@ -89,6 +89,10 @@ public class AttendanceService : IAttendanceService
             if (checkOut.HasValue)
                 workingHours = Math.Round((decimal)(checkOut.Value.ToTimeSpan() - checkIn.ToTimeSpan()).TotalHours, 2);
 
+            // Calculate late minutes
+            var isLate = checkIn > LateThreshold;
+            var lateMinutes = isLate ? (int)(checkIn - LateThreshold).TotalMinutes : 0;
+
             var attendance = new Attendance
             {
                 EmployeeId = employee.EmployeeId,
@@ -97,7 +101,8 @@ public class AttendanceService : IAttendanceService
                 CheckOut = checkOut,
                 WorkingHours = workingHours,
                 OvertimeHours = 0,
-                IsLate = checkIn > LateThreshold,
+                IsLate = isLate,
+                LateMinutes = lateMinutes
             };
 
             await _unitOfWork.Attendances.AddAsync(attendance);
@@ -404,5 +409,39 @@ public class AttendanceService : IAttendanceService
         var periodStart = new DateOnly(prevMonth.Year, prevMonth.Month, 26);
         var periodEnd = new DateOnly(currentMonth.Year, currentMonth.Month, 25);
         return (periodStart, periodEnd);
+    }
+
+    public async Task<int> UpdateExistingLateMinutesAsync()
+    {
+        // Get all attendance records that are late but don't have LateMinutes calculated
+        var attendancesToUpdate = await _unitOfWork.Attendances
+            .FindAsync(a => a.IsLate && a.LateMinutes == 0 && a.CheckIn != null);
+
+        int updatedCount = 0;
+
+        foreach (var attendance in attendancesToUpdate)
+        {
+            if (attendance.CheckIn.HasValue)
+            {
+                // Calculate late minutes based on CheckIn time vs LateThreshold (8:30 AM)
+                var lateMinutes = 0;
+                if (attendance.CheckIn.Value > LateThreshold)
+                {
+                    lateMinutes = (int)(attendance.CheckIn.Value - LateThreshold).TotalMinutes;
+                }
+
+                // Update the record
+                attendance.LateMinutes = Math.Max(0, lateMinutes);
+                _unitOfWork.Attendances.Update(attendance);
+                updatedCount++;
+            }
+        }
+
+        if (updatedCount > 0)
+        {
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        return updatedCount;
     }
 }

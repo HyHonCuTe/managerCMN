@@ -5,6 +5,33 @@
     var month = ViewBag.Month;
 }
 
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show">
+        <i class="bi bi-check-circle me-1"></i>
+        @TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (TempData["Info"] != null)
+{
+    <div class="alert alert-info alert-dismissible fade show">
+        <i class="bi bi-info-circle me-1"></i>
+        @TempData["Info"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        @TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
 <div class="container-fluid mt-4">
     <div class="card">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -30,6 +57,12 @@
                 <a href="@Url.Action("ExportToExcel", new { year, month })" class="btn btn-success btn-sm">
                     <i class="bi bi-file-earmark-excel"></i> Xuất Excel
                 </a>
+                @if (User.IsInRole("Admin"))
+                {
+                    <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#updateLateMinutesModal">
+                        <i class="bi bi-arrow-clockwise"></i> Cập nhật phút muộn
+                    </button>
+                }
             </div>
         </div>
         <div class="card-body">
@@ -43,7 +76,7 @@
                         <th>Tổng công</th>
                         <th>Đơn có phép</th>
                         <th>Đơn không phép</th>
-                        <th>Số lần đi muộn</th>
+                        <th>Tổng phút đi muộn</th>
                         <th>Thao tác</th>
                     </tr>
                 </thead>
@@ -82,9 +115,18 @@
                                 }
                             </td>
                             <td class="text-center">
-                                @if (item.LateDays > 0)
+                                @if (item.LateMinutes > 0)
                                 {
-                                    <span class="badge bg-danger">@item.LateDays</span>
+                                    @if (item.LateMinutes >= 60)
+                                    {
+                                        var hours = item.LateMinutes / 60;
+                                        var minutes = item.LateMinutes % 60;
+                                        <span class="badge bg-danger">@hours giờ @minutes phút</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-danger">@item.LateMinutes phút</span>
+                                    }
                                 }
                                 else
                                 {
@@ -105,6 +147,47 @@
         </div>
     </div>
 </div>
+
+@if (User.IsInRole("Admin"))
+{
+    <!-- Update Late Minutes Modal -->
+    <div class="modal fade" id="updateLateMinutesModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <form asp-action="UpdateLateMinutes" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="modal-header bg-warning text-dark">
+                        <h5 class="modal-title">
+                            <i class="bi bi-arrow-clockwise"></i> Cập nhật phút đi muộn
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info border-0 mb-3">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Chức năng này sẽ:</strong>
+                            <ul class="mt-2 mb-0">
+                                <li>Tính toán phút đi muộn cho các bản ghi cũ</li>
+                                <li>Chỉ cập nhật các bản ghi có <code>IsLate = true</code> nhưng <code>LateMinutes = 0</code></li>
+                                <li>Dựa trên thời gian CheckIn so với 8:30 AM</li>
+                            </ul>
+                        </div>
+                        <div class="alert alert-warning border-0 mb-0">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Lưu ý:</strong> Thao tác này sẽ cập nhật database và không thể hoàn tác.
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="bi bi-arrow-clockwise"></i> Cập nhật
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
 
 @section Scripts {
     <script>

@@ -60,6 +60,58 @@ public class EmployeeController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(EmployeeCreateViewModel model)
     {
+        // Additional business logic validations
+        if (model.DateOfBirth.HasValue)
+        {
+            var age = DateTime.Today.Year - model.DateOfBirth.Value.Year;
+            if (model.DateOfBirth.Value.Date > DateTime.Today.AddYears(-age)) age--;
+
+            if (model.DateOfBirth.Value.Date >= DateTime.Today)
+            {
+                ModelState.AddModelError(nameof(model.DateOfBirth), "Ngày sinh phải là ngày trong quá khứ");
+            }
+            else if (age < 15)
+            {
+                ModelState.AddModelError(nameof(model.DateOfBirth), "Nhân viên phải ít nhất 15 tuổi");
+            }
+        }
+
+        if (model.StartWorkingDate.HasValue && model.DateOfBirth.HasValue)
+        {
+            var ageAtStart = model.StartWorkingDate.Value.Year - model.DateOfBirth.Value.Year;
+            if (model.DateOfBirth.Value.Date > model.StartWorkingDate.Value.AddYears(-ageAtStart)) ageAtStart--;
+
+            if (ageAtStart < 15)
+            {
+                ModelState.AddModelError(nameof(model.StartWorkingDate), "Ngày vào làm phải sau ngày sinh ít nhất 15 tuổi");
+            }
+        }
+
+        if (model.IdCardIssueDate.HasValue && model.DateOfBirth.HasValue)
+        {
+            if (model.IdCardIssueDate.Value.Date <= model.DateOfBirth.Value.Date)
+            {
+                ModelState.AddModelError(nameof(model.IdCardIssueDate), "Ngày cấp CCCD phải sau ngày sinh");
+            }
+        }
+
+        // Check duplicate email
+        var existingEmail = await _db.Employees.AnyAsync(e => e.Email == model.Email);
+        if (existingEmail)
+        {
+            ModelState.AddModelError(nameof(model.Email), "Email đã tồn tại trong hệ thống");
+        }
+
+        // Check duplicate employee code (if provided)
+        if (!string.IsNullOrWhiteSpace(model.EmployeeCode))
+        {
+            var existingCode = await _db.Employees.AnyAsync(e => e.EmployeeCode == model.EmployeeCode.Trim());
+            if (existingCode)
+            {
+                ModelState.AddModelError(nameof(model.EmployeeCode), "Mã nhân viên đã tồn tại");
+            }
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateDropdowns();
@@ -69,31 +121,31 @@ public class EmployeeController : Controller
         var employee = new Employee
         {
             EmployeeCode       = model.EmployeeCode?.Trim() ?? "",
-            FullName           = model.FullName,
+            FullName           = model.FullName?.Trim() ?? "",
             DateOfBirth        = model.DateOfBirth,
             Gender             = model.Gender,
-            Email              = model.Email,
-            Phone              = model.Phone,
-            AttendanceName     = model.AttendanceName,
-            AttendanceCode     = model.AttendanceCode,
-            PermanentAddress   = model.PermanentAddress,
-            TemporaryAddress   = model.TemporaryAddress,
-            TaxCode            = model.TaxCode,
-            BankAccount        = model.BankAccount,
-            BankName           = model.BankName,
+            Email              = model.Email?.Trim() ?? "",
+            Phone              = model.Phone?.Trim(),
+            AttendanceName     = model.AttendanceName?.Trim(),
+            AttendanceCode     = model.AttendanceCode?.Trim(),
+            PermanentAddress   = model.PermanentAddress?.Trim(),
+            TemporaryAddress   = model.TemporaryAddress?.Trim(),
+            TaxCode            = model.TaxCode?.Trim(),
+            BankAccount        = model.BankAccount?.Trim(),
+            BankName           = model.BankName?.Trim(),
             DepartmentId       = model.DepartmentId,
             JobTitleId         = model.JobTitleId,
             PositionId         = model.PositionId,
-            Ethnicity          = model.Ethnicity,
-            Nationality        = model.Nationality,
-            IdCardNumber       = model.IdCardNumber,
+            Ethnicity          = model.Ethnicity?.Trim(),
+            Nationality        = model.Nationality?.Trim(),
+            IdCardNumber       = model.IdCardNumber?.Trim(),
             IdCardIssueDate    = model.IdCardIssueDate,
-            IdCardIssuePlace   = model.IdCardIssuePlace,
-            Qualifications     = model.Qualifications,
+            IdCardIssuePlace   = model.IdCardIssuePlace?.Trim(),
+            Qualifications     = model.Qualifications?.Trim(),
             StartWorkingDate   = model.StartWorkingDate,
-            InsuranceCode      = model.InsuranceCode,
-            VehiclePlate       = model.VehiclePlate,
-            FacebookUrl        = model.FacebookUrl
+            InsuranceCode      = model.InsuranceCode?.Trim(),
+            VehiclePlate       = model.VehiclePlate?.Trim(),
+            FacebookUrl        = model.FacebookUrl?.Trim()
         };
 
         await _employeeService.CreateAsync(employee);
@@ -103,14 +155,15 @@ public class EmployeeController : Controller
             _db.EmployeeContacts.Add(new EmployeeContact
             {
                 EmployeeId   = employee.EmployeeId,
-                FullName     = c.FullName!,
-                Relationship = c.Relationship,
-                Phone        = c.Phone,
-                Address      = c.Address
+                FullName     = c.FullName!.Trim(),
+                Relationship = c.Relationship?.Trim(),
+                Phone        = c.Phone?.Trim(),
+                Address      = c.Address?.Trim()
             });
         }
         await _db.SaveChangesAsync();
 
+        TempData["SuccessMessage"] = $"Đã thêm nhân viên {employee.FullName} thành công!";
         return RedirectToAction(nameof(Index));
     }
 

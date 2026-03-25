@@ -141,13 +141,20 @@ public class AttendanceService : IAttendanceService
             }
 
             // ==== STEP 2: Update or Insert Attendance (first/last logic) ====
-            var checkIn = TimeOnly.FromDateTime(punches.First().PunchTime);
+            // IMPORTANT: Load ALL punch records from database (not just current batch) to calculate correct CheckIn/CheckOut
+            var allPunchRecords = await _unitOfWork.PunchRecords.GetByEmployeeAndDateAsync(employee.EmployeeId, date);
+            var allPunches = allPunchRecords.OrderBy(pr => pr.PunchTime).ToList();
+
+            if (!allPunches.Any())
+                continue; // No punches, skip attendance update
+
+            var checkIn = allPunches.First().PunchTime;
             TimeOnly? checkOut = null;
 
             // Only set checkOut if there are multiple punches AND the last punch is different from first
-            if (punches.Count > 1)
+            if (allPunches.Count > 1)
             {
-                var lastPunchTime = TimeOnly.FromDateTime(punches.Last().PunchTime);
+                var lastPunchTime = allPunches.Last().PunchTime;
                 if (lastPunchTime != checkIn)
                 {
                     checkOut = lastPunchTime;

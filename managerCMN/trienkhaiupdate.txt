@@ -36,6 +36,7 @@ dotnet publish --configuration Release --output ./bin/Release/publish
 
 # 4. Update database migrations
 export ASPNETCORE_ENVIRONMENT=Production
+
 dotnet ef database update
 
 # 5. Set quyền uploads

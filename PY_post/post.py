@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 """
 Attendance Sync System
 Automated synchronization between ZK Biometric Device and managerCMN system.
@@ -72,7 +73,48 @@ class AttendanceSync:
             with open(self.last_sync_file, 'r') as f:
                 data = json.load(f)
                 # Parse ISO format datetime and convert to Vietnam timezone
-                utc_time = datetime.fromisoformat(data['last_sync'].replace('Z', '+00:00'))
+                # Python 3.6 compatible datetime parsing
+                timestamp_str = data['last_sync']
+                if timestamp_str.endswith('Z'):
+                    timestamp_str = timestamp_str[:-1] + '+00:00'
+
+                # Handle different ISO format variations for Python 3.6
+                if '+' in timestamp_str[-6:] or '-' in timestamp_str[-6:]:
+                    # Has timezone info like: 2026-03-24T10:30:00+07:00
+                    dt_part, tz_part = timestamp_str.rsplit('+' if '+' in timestamp_str[-6:] else '-', 1)
+                    tz_sign = '+' if '+' in timestamp_str[-6:] else '-'
+
+                    # Parse main datetime part
+                    if '.' in dt_part:
+                        # Has microseconds
+                        utc_time = datetime.strptime(dt_part, '%Y-%m-%dT%H:%M:%S.%f')
+                    else:
+                        # No microseconds
+                        utc_time = datetime.strptime(dt_part, '%Y-%m-%dT%H:%M:%S')
+
+                    # Parse timezone offset
+                    if ':' in tz_part:
+                        tz_hours, tz_mins = tz_part.split(':')
+                    else:
+                        tz_hours, tz_mins = tz_part[:2], tz_part[2:] if len(tz_part) == 4 else '00'
+
+                    # Apply timezone offset to get UTC time
+                    offset_delta = timedelta(hours=int(tz_hours), minutes=int(tz_mins))
+                    if tz_sign == '+':
+                        utc_time = utc_time - offset_delta
+                    else:
+                        utc_time = utc_time + offset_delta
+
+                    # Set UTC timezone and convert to Vietnam timezone
+                    utc_time = utc_time.replace(tzinfo=pytz.UTC)
+                else:
+                    # No timezone info, assume UTC
+                    if '.' in timestamp_str:
+                        utc_time = datetime.strptime(timestamp_str, '%Y-%m-%dT%H:%M:%S.%f')
+                    else:
+                        utc_time = datetime.strptime(timestamp_str, '%Y-%m-%dT%H:%M:%S')
+                    utc_time = utc_time.replace(tzinfo=pytz.UTC)
+
                 return utc_time.astimezone(self.vietnam_tz)
         except (FileNotFoundError, KeyError, ValueError) as e:
             self.logger.info(f"No previous sync time found: {e}")

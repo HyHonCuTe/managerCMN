@@ -1,16 +1,13 @@
 # ZK Biometric Device Library
 pyzk==0.9.0
 
-# HTTP Requests Library
-requests==2.31.0
+# HTTP Requests Library (compatible with Python 3.6+)
+requests>=2.20.0,<2.28.0
 
-# Timezone Support
-pytz==2023.3
+# Timezone Support (compatible with Python 3.6+)
+pytz>=2019.1
 
 # JSON Processing (built-in)
 # Logging (built-in)
 # DateTime (built-in)
 # Pathlib (built-in)
-
-# Optional: For development and debugging
-# flask==3.0.0  # Uncomment if you want to add a web interface for monitoring

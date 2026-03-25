@@ -310,7 +310,7 @@ export ASPNETCORE_ENVIRONMENT=Production
 dotnet ef database update
 
 # Tạo migration mới (trên máy local)
-dotnet ef migrations add TenMigration
+dotnet ef migrations add intial_migration
 ```
 
 ---

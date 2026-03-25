@@ -1,8 +1,7 @@
-# SSH vào server
-ssh root@your-server-ip
+
 
 # Vào thư mục project
-cd /var/www/cmnmanager-src/managerCMN/managerCMN
+cd /var/www/cmnmanager-src/managerCMN/managerCMN/managerCMN
 
 # Pull code mới từ git
 git fetch origin

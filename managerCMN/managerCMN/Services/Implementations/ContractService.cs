@@ -1,16 +1,33 @@
+using System.Security.Claims;
 using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace managerCMN.Services.Implementations;
 
 public class ContractService : IContractService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ISystemLogService _logService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public ContractService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+    public ContractService(IUnitOfWork unitOfWork, ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
+    {
+        _unitOfWork = unitOfWork;
+        _logService = logService;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP() => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     public async Task<IEnumerable<Contract>> GetAllAsync()
         => await _unitOfWork.Contracts.GetAllAsync();
@@ -28,13 +45,34 @@ public class ContractService : IContractService
     {
         await _unitOfWork.Contracts.AddAsync(contract);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Tạo mới Hợp đồng",
+            "Contract",
+            null,
+            new { contract.ContractId, contract.ContractNumber, contract.EmployeeId, contract.ContractType, contract.StartDate, contract.EndDate, contract.Salary },
+            GetClientIP()
+        );
     }
 
     public async Task UpdateAsync(Contract contract)
     {
+        var existing = await _unitOfWork.Contracts.GetByIdAsync(contract.ContractId);
+        var dataBefore = existing != null ? new { existing.ContractId, existing.ContractNumber, existing.EmployeeId, existing.ContractType, existing.StartDate, existing.EndDate, existing.Salary, existing.Status } : null;
+
         contract.ModifiedAt = DateTime.UtcNow;
         _unitOfWork.Contracts.Update(contract);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Cập nhật Hợp đồng",
+            "Contract",
+            dataBefore,
+            new { contract.ContractId, contract.ContractNumber, contract.EmployeeId, contract.ContractType, contract.StartDate, contract.EndDate, contract.Salary, contract.Status },
+            GetClientIP()
+        );
     }
 
     public async Task DeleteAsync(int id)
@@ -42,8 +80,19 @@ public class ContractService : IContractService
         var contract = await _unitOfWork.Contracts.GetByIdAsync(id);
         if (contract != null)
         {
+            var dataBefore = new { contract.ContractId, contract.ContractNumber, contract.EmployeeId, contract.ContractType, contract.StartDate, contract.EndDate };
+
             _unitOfWork.Contracts.Remove(contract);
             await _unitOfWork.SaveChangesAsync();
+
+            await _logService.LogAsync(
+                GetCurrentUserId(),
+                "Xóa Hợp đồng",
+                "Contract",
+                dataBefore,
+                null,
+                GetClientIP()
+            );
         }
     }
 

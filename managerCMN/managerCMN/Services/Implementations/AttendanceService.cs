@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using ClosedXML.Excel;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Models.Entities;
 using managerCMN.Repositories.Interfaces;
@@ -9,9 +11,24 @@ namespace managerCMN.Services.Implementations;
 public class AttendanceService : IAttendanceService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ISystemLogService _logService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private static readonly TimeOnly LateThreshold = new(8, 30); // 8:30 AM
 
-    public AttendanceService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+    public AttendanceService(IUnitOfWork unitOfWork, ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
+    {
+        _unitOfWork = unitOfWork;
+        _logService = logService;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP() => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     public async Task<IEnumerable<Attendance>> GetByEmployeeAndMonthAsync(int employeeId, int year, int month)
         => await _unitOfWork.Attendances.GetByEmployeeAndMonthAsync(employeeId, year, month);
@@ -57,6 +74,22 @@ public class AttendanceService : IAttendanceService
         }
 
         await ProcessPunchRecordsAsync(punchRecords);
+
+        if (punchRecords.Count > 0)
+        {
+            var dates = punchRecords.Select(r => r.PunchTime.Date).Distinct().OrderBy(d => d).ToList();
+            var minDate = dates.First();
+            var maxDate = dates.Last();
+
+            await _logService.LogAsync(
+                GetCurrentUserId(),
+                "Import chấm công từ Excel",
+                "Attendance",
+                null,
+                new { RecordCount = punchRecords.Count, DateRange = $"{minDate:dd/MM/yyyy} - {maxDate:dd/MM/yyyy}" },
+                GetClientIP()
+            );
+        }
     }
 
     public async Task ProcessPunchRecordsAsync(IEnumerable<(string AttendanceCode, DateTime PunchTime)> punchRecords)
@@ -490,6 +523,15 @@ public class AttendanceService : IAttendanceService
         if (updatedCount > 0)
         {
             await _unitOfWork.SaveChangesAsync();
+
+            await _logService.LogAsync(
+                GetCurrentUserId(),
+                "Cập nhật phút đi muộn",
+                "Attendance",
+                null,
+                new { UpdatedCount = updatedCount },
+                GetClientIP()
+            );
         }
 
         return updatedCount;

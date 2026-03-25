@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
@@ -12,13 +13,25 @@ public class TicketService : ITicketService
     private readonly IUnitOfWork _unitOfWork;
     private readonly INotificationService _notificationService;
     private readonly IWebHostEnvironment _env;
+    private readonly ISystemLogService _logService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public TicketService(IUnitOfWork unitOfWork, INotificationService notificationService, IWebHostEnvironment env)
+    public TicketService(IUnitOfWork unitOfWork, INotificationService notificationService, IWebHostEnvironment env, ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
     {
         _unitOfWork = unitOfWork;
         _notificationService = notificationService;
         _env = env;
+        _logService = logService;
+        _httpContextAccessor = httpContextAccessor;
     }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP() => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     #region Existing methods (backward compat)
 
@@ -43,12 +56,33 @@ public class TicketService : ITicketService
         ticket.CreatedDate = DateTime.UtcNow;
         await _unitOfWork.Tickets.AddAsync(ticket);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Tạo mới Ticket",
+            "Ticket",
+            null,
+            new { ticket.TicketId, ticket.Title, ticket.Priority, ticket.CreatedBy },
+            GetClientIP()
+        );
     }
 
     public async Task UpdateAsync(Ticket ticket)
     {
+        var existing = await _unitOfWork.Tickets.GetByIdAsync(ticket.TicketId);
+        var dataBefore = existing != null ? new { existing.TicketId, existing.Title, existing.Status, existing.Priority, existing.AssignedTo } : null;
+
         _unitOfWork.Tickets.Update(ticket);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Cập nhật Ticket",
+            "Ticket",
+            dataBefore,
+            new { ticket.TicketId, ticket.Title, ticket.Status, ticket.Priority, ticket.AssignedTo },
+            GetClientIP()
+        );
     }
 
     public async Task AssignAsync(int ticketId, int assigneeId)
@@ -56,10 +90,21 @@ public class TicketService : ITicketService
         var ticket = await _unitOfWork.Tickets.GetByIdAsync(ticketId);
         if (ticket == null) return;
 
+        var dataBefore = new { ticket.TicketId, ticket.Title, ticket.Status, ticket.AssignedTo };
+
         ticket.AssignedTo = assigneeId;
         ticket.Status = TicketStatus.InProgress;
         _unitOfWork.Tickets.Update(ticket);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Gán Ticket",
+            "Ticket",
+            dataBefore,
+            new { ticket.TicketId, ticket.Title, ticket.Status, ticket.AssignedTo },
+            GetClientIP()
+        );
     }
 
     public async Task ResolveAsync(int ticketId, string resolution)
@@ -67,11 +112,22 @@ public class TicketService : ITicketService
         var ticket = await _unitOfWork.Tickets.GetByIdAsync(ticketId);
         if (ticket == null) return;
 
+        var dataBefore = new { ticket.TicketId, ticket.Title, ticket.Status };
+
         ticket.Status = TicketStatus.Resolved;
         ticket.Resolution = resolution;
         ticket.ResolvedDate = DateTime.UtcNow;
         _unitOfWork.Tickets.Update(ticket);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Giải quyết Ticket",
+            "Ticket",
+            dataBefore,
+            new { ticket.TicketId, ticket.Title, ticket.Status, ticket.Resolution },
+            GetClientIP()
+        );
     }
 
     public async Task CloseAsync(int ticketId)
@@ -79,9 +135,20 @@ public class TicketService : ITicketService
         var ticket = await _unitOfWork.Tickets.GetByIdAsync(ticketId);
         if (ticket == null) return;
 
+        var dataBefore = new { ticket.TicketId, ticket.Title, ticket.Status };
+
         ticket.Status = TicketStatus.Closed;
         _unitOfWork.Tickets.Update(ticket);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Đóng Ticket",
+            "Ticket",
+            dataBefore,
+            new { ticket.TicketId, ticket.Title, ticket.Status },
+            GetClientIP()
+        );
     }
 
     #endregion
@@ -114,6 +181,15 @@ public class TicketService : ITicketService
 
         await _unitOfWork.Tickets.AddAsync(ticket);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Tạo Ticket với người nhận",
+            "Ticket",
+            null,
+            new { ticket.TicketId, ticket.Title, ticket.Priority, RecipientCount = recipientIds.Count },
+            GetClientIP()
+        );
 
         // Notify recipients
         var creator = await _unitOfWork.Employees.GetByIdAsync(creatorId);
@@ -166,6 +242,15 @@ public class TicketService : ITicketService
         }
 
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Phản hồi Ticket",
+            "TicketMessage",
+            null,
+            new { message.TicketMessageId, message.TicketId, message.SenderId },
+            GetClientIP()
+        );
 
         // Notify relevant parties
         var sender = await _unitOfWork.Employees.GetByIdAsync(senderId);
@@ -242,6 +327,15 @@ public class TicketService : ITicketService
 
         await _unitOfWork.SaveChangesAsync();
 
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Chuyển tiếp Ticket",
+            "Ticket",
+            null,
+            new { ticketId, ForwarderId = forwarderId, NewRecipientCount = newRecipientIds.Count },
+            GetClientIP()
+        );
+
         // Notify new recipients
         var forwarder = await _unitOfWork.Employees.GetByIdAsync(forwarderId);
         var forwarderName = forwarder?.FullName ?? "Ai đó";
@@ -262,6 +356,8 @@ public class TicketService : ITicketService
         var recipient = await _unitOfWork.TicketRecipients.GetByIdAsync(ticketRecipientId);
         if (recipient == null) return;
 
+        var dataBefore = new { recipient.TicketRecipientId, recipient.TicketId, recipient.EmployeeId, recipient.Status };
+
         recipient.Status = status;
         if (status == TicketRecipientStatus.Completed)
         {
@@ -270,6 +366,15 @@ public class TicketService : ITicketService
 
         _unitOfWork.TicketRecipients.Update(recipient);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Cập nhật trạng thái người nhận Ticket",
+            "TicketRecipient",
+            dataBefore,
+            new { recipient.TicketRecipientId, recipient.TicketId, recipient.EmployeeId, recipient.Status },
+            GetClientIP()
+        );
 
         // Notify creator about status change
         var ticket = await _unitOfWork.Tickets.GetWithFullDetailsAsync(recipient.TicketId);

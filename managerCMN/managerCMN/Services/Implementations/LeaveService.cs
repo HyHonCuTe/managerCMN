@@ -1,9 +1,11 @@
+using System.Security.Claims;
 using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace managerCMN.Services.Implementations;
 
@@ -12,8 +14,23 @@ public class LeaveService : ILeaveService
     private const decimal QuarterlyLeaveDays = 3m;
     private const decimal AnnualLeaveDays = 12m;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ISystemLogService _logService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public LeaveService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+    public LeaveService(IUnitOfWork unitOfWork, ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
+    {
+        _unitOfWork = unitOfWork;
+        _logService = logService;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP() => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     public async Task<LeaveBalance?> GetBalanceAsync(int employeeId, int year)
     {
@@ -96,12 +113,23 @@ public class LeaveService : ILeaveService
 
         await _unitOfWork.LeaveRequests.AddAsync(request);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Tạo đơn nghỉ phép",
+            "LeaveRequest",
+            null,
+            new { request.RequestId, request.EmployeeId, request.StartDate, request.EndDate, request.TotalDays, request.PayType },
+            GetClientIP()
+        );
     }
 
     public async Task ApproveRequestAsync(int requestId, int approverId)
     {
         var request = await _unitOfWork.LeaveRequests.GetByIdAsync(requestId);
         if (request == null) return;
+
+        var dataBefore = new { request.RequestId, request.EmployeeId, request.Status, request.ApprovedBy };
 
         request.Status = request.Status == RequestStatus.Pending
             ? RequestStatus.Approver1Approved
@@ -111,12 +139,23 @@ public class LeaveService : ILeaveService
 
         _unitOfWork.LeaveRequests.Update(request);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Duyệt đơn nghỉ phép",
+            "LeaveRequest",
+            dataBefore,
+            new { request.RequestId, request.EmployeeId, request.Status, request.ApprovedBy },
+            GetClientIP()
+        );
     }
 
     public async Task RejectRequestAsync(int requestId, int approverId)
     {
         var request = await _unitOfWork.LeaveRequests.GetByIdAsync(requestId);
         if (request == null) return;
+
+        var dataBefore = new { request.RequestId, request.EmployeeId, request.Status, request.ApprovedBy };
 
         if (request.IsLeaveDeducted && request.PayType == LeavePayType.Paid)
         {
@@ -144,6 +183,15 @@ public class LeaveService : ILeaveService
 
         _unitOfWork.LeaveRequests.Update(request);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Từ chối đơn nghỉ phép",
+            "LeaveRequest",
+            dataBefore,
+            new { request.RequestId, request.EmployeeId, request.Status, request.ApprovedBy },
+            GetClientIP()
+        );
     }
 
     public async Task<bool> DeductLeaveForApprovedRequestAsync(int requestId)
@@ -181,6 +229,16 @@ public class LeaveService : ILeaveService
         _unitOfWork.LeaveBalances.Update(balance);
         _unitOfWork.LeaveRequests.Update(request);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Trừ phép cho đơn đã duyệt",
+            "LeaveRequest",
+            null,
+            new { request.RequestId, request.EmployeeId, CarryForwardUsed = carryForwardUsed, CurrentYearUsed = currentYearUsed },
+            GetClientIP()
+        );
+
         return true;
     }
 
@@ -227,6 +285,15 @@ public class LeaveService : ILeaveService
         await _unitOfWork.SaveChangesAsync();
         Console.WriteLine($"SaveChangesAsync completed successfully");
 
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Điều chỉnh số dư phép",
+            "LeaveBalance",
+            new { EmployeeId = employeeId, Year = year },
+            new { EmployeeId = employeeId, Year = year, CurrentYearAdjustment = currentYearAdjustment, CarryForwardAdjustment = carryForwardAdjustment, NewTotalLeave = balance.TotalLeave, NewCarryForward = balance.CarryForward },
+            GetClientIP()
+        );
+
         // Verify the save by re-querying
         Console.WriteLine($"Re-querying balance to verify save...");
         var verifyBalance = await _unitOfWork.LeaveBalances.GetByEmployeeAndYearAsync(employeeId, year);
@@ -252,12 +319,23 @@ public class LeaveService : ILeaveService
         var today = Today();
         var employees = await _unitOfWork.Employees.FindAsync(e => e.Status == EmployeeStatus.Active);
 
+        var processedCount = 0;
         foreach (var emp in employees)
         {
             await EnsureBalanceForYearAsync(emp.EmployeeId, today.Year, today);
+            processedCount++;
         }
 
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Phân bổ phép theo quý",
+            "LeaveBalance",
+            null,
+            new { ProcessedEmployees = processedCount, Year = today.Year, ProcessDate = today },
+            GetClientIP()
+        );
     }
 
     /// <summary>
@@ -269,12 +347,24 @@ public class LeaveService : ILeaveService
     {
         var today = Today();
         var employees = await _unitOfWork.Employees.FindAsync(e => e.Status == EmployeeStatus.Active);
+
+        var processedCount = 0;
         foreach (var employee in employees)
         {
             await EnsureBalanceForYearAsync(employee.EmployeeId, today.Year, today);
+            processedCount++;
         }
 
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Xử lý chuyển phép năm trước",
+            "LeaveBalance",
+            null,
+            new { ProcessedEmployees = processedCount, Year = today.Year, ProcessDate = today },
+            GetClientIP()
+        );
     }
 
     private async Task<LeaveBalance> EnsureBalanceForYearAsync(int employeeId, int year, DateTime asOfDate)

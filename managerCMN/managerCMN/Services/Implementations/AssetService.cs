@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using ClosedXML.Excel;
 using managerCMN.Data;
 using managerCMN.Models.Entities;
@@ -5,6 +6,7 @@ using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace managerCMN.Services.Implementations;
@@ -13,12 +15,24 @@ public class AssetService : IAssetService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ApplicationDbContext _db;
+    private readonly ISystemLogService _logService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public AssetService(IUnitOfWork unitOfWork, ApplicationDbContext db)
+    public AssetService(IUnitOfWork unitOfWork, ApplicationDbContext db, ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
     {
         _unitOfWork = unitOfWork;
         _db = db;
+        _logService = logService;
+        _httpContextAccessor = httpContextAccessor;
     }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP() => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     public async Task<IEnumerable<Asset>> GetAllAsync()
         => await _unitOfWork.Assets.GetAllAsync();
@@ -33,12 +47,33 @@ public class AssetService : IAssetService
     {
         await _unitOfWork.Assets.AddAsync(asset);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Tạo mới Tài sản",
+            "Asset",
+            null,
+            new { asset.AssetId, asset.AssetCode, asset.AssetName, asset.AssetCategoryId, asset.BrandId, asset.Status },
+            GetClientIP()
+        );
     }
 
     public async Task UpdateAsync(Asset asset)
     {
+        var existing = await _unitOfWork.Assets.GetByIdAsync(asset.AssetId);
+        var dataBefore = existing != null ? new { existing.AssetId, existing.AssetCode, existing.AssetName, existing.AssetCategoryId, existing.BrandId, existing.Status } : null;
+
         _unitOfWork.Assets.Update(asset);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Cập nhật Tài sản",
+            "Asset",
+            dataBefore,
+            new { asset.AssetId, asset.AssetCode, asset.AssetName, asset.AssetCategoryId, asset.BrandId, asset.Status },
+            GetClientIP()
+        );
     }
 
     public async Task DeleteAsync(int id)
@@ -46,8 +81,19 @@ public class AssetService : IAssetService
         var asset = await _unitOfWork.Assets.GetByIdAsync(id);
         if (asset != null)
         {
+            var dataBefore = new { asset.AssetId, asset.AssetCode, asset.AssetName, asset.AssetCategoryId, asset.BrandId, asset.Status };
+
             _unitOfWork.Assets.Remove(asset);
             await _unitOfWork.SaveChangesAsync();
+
+            await _logService.LogAsync(
+                GetCurrentUserId(),
+                "Xóa Tài sản",
+                "Asset",
+                dataBefore,
+                null,
+                GetClientIP()
+            );
         }
     }
 
@@ -62,12 +108,23 @@ public class AssetService : IAssetService
 
         await _unitOfWork.AssetAssignments.AddAsync(assignment);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Gán tài sản cho nhân viên",
+            "AssetAssignment",
+            null,
+            new { assignment.AssignmentId, assignment.AssetId, assignment.EmployeeId, assignment.AssignedDate },
+            GetClientIP()
+        );
     }
 
     public async Task ReturnAssetAsync(int assignmentId, string? condition)
     {
         var assignment = await _unitOfWork.AssetAssignments.GetByIdAsync(assignmentId);
         if (assignment == null) return;
+
+        var dataBefore = new { assignment.AssignmentId, assignment.AssetId, assignment.EmployeeId, assignment.Status };
 
         assignment.Status = AssetAssignmentStatus.Returned;
         assignment.ReturnDate = DateTime.UtcNow;
@@ -82,6 +139,15 @@ public class AssetService : IAssetService
         }
 
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Thu hồi tài sản",
+            "AssetAssignment",
+            dataBefore,
+            new { assignment.AssignmentId, assignment.AssetId, assignment.EmployeeId, assignment.Status, assignment.ReturnDate },
+            GetClientIP()
+        );
     }
 
     public async Task<IEnumerable<AssetAssignment>> GetAssignmentsByEmployeeAsync(int employeeId)
@@ -93,6 +159,7 @@ public class AssetService : IAssetService
         var worksheet = workbook.Worksheets.First();
         var rows = worksheet.RowsUsed().Skip(1);
 
+        var importedAssets = new List<string>();
         foreach (var row in rows)
         {
             // Get and validate required fields
@@ -193,9 +260,22 @@ public class AssetService : IAssetService
             }
 
             await _unitOfWork.Assets.AddAsync(asset);
+            importedAssets.Add(asset.AssetCode);
         }
 
         await _unitOfWork.SaveChangesAsync();
+
+        if (importedAssets.Count > 0)
+        {
+            await _logService.LogAsync(
+                GetCurrentUserId(),
+                "Import tài sản từ Excel",
+                "Asset",
+                null,
+                new { ImportedCount = importedAssets.Count, AssetCodes = importedAssets },
+                GetClientIP()
+            );
+        }
     }
 
     // Enhanced assignment with reason

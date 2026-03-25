@@ -84,10 +84,10 @@ builder.Services.AddAuthorization(options =>
 });
 
 // ── MVC ──
-builder.Services.AddControllersWithViews(options =>
-{
-    options.Filters.Add<SystemLogActionFilter>();
-});
+builder.Services.AddControllersWithViews();
+
+// ── HttpContextAccessor for Service logging ──
+builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 

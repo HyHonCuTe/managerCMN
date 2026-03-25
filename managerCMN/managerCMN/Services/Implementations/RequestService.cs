@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace managerCMN.Services.Implementations;
 
@@ -11,13 +13,26 @@ public class RequestService : IRequestService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ILeaveService _leaveService;
     private readonly INotificationService _notificationService;
+    private readonly ISystemLogService _logService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public RequestService(IUnitOfWork unitOfWork, ILeaveService leaveService, INotificationService notificationService)
+    public RequestService(IUnitOfWork unitOfWork, ILeaveService leaveService, INotificationService notificationService,
+        ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
     {
         _unitOfWork = unitOfWork;
         _leaveService = leaveService;
         _notificationService = notificationService;
+        _logService = logService;
+        _httpContextAccessor = httpContextAccessor;
     }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP() => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     public async Task<IEnumerable<Request>> GetAllAsync()
         => await _unitOfWork.Requests.GetAllAsync();
@@ -106,6 +121,16 @@ public class RequestService : IRequestService
         var typeText = GetRequestTypeText(request.RequestType);
         await NotifyApprover(approver1Id, $"Đơn từ mới cần duyệt", $"{empName} đã gửi {typeText}: {request.Title}");
         await NotifyApprover(approver2Id, $"Đơn từ mới cần duyệt", $"{empName} đã gửi {typeText}: {request.Title}");
+
+        // Audit log
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Tạo đơn từ",
+            "Request",
+            null,
+            new { request.RequestId, request.Title, request.RequestType, request.EmployeeId, request.StartTime, request.EndTime, request.TotalDays },
+            GetClientIP()
+        );
     }
 
     public async Task UpdateAsync(Request request)
@@ -154,6 +179,16 @@ public class RequestService : IRequestService
         await NotifyEmployee(request.EmployeeId,
             "Đơn đã được duyệt",
             $"{approverName} đã duyệt đơn: {request.Title}" + (allApproved ? " (Đã duyệt hoàn tất)" : ""));
+
+        // Audit log
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            allApproved ? "Duyệt đơn hoàn tất" : "Duyệt đơn (cấp " + approval.ApproverOrder + ")",
+            "Request",
+            new { request.RequestId, StatusBefore = "Pending" },
+            new { request.RequestId, request.Title, request.Status, ApprovedBy = approverName },
+            GetClientIP()
+        );
     }
 
     public async Task RejectAsync(int requestId, int approverEmployeeId, string? comment = null)
@@ -197,6 +232,16 @@ public class RequestService : IRequestService
         await NotifyEmployee(request.EmployeeId,
             "Đơn bị từ chối",
             $"{approverName} đã từ chối đơn: {request.Title}" + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""));
+
+        // Audit log
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Từ chối đơn",
+            "Request",
+            new { request.RequestId, StatusBefore = "Pending" },
+            new { request.RequestId, request.Title, request.Status, RejectedBy = approverName, Comment = comment },
+            GetClientIP()
+        );
     }
 
     public async Task ForceApproveAsync(int requestId, int adminEmployeeId, string? comment = null)
@@ -225,6 +270,16 @@ public class RequestService : IRequestService
         var approverName = approver?.FullName ?? "Admin";
         await NotifyEmployee(request.EmployeeId, "Đơn đã được duyệt",
             $"{approverName} đã duyệt đơn: {request.Title} (Đã duyệt hoàn tất)");
+
+        // Audit log
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Admin duyệt đơn",
+            "Request",
+            new { request.RequestId, StatusBefore = "Pending" },
+            new { request.RequestId, request.Title, request.Status, ApprovedBy = approverName },
+            GetClientIP()
+        );
     }
 
     public async Task ForceRejectAsync(int requestId, int adminEmployeeId, string? comment = null)
@@ -263,6 +318,16 @@ public class RequestService : IRequestService
         await NotifyEmployee(request.EmployeeId, "Đơn bị từ chối",
             $"{approverName} đã từ chối đơn: {request.Title}"
             + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""));
+
+        // Audit log
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Admin từ chối đơn",
+            "Request",
+            new { request.RequestId, StatusBefore = "Pending" },
+            new { request.RequestId, request.Title, request.Status, RejectedBy = approverName, Comment = comment },
+            GetClientIP()
+        );
     }
 
     public async Task RevertApprovalAsync(int requestId, int adminEmployeeId, string? comment = null)
@@ -316,6 +381,16 @@ public class RequestService : IRequestService
             "Đơn đã được hoàn duyệt",
             $"{adminName} đã hoàn duyệt đơn: {request.Title}"
             + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""));
+
+        // Audit log
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Hoàn duyệt đơn",
+            "Request",
+            new { request.RequestId, StatusBefore = "Approved" },
+            new { request.RequestId, request.Title, request.Status, RevertedBy = adminName, Comment = comment },
+            GetClientIP()
+        );
     }
 
     public async Task CancelAsync(int requestId, int employeeId)
@@ -344,6 +419,16 @@ public class RequestService : IRequestService
         }
 
         await _unitOfWork.SaveChangesAsync();
+
+        // Audit log
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Hủy đơn",
+            "Request",
+            new { request.RequestId, StatusBefore = "Pending" },
+            new { request.RequestId, request.Title, request.Status },
+            GetClientIP()
+        );
     }
 
     public async Task<int?> GetDefaultApprover1Async(int employeeId)

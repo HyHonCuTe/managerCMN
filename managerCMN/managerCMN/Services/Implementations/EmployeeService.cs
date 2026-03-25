@@ -1,16 +1,33 @@
+using System.Security.Claims;
 using System.Text.RegularExpressions;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 namespace managerCMN.Services.Implementations;
 
 public class EmployeeService : IEmployeeService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ISystemLogService _logService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public EmployeeService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+    public EmployeeService(IUnitOfWork unitOfWork, ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
+    {
+        _unitOfWork = unitOfWork;
+        _logService = logService;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP() => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     public async Task<IEnumerable<Employee>> GetAllAsync()
         => await _unitOfWork.Employees.GetAllAsync();
@@ -30,18 +47,45 @@ public class EmployeeService : IEmployeeService
             employee.EmployeeCode = await GenerateEmployeeCodeAsync();
         await _unitOfWork.Employees.AddAsync(employee);
         await _unitOfWork.SaveChangesAsync();
+
+        // Audit log
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Tạo mới Nhân viên",
+            "Employee",
+            null,
+            new { employee.EmployeeId, employee.EmployeeCode, employee.FullName, employee.Email, employee.DepartmentId },
+            GetClientIP()
+        );
     }
 
     public async Task UpdateAsync(Employee employee)
     {
+        // Lấy dữ liệu trước khi update
+        var existing = await _unitOfWork.Employees.GetByIdAsync(employee.EmployeeId);
+        var dataBefore = existing != null ? new { existing.EmployeeId, existing.EmployeeCode, existing.FullName, existing.Email, existing.DepartmentId, existing.Status } : null;
+
         _unitOfWork.Employees.Update(employee);
         await _unitOfWork.SaveChangesAsync();
+
+        // Audit log
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Cập nhật Nhân viên",
+            "Employee",
+            dataBefore,
+            new { employee.EmployeeId, employee.EmployeeCode, employee.FullName, employee.Email, employee.DepartmentId, employee.Status },
+            GetClientIP()
+        );
     }
 
     public async Task DeleteAsync(int id)
     {
         var employee = await _unitOfWork.Employees.GetWithDetailsAsync(id);
         if (employee == null) return;
+
+        // Lưu dữ liệu trước khi xóa
+        var dataBefore = new { employee.EmployeeId, employee.EmployeeCode, employee.FullName, employee.Email, employee.DepartmentId };
 
         // Remove related data to avoid foreign key constraint errors
         // Remove LeaveBalances
@@ -84,6 +128,16 @@ public class EmployeeService : IEmployeeService
         // Finally remove the employee
         _unitOfWork.Employees.Remove(employee);
         await _unitOfWork.SaveChangesAsync();
+
+        // Audit log
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Xóa Nhân viên",
+            "Employee",
+            dataBefore,
+            null,
+            GetClientIP()
+        );
     }
 
     public async Task<string> GenerateEmployeeCodeAsync()

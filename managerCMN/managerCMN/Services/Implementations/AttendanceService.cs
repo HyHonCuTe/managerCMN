@@ -142,7 +142,17 @@ public class AttendanceService : IAttendanceService
 
             // ==== STEP 2: Update or Insert Attendance (first/last logic) ====
             var checkIn = TimeOnly.FromDateTime(punches.First().PunchTime);
-            TimeOnly? checkOut = punches.Count > 1 ? TimeOnly.FromDateTime(punches.Last().PunchTime) : null;
+            TimeOnly? checkOut = null;
+
+            // Only set checkOut if there are multiple punches AND the last punch is different from first
+            if (punches.Count > 1)
+            {
+                var lastPunchTime = TimeOnly.FromDateTime(punches.Last().PunchTime);
+                if (lastPunchTime != checkIn)
+                {
+                    checkOut = lastPunchTime;
+                }
+            }
 
             // Calculate working hours
             decimal? workingHours = null;
@@ -535,5 +545,94 @@ public class AttendanceService : IAttendanceService
         }
 
         return updatedCount;
+    }
+
+    /// <summary>
+    /// Fix attendance records where CheckIn = CheckOut by recalculating from PunchRecords
+    /// </summary>
+    public async Task<int> FixDuplicateCheckInOutTimesAsync()
+    {
+        // Find attendance records where CheckIn = CheckOut (invalid data)
+        var invalidAttendances = await _unitOfWork.Attendances
+            .FindAsync(a => a.CheckIn.HasValue && a.CheckOut.HasValue && a.CheckIn == a.CheckOut);
+
+        int fixedCount = 0;
+
+        foreach (var attendance in invalidAttendances)
+        {
+            // Get punch records for this employee and date
+            var punchRecords = await _unitOfWork.PunchRecords
+                .GetByEmployeeAndDateAsync(attendance.EmployeeId, attendance.Date);
+
+            if (!punchRecords.Any())
+                continue;
+
+            var orderedPunches = punchRecords.OrderBy(pr => pr.PunchTime).ToList();
+
+            // Recalculate CheckIn and CheckOut
+            var newCheckIn = orderedPunches.First().PunchTime;
+            TimeOnly? newCheckOut = null;
+
+            if (orderedPunches.Count > 1)
+            {
+                var lastPunchTime = orderedPunches.Last().PunchTime;
+                if (lastPunchTime != newCheckIn)
+                {
+                    newCheckOut = lastPunchTime;
+                }
+            }
+
+            // Update if different
+            bool needsUpdate = false;
+            if (attendance.CheckIn != newCheckIn)
+            {
+                attendance.CheckIn = newCheckIn;
+                needsUpdate = true;
+            }
+
+            if (attendance.CheckOut != newCheckOut)
+            {
+                attendance.CheckOut = newCheckOut;
+                needsUpdate = true;
+            }
+
+            if (needsUpdate)
+            {
+                // Recalculate working hours
+                if (newCheckOut.HasValue)
+                {
+                    attendance.WorkingHours = Math.Round(
+                        (decimal)(newCheckOut.Value.ToTimeSpan() - newCheckIn.ToTimeSpan()).TotalHours, 2);
+                }
+                else
+                {
+                    attendance.WorkingHours = null;
+                }
+
+                // Recalculate late minutes
+                var isLate = newCheckIn > LateThreshold;
+                attendance.IsLate = isLate;
+                attendance.LateMinutes = isLate ? (int)(newCheckIn - LateThreshold).TotalMinutes : 0;
+
+                _unitOfWork.Attendances.Update(attendance);
+                fixedCount++;
+            }
+        }
+
+        if (fixedCount > 0)
+        {
+            await _unitOfWork.SaveChangesAsync();
+
+            await _logService.LogAsync(
+                GetCurrentUserId(),
+                "Fix CheckIn=CheckOut attendance records",
+                "Attendance",
+                null,
+                new { FixedCount = fixedCount },
+                GetClientIP()
+            );
+        }
+
+        return fixedCount;
     }
 }

@@ -23,4 +23,10 @@ public interface IAttendanceService
     /// </summary>
     /// <returns>Number of records updated</returns>
     Task<int> UpdateExistingLateMinutesAsync();
+
+    /// <summary>
+    /// Fixes attendance records where CheckIn and CheckOut times are incorrectly the same
+    /// </summary>
+    /// <returns>Number of records fixed</returns>
+    Task<int> FixDuplicateCheckInOutTimesAsync();
 }

@@ -56,6 +56,13 @@
             </a>
             <a asp-action="LateReport" class="btn btn-outline-warning btn-sm"><i class="bi bi-exclamation-triangle"></i> DS đi muộn</a>
             <a asp-action="Import" class="btn btn-success btn-sm"><i class="bi bi-upload"></i> Import Excel</a>
+
+            @if (User.IsInRole("Admin"))
+            {
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="fixDuplicateTimes()">
+                    <i class="bi bi-tools"></i> Sửa giờ trùng
+                </button>
+            }
         </div>
         }
     </div>
@@ -711,5 +718,40 @@
         dateStr = dateStr.replace(/["']/g, '');
         const parts = dateStr.split('-');
         return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+
+    // Fix duplicate check-in/out times
+    async function fixDuplicateTimes() {
+        if (!confirm('Bạn có chắc chắn muốn sửa các bản ghi có giờ CheckIn/CheckOut trùng nhau?\nThao tác này sẽ cập nhật dữ liệu trong database.')) {
+            return;
+        }
+
+        const button = event.target.closest('button');
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Đang xử lý...';
+
+        try {
+            const response = await fetch('@Url.Action("FixDuplicateCheckInOut")', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
+                }
+            });
+
+            if (response.ok) {
+                alert('✅ Thành công!\n\nĐã sửa các bản ghi có lỗi giờ CheckIn/CheckOut trùng nhau.\nTrang sẽ được tải lại để hiển thị dữ liệu mới.');
+                // Reload page to show updated data
+                window.location.reload();
+            } else {
+                alert('❌ Có lỗi xảy ra khi sửa dữ liệu.');
+            }
+        } catch (error) {
+            alert(`❌ Lỗi kết nối: ${error.message}`);
+        } finally {
+            button.disabled = false;
+            button.innerHTML = originalText;
+        }
     }
 </script>

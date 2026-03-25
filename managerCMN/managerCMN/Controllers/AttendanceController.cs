@@ -514,6 +514,31 @@ public class AttendanceController : Controller
         return RedirectToAction(nameof(Summary));
     }
 
+    [Authorize(Policy = "AdminOnly")]
+    [HttpPost]
+    public async Task<IActionResult> FixDuplicateCheckInOut()
+    {
+        try
+        {
+            var fixedCount = await _attendanceService.FixDuplicateCheckInOutTimesAsync();
+
+            if (fixedCount > 0)
+            {
+                TempData["Success"] = $"Đã sửa {fixedCount} bản ghi chấm công có CheckIn = CheckOut.";
+            }
+            else
+            {
+                TempData["Info"] = "Không có bản ghi nào cần sửa.";
+            }
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = $"Lỗi khi sửa dữ liệu: {ex.Message}";
+        }
+
+        return RedirectToAction(nameof(Summary));
+    }
+
     /// <summary>
     /// API endpoint to get all punch records for a specific employee and date (for modal display)
     /// </summary>

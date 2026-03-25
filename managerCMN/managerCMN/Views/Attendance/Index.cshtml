@@ -257,8 +257,13 @@
             }
 
             var cellExtra = isToday ? " att-cell-today" : "";
+            // Make all cells in period clickable to view punch records
+            var isClickable = !isFuture && Model.SelectedEmployeeId.HasValue;
+            var empId = Model.SelectedEmployeeId ?? 0;
+            var dateStr = date.ToString("yyyy-MM-dd");
+            var cellClass = isClickable ? $"att-cell{cellExtra} att-cell-clickable" : $"att-cell{cellExtra}";
 
-            <div class="att-cell@(cellExtra)">
+            <div class="@cellClass" data-employee-id="@(isClickable ? empId.ToString() : "")" data-date="@(isClickable ? dateStr : "")">
                 <div class="@hdrClass">
                     <span>@date.Day.ToString("00")/@date.Month.ToString("00")</span>
                     @if (hasData && att!.CheckIn.HasValue)
@@ -371,6 +376,66 @@
     </div>
 </div>
 
+@* === PUNCH RECORDS MODAL === *@
+<div class="modal fade" id="punchRecordsModal" tabindex="-1" aria-labelledby="punchRecordsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="punchRecordsModalLabel">
+                    <i class="bi bi-clock-history me-2"></i>Chi tiết chấm công
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="punchRecordsLoading" class="text-center py-3">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Đang tải dữ liệu...</p>
+                </div>
+                <div id="punchRecordsContent" style="display: none;">
+                    <div class="mb-3">
+                        <strong>Nhân viên:</strong> <span id="modalEmployeeName"></span><br>
+                        <strong>Ngày:</strong> <span id="modalDate"></span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 60px;">#</th>
+                                    <th>Thời gian chấm</th>
+                                    <th>Loại</th>
+                                </tr>
+                            </thead>
+                            <tbody id="punchRecordsTableBody">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="punchRecordsSummary" class="mt-3 p-2 bg-light rounded">
+                        <div class="row">
+                            <div class="col-6">
+                                <small class="text-muted">Lần chấm đầu:</small><br>
+                                <strong id="summaryFirstPunch">--:--</strong>
+                            </div>
+                            <div class="col-6">
+                                <small class="text-muted">Lần chấm cuối:</small><br>
+                                <strong id="summaryLastPunch">--:--</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="punchRecordsError" class="alert alert-warning" style="display: none;">
+                        Không có dữ liệu chấm công chi tiết cho ngày này.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     .att-page { max-width: 100%; }
 
@@ -480,6 +545,18 @@
     .att-request-tag a.badge { transition: opacity .15s; }
     .att-request-tag a.badge:hover { opacity: .8; }
 
+    .att-cell-clickable {
+        cursor: pointer;
+        transition: transform 0.1s, box-shadow 0.2s;
+    }
+    .att-cell-clickable:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    }
+    .att-cell-clickable:active {
+        transform: translateY(0);
+    }
+
     @@media (max-width: 1200px) {
         .att-cell { min-height: 100px; font-size: .7rem; }
         .att-points { font-size: 1.2rem; }
@@ -511,5 +588,128 @@
                 }, 1000); // Wait 1 second after user stops typing
             });
         }
+
+        // ==== Punch Records Modal Click Handler ====
+        document.querySelectorAll('.att-cell-clickable').forEach(cell => {
+            cell.addEventListener('click', function(e) {
+                // Don't open modal if user clicked a request badge link
+                if (e.target.closest('a.badge')) return;
+
+                const employeeId = this.dataset.employeeId;
+                const date = this.dataset.date;
+
+                console.log('🔎 Cell clicked - raw dataset:', {
+                    employeeId: employeeId,
+                    date: date,
+                    cellHTML: this.outerHTML.substring(0, 200)
+                });
+
+                if (employeeId && date) {
+                    openPunchRecordsModal(employeeId, date);
+                } else {
+                    console.error('❌ Missing employeeId or date:', { employeeId, date });
+                    alert('Lỗi: Không lấy được thông tin nhân viên hoặc ngày. EmployeeId=' + employeeId + ', Date=' + date);
+                }
+            });
+        });
     });
+
+    function openPunchRecordsModal(employeeId, date) {
+        const modal = new bootstrap.Modal(document.getElementById('punchRecordsModal'));
+
+        // Reset modal state
+        document.getElementById('punchRecordsLoading').style.display = 'block';
+        document.getElementById('punchRecordsContent').style.display = 'none';
+        document.getElementById('punchRecordsError').style.display = 'none';
+        document.getElementById('punchRecordsSummary').style.display = 'none';
+        document.getElementById('punchRecordsTableBody').innerHTML = '';
+
+        // Set employee name (use a temp element to decode HTML entities)
+        var employeeName = '@Html.Raw(System.Text.Encodings.Web.JavaScriptEncoder.Default.Encode(Model.EmployeeName ?? ""))';
+        document.getElementById('modalEmployeeName').textContent = employeeName;
+        document.getElementById('modalDate').textContent = formatDate(date);
+
+        modal.show();
+
+        // Debug logging
+        console.log('📅 Opening punch records modal:', { employeeId, date, employeeName });
+
+        // Fetch punch records via AJAX
+        const url = `/Attendance/GetPunchRecords?employeeId=${employeeId}&date=${date}`;
+        console.log('🔗 Fetching URL:', url);
+
+        fetch(url)
+            .then(response => {
+                console.log('📡 Response status:', response.status, response.statusText);
+                return response.json();
+            })
+            .then(result => {
+                console.log('📦 API Response:', result);
+                document.getElementById('punchRecordsLoading').style.display = 'none';
+
+                if (result.success && result.data && result.data.length > 0) {
+                    console.log('✅ Found punch records:', result.data.length);
+                    displayPunchRecords(result.data);
+                    document.getElementById('punchRecordsContent').style.display = 'block';
+                } else {
+                    console.log('⚠️ No punch records found or error:', result);
+                    document.getElementById('punchRecordsError').style.display = 'block';
+                    document.getElementById('punchRecordsContent').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error fetching punch records:', error);
+                document.getElementById('punchRecordsLoading').style.display = 'none';
+                document.getElementById('punchRecordsError').style.display = 'block';
+                document.getElementById('punchRecordsContent').style.display = 'block';
+            });
+    }
+
+    function displayPunchRecords(records) {
+        const tbody = document.getElementById('punchRecordsTableBody');
+        tbody.innerHTML = '';
+
+        if (records.length === 0) {
+            document.getElementById('punchRecordsError').style.display = 'block';
+            document.getElementById('punchRecordsSummary').style.display = 'none';
+            return;
+        }
+
+        // Hide error, show summary
+        document.getElementById('punchRecordsError').style.display = 'none';
+        document.getElementById('punchRecordsSummary').style.display = 'block';
+
+        records.forEach((record, index) => {
+            const row = document.createElement('tr');
+
+            // Determine punch type
+            let punchType = 'Giữa ca';
+            let badgeClass = 'bg-secondary';
+            if (index === 0) {
+                punchType = 'CheckIn';
+                badgeClass = 'bg-success';
+            } else if (index === records.length - 1) {
+                punchType = 'CheckOut';
+                badgeClass = 'bg-danger';
+            }
+
+            row.innerHTML = `
+                <td class="text-center">${record.sequenceNumber}</td>
+                <td><strong>${record.punchTime}</strong></td>
+                <td><span class="badge ${badgeClass}">${punchType}</span></td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        // Update summary
+        document.getElementById('summaryFirstPunch').textContent = records[0].punchTime;
+        document.getElementById('summaryLastPunch').textContent = records[records.length - 1].punchTime;
+    }
+
+    function formatDate(dateStr) {
+        // Clean up any quotes from the date string
+        dateStr = dateStr.replace(/["']/g, '');
+        const parts = dateStr.split('-');
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
 </script>

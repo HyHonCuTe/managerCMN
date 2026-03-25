@@ -513,4 +513,89 @@ public class AttendanceController : Controller
 
         return RedirectToAction(nameof(Summary));
     }
+
+    /// <summary>
+    /// API endpoint to get all punch records for a specific employee and date (for modal display)
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> GetPunchRecords(int employeeId, string date)
+    {
+        Console.WriteLine($"🔍 GetPunchRecords called - EmployeeId: {employeeId}, Date: '{date}'");
+
+        // Clean up date string (remove quotes if any)
+        var cleanedDate = date?.Trim('"', '\'', ' ') ?? "";
+        Console.WriteLine($"🧹 Cleaned date: '{cleanedDate}'");
+
+        if (string.IsNullOrEmpty(cleanedDate))
+        {
+            Console.WriteLine($"❌ Empty date string");
+            return Json(new { success = false, error = "Date is required" });
+        }
+
+        if (!DateOnly.TryParse(cleanedDate, out var parsedDate))
+        {
+            Console.WriteLine($"❌ Invalid date format: '{cleanedDate}'");
+            return Json(new { success = false, error = $"Invalid date format: {cleanedDate}" });
+        }
+
+        Console.WriteLine($"✅ Parsed date: {parsedDate:yyyy-MM-dd}");
+
+        try
+        {
+            var punchRecords = await _attendanceService.GetPunchRecordsByDateAsync(employeeId, parsedDate);
+            var recordsList = punchRecords.ToList();
+            Console.WriteLine($"📊 Found {recordsList.Count} punch records for Employee {employeeId} on {parsedDate:yyyy-MM-dd}");
+
+            var result = recordsList.Select(pr => new
+            {
+                punchRecordId = pr.PunchRecordId,
+                punchTime = pr.PunchTime.ToString("HH:mm"),
+                sequenceNumber = pr.SequenceNumber,
+                sourceTimestamp = pr.SourceTimestamp.ToString("yyyy-MM-dd HH:mm:ss"),
+                deviceId = pr.DeviceId
+            }).ToList();
+
+            Console.WriteLine($"✅ Returning {result.Count} records");
+            return Json(new { success = true, data = result });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Exception: {ex.Message}");
+            return Json(new { success = false, error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Debug endpoint to test punch records directly
+    /// </summary>
+    [HttpGet]
+    public async Task<IActionResult> TestPunchRecords()
+    {
+        // Hardcoded test for Employee 55 on 2026-03-25
+        var testEmployeeId = 55;
+        var testDate = new DateOnly(2026, 3, 25);
+
+        Console.WriteLine($"🧪 TEST: Getting punch records for Employee {testEmployeeId} on {testDate:yyyy-MM-dd}");
+
+        var punchRecords = await _attendanceService.GetPunchRecordsByDateAsync(testEmployeeId, testDate);
+        var recordsList = punchRecords.ToList();
+
+        Console.WriteLine($"🧪 TEST: Found {recordsList.Count} records");
+
+        var result = recordsList.Select(pr => new
+        {
+            punchRecordId = pr.PunchRecordId,
+            employeeId = pr.EmployeeId,
+            date = pr.Date.ToString("yyyy-MM-dd"),
+            punchTime = pr.PunchTime.ToString("HH:mm:ss"),
+            sequenceNumber = pr.SequenceNumber
+        }).ToList();
+
+        return Json(new {
+            testEmployeeId,
+            testDate = testDate.ToString("yyyy-MM-dd"),
+            recordCount = result.Count,
+            records = result
+        });
+    }
 }

@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using Microsoft.EntityFrameworkCore;
 using managerCMN.Models.Entities;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
@@ -71,20 +72,46 @@ public class AttendanceService : IAttendanceService
             var attCode = group.Key.AttendanceCode;
             var date = DateOnly.FromDateTime(group.Key.Date);
 
+            // Resolve employee
             if (!empCache.ContainsKey(attCode))
                 empCache[attCode] = await _unitOfWork.Employees.GetByAttendanceCodeAsync(attCode);
 
             var employee = empCache[attCode];
             if (employee == null) continue;
 
-            var existing = await _unitOfWork.Attendances
-                .AnyAsync(a => a.EmployeeId == employee.EmployeeId && a.Date == date);
-            if (existing) continue;
-
             var punches = group.OrderBy(r => r.PunchTime).ToList();
+
+            // ==== STEP 1: Save ALL punch records to PunchRecord table ====
+            var maxSeq = await _unitOfWork.PunchRecords.GetMaxSequenceNumberAsync(employee.EmployeeId, date);
+            int currentSeq = maxSeq;
+
+            foreach (var punch in punches)
+            {
+                var punchTime = TimeOnly.FromDateTime(punch.PunchTime);
+
+                // Check for duplicate (idempotency - avoid inserting same punch twice)
+                var exists = await _unitOfWork.PunchRecords.ExistsAsync(employee.EmployeeId, date, punchTime);
+                if (exists) continue;
+
+                currentSeq++;
+                var punchRecord = new PunchRecord
+                {
+                    EmployeeId = employee.EmployeeId,
+                    Date = date,
+                    PunchTime = punchTime,
+                    SourceTimestamp = punch.PunchTime,
+                    SequenceNumber = currentSeq,
+                    DeviceId = null // Could be extracted from source if available
+                };
+
+                await _unitOfWork.PunchRecords.AddAsync(punchRecord);
+            }
+
+            // ==== STEP 2: Update or Insert Attendance (first/last logic) ====
             var checkIn = TimeOnly.FromDateTime(punches.First().PunchTime);
             TimeOnly? checkOut = punches.Count > 1 ? TimeOnly.FromDateTime(punches.Last().PunchTime) : null;
 
+            // Calculate working hours
             decimal? workingHours = null;
             if (checkOut.HasValue)
                 workingHours = Math.Round((decimal)(checkOut.Value.ToTimeSpan() - checkIn.ToTimeSpan()).TotalHours, 2);
@@ -93,22 +120,45 @@ public class AttendanceService : IAttendanceService
             var isLate = checkIn > LateThreshold;
             var lateMinutes = isLate ? (int)(checkIn - LateThreshold).TotalMinutes : 0;
 
-            var attendance = new Attendance
-            {
-                EmployeeId = employee.EmployeeId,
-                Date = date,
-                CheckIn = checkIn,
-                CheckOut = checkOut,
-                WorkingHours = workingHours,
-                OvertimeHours = 0,
-                IsLate = isLate,
-                LateMinutes = lateMinutes
-            };
+            // Check if attendance exists for this day
+            var existingAttendance = await _unitOfWork.Attendances.Query()
+                .FirstOrDefaultAsync(a => a.EmployeeId == employee.EmployeeId && a.Date == date);
 
-            await _unitOfWork.Attendances.AddAsync(attendance);
+            if (existingAttendance != null)
+            {
+                // UPDATE existing record
+                existingAttendance.CheckIn = checkIn;
+                existingAttendance.CheckOut = checkOut;
+                existingAttendance.WorkingHours = workingHours;
+                existingAttendance.IsLate = isLate;
+                existingAttendance.LateMinutes = lateMinutes;
+                _unitOfWork.Attendances.Update(existingAttendance);
+            }
+            else
+            {
+                // INSERT new record
+                var attendance = new Attendance
+                {
+                    EmployeeId = employee.EmployeeId,
+                    Date = date,
+                    CheckIn = checkIn,
+                    CheckOut = checkOut,
+                    WorkingHours = workingHours,
+                    OvertimeHours = 0,
+                    IsLate = isLate,
+                    LateMinutes = lateMinutes
+                };
+
+                await _unitOfWork.Attendances.AddAsync(attendance);
+            }
         }
 
         await _unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task<IEnumerable<PunchRecord>> GetPunchRecordsByDateAsync(int employeeId, DateOnly date)
+    {
+        return await _unitOfWork.PunchRecords.GetByEmployeeAndDateAsync(employeeId, date);
     }
 
     public async Task<byte[]> ExportToExcelAsync(int year, int month)

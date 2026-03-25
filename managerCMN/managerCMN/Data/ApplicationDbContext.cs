@@ -34,6 +34,7 @@ public class ApplicationDbContext : DbContext
 
     // Attendance
     public DbSet<Attendance> Attendances => Set<Attendance>();
+    public DbSet<PunchRecord> PunchRecords => Set<PunchRecord>();
 
     // Holidays
     public DbSet<Holiday> Holidays => Set<Holiday>();
@@ -188,6 +189,20 @@ public class ApplicationDbContext : DbContext
             .Property(a => a.OvertimeHours).HasColumnType("decimal(5,2)");
         modelBuilder.Entity<Attendance>()
             .Property(a => a.LateMinutes).HasDefaultValue(0);
+
+        // PunchRecord configuration
+        modelBuilder.Entity<PunchRecord>()
+            .HasOne(pr => pr.Employee)
+            .WithMany()
+            .HasForeignKey(pr => pr.EmployeeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<PunchRecord>()
+            .HasIndex(pr => new { pr.EmployeeId, pr.Date, pr.SequenceNumber })
+            .IsUnique();
+
+        modelBuilder.Entity<PunchRecord>()
+            .HasIndex(pr => new { pr.EmployeeId, pr.Date });
 
         // Holiday unique constraint on Date
         modelBuilder.Entity<Holiday>()

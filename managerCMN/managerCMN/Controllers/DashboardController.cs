@@ -16,14 +16,16 @@ public class DashboardController : Controller
     private readonly IDashboardService _dashboardService;
     private readonly ILeaveService _leaveService;
     private readonly IAssetService _assetService;
+    private readonly IPostHistoryService _postHistoryService;
     private readonly ApplicationDbContext _db;
 
     public DashboardController(IDashboardService dashboardService, ILeaveService leaveService,
-        IAssetService assetService, ApplicationDbContext db)
+        IAssetService assetService, IPostHistoryService postHistoryService, ApplicationDbContext db)
     {
         _dashboardService = dashboardService;
         _leaveService = leaveService;
         _assetService = assetService;
+        _postHistoryService = postHistoryService;
         _db = db;
     }
 
@@ -39,6 +41,24 @@ public class DashboardController : Controller
             TotalAssets       = await _dashboardService.GetTotalAssetsAsync(),
             ExpiringContracts = await _dashboardService.GetExpiringContractsAsync()
         };
+
+        // Add post history data for privileged users (Admin/Manager)
+        if (isPrivileged)
+        {
+            var recentPosts = await _postHistoryService.GetRecentPostsAsync(10);
+            var (totalPosts, totalRecordsProcessed, lastPostTime, successfulPosts, failedPosts) =
+                await _postHistoryService.GetPostStatisticsAsync();
+
+            model.PostHistory = new PostHistoryDashboardData
+            {
+                RecentPosts = recentPosts,
+                TotalPosts = totalPosts,
+                TotalRecordsProcessed = totalRecordsProcessed,
+                LastPostTime = lastPostTime,
+                SuccessfulPosts = successfulPosts,
+                FailedPosts = failedPosts
+            };
+        }
 
         if (!isPrivileged)
         {

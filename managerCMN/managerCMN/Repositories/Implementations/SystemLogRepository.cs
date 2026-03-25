@@ -24,4 +24,10 @@ public class SystemLogRepository : Repository<SystemLog>, ISystemLogRepository
             .Where(sl => sl.CreatedDate >= startDate && sl.CreatedDate <= endDate)
             .OrderByDescending(sl => sl.CreatedDate)
             .ToListAsync();
+
+    // Override GetAllAsync to ensure latest logs appear first
+    public override async Task<IEnumerable<SystemLog>> GetAllAsync()
+        => await _dbSet
+            .OrderByDescending(sl => sl.CreatedDate)
+            .ToListAsync();
 }

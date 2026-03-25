@@ -29,6 +29,7 @@ public class UnitOfWork : IUnitOfWork
         Users = new UserRepository(context);
         SystemLogs = new SystemLogRepository(context);
         Notifications = new NotificationRepository(context);
+        PostHistories = new PostHistoryRepository(context);
         Permissions = new PermissionRepository(context);
     }
 
@@ -51,6 +52,7 @@ public class UnitOfWork : IUnitOfWork
     public IUserRepository Users { get; }
     public ISystemLogRepository SystemLogs { get; }
     public INotificationRepository Notifications { get; }
+    public IPostHistoryRepository PostHistories { get; }
     public IPermissionRepository Permissions { get; }
 
     public async Task<int> SaveChangesAsync() => await _context.SaveChangesAsync();

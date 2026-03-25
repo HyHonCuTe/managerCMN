@@ -2,6 +2,7 @@ using System.Text.Json;
 using managerCMN.Models.Entities;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
+using managerCMN.Helpers;
 
 namespace managerCMN.Services.Implementations;
 
@@ -21,7 +22,7 @@ public class SystemLogService : ISystemLogService
             DataBefore = dataBefore != null ? JsonSerializer.Serialize(dataBefore) : null,
             DataAfter = dataAfter != null ? JsonSerializer.Serialize(dataAfter) : null,
             IPAddress = ipAddress,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = VietnamTimeHelper.Now
         };
 
         await _unitOfWork.SystemLogs.AddAsync(log);

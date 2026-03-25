@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -42,7 +43,7 @@ public class PunchRecord
     public string? DeviceId { get; set; }
 
     /// <summary>
-    /// When this record was created in the database
+    /// When this record was created in the database - stored as local time
     /// </summary>
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = VietnamTimeHelper.Now;
 }

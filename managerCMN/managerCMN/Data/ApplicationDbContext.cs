@@ -57,6 +57,7 @@ public class ApplicationDbContext : DbContext
     // System
     public DbSet<SystemLog> SystemLogs => Set<SystemLog>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<PostHistory> PostHistories => Set<PostHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -204,6 +205,28 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<PunchRecord>()
             .HasIndex(pr => new { pr.EmployeeId, pr.Date });
 
+        // Configure DateTime fields to be stored as local time (no timezone conversion)
+        modelBuilder.Entity<PunchRecord>()
+            .Property(pr => pr.SourceTimestamp)
+            .HasColumnType("datetime2");
+
+        modelBuilder.Entity<PunchRecord>()
+            .Property(pr => pr.CreatedAt)
+            .HasColumnType("datetime2");
+
+        // PostHistory DateTime configuration
+        modelBuilder.Entity<PostHistory>()
+            .Property(ph => ph.EarliestPunchTime)
+            .HasColumnType("datetime2");
+
+        modelBuilder.Entity<PostHistory>()
+            .Property(ph => ph.LatestPunchTime)
+            .HasColumnType("datetime2");
+
+        modelBuilder.Entity<PostHistory>()
+            .Property(ph => ph.CreatedAt)
+            .HasColumnType("datetime2");
+
         // Holiday unique constraint on Date
         modelBuilder.Entity<Holiday>()
             .HasIndex(h => h.Date)
@@ -329,6 +352,14 @@ public class ApplicationDbContext : DbContext
         // SystemLog index
         modelBuilder.Entity<SystemLog>()
             .HasIndex(sl => sl.CreatedDate);
+
+        modelBuilder.Entity<SystemLog>()
+            .Property(sl => sl.CreatedDate)
+            .HasColumnType("datetime2");
+
+        // PostHistory index
+        modelBuilder.Entity<PostHistory>()
+            .HasIndex(ph => ph.CreatedAt);
 
         // Notification indexes for query performance
         modelBuilder.Entity<Notification>()

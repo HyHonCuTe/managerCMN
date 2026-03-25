@@ -11,7 +11,7 @@ public class SystemLogController : Controller
 
     public SystemLogController(ISystemLogService logService) => _logService = logService;
 
-    public async Task<IActionResult> Index(string? module, DateTime? from, DateTime? to)
+    public async Task<IActionResult> Index(string? module, DateTime? from, DateTime? to, int page = 1, int pageSize = 50)
     {
         IEnumerable<Models.Entities.SystemLog> logs;
 
@@ -28,9 +28,18 @@ public class SystemLogController : Controller
             logs = await _logService.GetAllAsync();
         }
 
+        // Apply pagination
+        var totalCount = logs.Count();
+        var pagedLogs = logs.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
         ViewBag.Module = module;
         ViewBag.From = from;
         ViewBag.To = to;
-        return View(logs);
+        ViewBag.CurrentPage = page;
+        ViewBag.PageSize = pageSize;
+        ViewBag.TotalCount = totalCount;
+        ViewBag.TotalPages = (int)Math.Ceiling((double)totalCount / pageSize);
+
+        return View(pagedLogs);
     }
 }

@@ -11,8 +11,21 @@ public class DashboardViewModel
     public int TotalAssets { get; set; }
     public IEnumerable<Contract> ExpiringContracts { get; set; } = [];
 
+    // ---- Post History (Admin/Manager only) ----
+    public PostHistoryDashboardData? PostHistory { get; set; }
+
     // ---- Personal user data (null when viewer is admin/manager) ----
     public PersonalDashboardData? Personal { get; set; }
+}
+
+public class PostHistoryDashboardData
+{
+    public IEnumerable<PostHistory> RecentPosts { get; set; } = [];
+    public int TotalPosts { get; set; }
+    public int TotalRecordsProcessed { get; set; }
+    public DateTime? LastPostTime { get; set; }
+    public int SuccessfulPosts { get; set; }
+    public int FailedPosts { get; set; }
 }
 
 public class PersonalDashboardData

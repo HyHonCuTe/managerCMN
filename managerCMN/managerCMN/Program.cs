@@ -37,6 +37,7 @@ builder.Services.AddScoped<ISystemLogService, SystemLogService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IPostHistoryService, PostHistoryService>();
 
 // ── Authentication (Google OAuth + Cookie) ──
 

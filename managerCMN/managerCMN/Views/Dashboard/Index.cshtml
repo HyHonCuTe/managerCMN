@@ -281,6 +281,132 @@ else
     </div>
 }
 
+@if (Model.PostHistory != null)
+{
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-server text-primary me-1"></i> Đồng bộ dữ liệu chấm công</span>
+            @if (Model.PostHistory.LastPostTime.HasValue)
+            {
+                <small class="text-muted">
+                    Lần cuối: @Model.PostHistory.LastPostTime.Value.ToString("dd/MM/yyyy HH:mm:ss")
+                </small>
+            }
+        </div>
+        <div class="card-body">
+            <!-- Statistics Summary -->
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-primary bg-opacity-10 rounded p-2">
+                            <i class="bi bi-upload text-primary"></i>
+                        </div>
+                        <div>
+                            <div class="fs-6 fw-semibold text-primary">@Model.PostHistory.TotalPosts</div>
+                            <div class="small text-muted">Tổng lần post</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-success bg-opacity-10 rounded p-2">
+                            <i class="bi bi-database text-success"></i>
+                        </div>
+                        <div>
+                            <div class="fs-6 fw-semibold text-success">@Model.PostHistory.TotalRecordsProcessed</div>
+                            <div class="small text-muted">Tổng records</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-success bg-opacity-10 rounded p-2">
+                            <i class="bi bi-check-circle text-success"></i>
+                        </div>
+                        <div>
+                            <div class="fs-6 fw-semibold text-success">@Model.PostHistory.SuccessfulPosts</div>
+                            <div class="small text-muted">Thành công</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="bg-danger bg-opacity-10 rounded p-2">
+                            <i class="bi bi-x-circle text-danger"></i>
+                        </div>
+                        <div>
+                            <div class="fs-6 fw-semibold text-danger">@Model.PostHistory.FailedPosts</div>
+                            <div class="small text-muted">Thất bại</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (Model.PostHistory.RecentPosts?.Any() == true)
+            {
+                <!-- Recent Posts Table -->
+                <h6 class="mb-3">10 lần đồng bộ gần nhất</h6>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Thời gian</th>
+                                <th>Records</th>
+                                <th>Khoảng thời gian dữ liệu</th>
+                                <th>Trạng thái</th>
+                                <th>IP Address</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var post in Model.PostHistory.RecentPosts)
+                            {
+                                <tr>
+                                    <td>@post.CreatedAt.ToString("dd/MM HH:mm:ss")</td>
+                                    <td>
+                                        <span class="badge bg-info">@post.ProcessedCount/@post.RecordsCount</span>
+                                    </td>
+                                    <td>
+                                        @if (post.EarliestPunchTime.HasValue && post.LatestPunchTime.HasValue)
+                                        {
+                                            <small class="text-muted">
+                                                @post.EarliestPunchTime.Value.ToString("HH:mm") - @post.LatestPunchTime.Value.ToString("HH:mm")
+                                            </small>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">-</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (post.IsSuccess)
+                                        {
+                                            <span class="badge bg-success"><i class="bi bi-check"></i> Thành công</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-danger" title="@post.ErrorMessage"><i class="bi bi-x"></i> Lỗi</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <small class="text-muted font-monospace">@(post.IPAddress ?? "N/A")</small>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-3 text-muted">
+                    <i class="bi bi-inbox fs-3 d-block mb-2"></i>
+                    Chưa có dữ liệu đồng bộ nào.
+                </div>
+            }
+        </div>
+    </div>
+}
+
 <div class="row g-3">
     <div class="col-md-6">
         <div class="card">

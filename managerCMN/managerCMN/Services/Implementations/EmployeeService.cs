@@ -84,6 +84,10 @@ public class EmployeeService : IEmployeeService
         var employee = await _unitOfWork.Employees.GetWithDetailsAsync(id);
         if (employee == null) return;
 
+        // Prevent deletion of employee with code A00000
+        if (employee.EmployeeCode == "A00000")
+            throw new InvalidOperationException("Không được xoá nhân viên có mã A00000");
+
         // Lưu dữ liệu trước khi xóa
         var dataBefore = new { employee.EmployeeId, employee.EmployeeCode, employee.FullName, employee.Email, employee.DepartmentId };
 

@@ -263,8 +263,19 @@ public class EmployeeController : Controller
     {
         try
         {
+            var employee = await _employeeService.GetByIdAsync(id);
+            if (employee?.EmployeeCode == "A00000")
+            {
+                TempData["Error"] = "Không được xoá nhân viên có mã A00000";
+                return RedirectToAction(nameof(Index));
+            }
+
             await _employeeService.DeleteAsync(id);
             TempData["Success"] = "Đã xóa nhân viên thành công.";
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
         }
         catch (Exception ex)
         {

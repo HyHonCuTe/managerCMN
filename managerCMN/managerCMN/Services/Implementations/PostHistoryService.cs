@@ -13,7 +13,7 @@ public class PostHistoryService : IPostHistoryService
 
     public async Task LogApiPostAsync(int recordsCount, int processedCount, string? ipAddress, string? userAgent,
                                     bool isSuccess, string? errorMessage = null, DateTime? earliestPunchTime = null,
-                                    DateTime? latestPunchTime = null)
+                                    DateTime? latestPunchTime = null, string? employeeInfo = null)
     {
         var postHistory = new PostHistory
         {
@@ -25,6 +25,7 @@ public class PostHistoryService : IPostHistoryService
             ErrorMessage = errorMessage?[..Math.Min(errorMessage.Length, 500)], // Truncate to max length
             EarliestPunchTime = earliestPunchTime,
             LatestPunchTime = latestPunchTime,
+            EmployeeInfo = employeeInfo?[..Math.Min(employeeInfo.Length, 2000)], // Truncate to max length
             CreatedAt = VietnamTimeHelper.Now
         };
 

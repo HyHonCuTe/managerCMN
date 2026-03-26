@@ -9,7 +9,7 @@ public interface IPostHistoryService
     /// </summary>
     Task LogApiPostAsync(int recordsCount, int processedCount, string? ipAddress, string? userAgent,
                         bool isSuccess, string? errorMessage = null, DateTime? earliestPunchTime = null,
-                        DateTime? latestPunchTime = null);
+                        DateTime? latestPunchTime = null, string? employeeInfo = null);
 
     /// <summary>
     /// Get the most recent API post history records

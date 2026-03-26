@@ -16,6 +16,38 @@ from pathlib import Path
 import time
 import sys
 import os
+import fcntl  # For file locking on Unix/Linux
+
+
+class SingleInstanceLock:
+    """Ensures only one instance of the script runs at a time using file locking"""
+    def __init__(self, lock_file: str = "/tmp/attendance_sync.lock"):
+        self.lock_file = lock_file
+        self.lock_fd = None
+
+    def acquire(self) -> bool:
+        """Try to acquire the lock. Returns True if successful, False if another instance is running."""
+        try:
+            self.lock_fd = open(self.lock_file, 'w')
+            fcntl.flock(self.lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            # Write PID to lock file for debugging
+            self.lock_fd.write(str(os.getpid()))
+            self.lock_fd.flush()
+            return True
+        except (IOError, OSError):
+            if self.lock_fd:
+                self.lock_fd.close()
+            return False
+
+    def release(self):
+        """Release the lock"""
+        if self.lock_fd:
+            try:
+                fcntl.flock(self.lock_fd, fcntl.LOCK_UN)
+                self.lock_fd.close()
+            except:
+                pass
+
 
 class AttendanceSync:
     def __init__(self, config_path: str = "config.json"):
@@ -325,6 +357,12 @@ class AttendanceSync:
 
 def main():
     """Main entry point"""
+    # Acquire single instance lock to prevent multiple simultaneous runs
+    lock = SingleInstanceLock()
+    if not lock.acquire():
+        print("Another instance is already running. Exiting.")
+        sys.exit(0)
+
     try:
         # Change to script directory
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -340,6 +378,8 @@ def main():
         print(f"Fatal error: {e}")
         import traceback
         traceback.print_exc()
+    finally:
+        lock.release()
 
 if __name__ == "__main__":
     main()

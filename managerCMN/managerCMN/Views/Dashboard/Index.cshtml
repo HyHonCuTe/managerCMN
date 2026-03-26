@@ -352,18 +352,31 @@ else
                             <tr>
                                 <th>Thời gian</th>
                                 <th>Records</th>
-                                <th>Khoảng thời gian dữ liệu</th>
+                                <th>Nhân viên</th>
+                                <th>Khoảng TG</th>
                                 <th>Trạng thái</th>
-                                <th>IP Address</th>
+                                <th>IP</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var post in Model.PostHistory.RecentPosts)
                             {
                                 <tr>
-                                    <td>@post.CreatedAt.ToString("dd/MM HH:mm:ss")</td>
+                                    <td><small>@post.CreatedAt.ToString("dd/MM HH:mm:ss")</small></td>
                                     <td>
                                         <span class="badge bg-info">@post.ProcessedCount/@post.RecordsCount</span>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(post.EmployeeInfo))
+                                        {
+                                            <small class="text-primary" title="@post.EmployeeInfo">
+                                                @(post.EmployeeInfo.Length > 40 ? post.EmployeeInfo[..37] + "..." : post.EmployeeInfo)
+                                            </small>
+                                        }
+                                        else
+                                        {
+                                            <small class="text-muted">-</small>
+                                        }
                                     </td>
                                     <td>
                                         @if (post.EarliestPunchTime.HasValue && post.LatestPunchTime.HasValue)
@@ -380,15 +393,15 @@ else
                                     <td>
                                         @if (post.IsSuccess)
                                         {
-                                            <span class="badge bg-success"><i class="bi bi-check"></i> Thành công</span>
+                                            <span class="badge bg-success"><i class="bi bi-check"></i></span>
                                         }
                                         else
                                         {
-                                            <span class="badge bg-danger" title="@post.ErrorMessage"><i class="bi bi-x"></i> Lỗi</span>
+                                            <span class="badge bg-danger" title="@post.ErrorMessage"><i class="bi bi-x"></i></span>
                                         }
                                     </td>
                                     <td>
-                                        <small class="text-muted font-monospace">@(post.IPAddress ?? "N/A")</small>
+                                        <small class="text-muted font-monospace">@(post.IPAddress?[..Math.Min(post.IPAddress?.Length ?? 0, 15)] ?? "N/A")</small>
                                     </td>
                                 </tr>
                             }

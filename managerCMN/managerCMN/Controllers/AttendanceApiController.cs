@@ -13,13 +13,16 @@ public class AttendanceApiController : ControllerBase
 {
     private readonly IAttendanceService _attendanceService;
     private readonly IPostHistoryService _postHistoryService;
+    private readonly IEmployeeService _employeeService;
 
     public AttendanceApiController(
         IAttendanceService attendanceService,
-        IPostHistoryService postHistoryService)
+        IPostHistoryService postHistoryService,
+        IEmployeeService employeeService)
     {
         _attendanceService = attendanceService;
         _postHistoryService = postHistoryService;
+        _employeeService = employeeService;
     }
 
     /// <summary>
@@ -50,6 +53,7 @@ public class AttendanceApiController : ControllerBase
             }
 
             var punchRecords = new List<(string AttendanceCode, DateTime PunchTime)>();
+            var attendanceCodes = new HashSet<string>();
 
             foreach (var r in records)
             {
@@ -58,8 +62,10 @@ public class AttendanceApiController : ControllerBase
 
                 // Convert to Vietnam time and ensure it's stored without timezone conversion
                 var vietnamTime = VietnamTimeHelper.ToVietnamUnspecified(r.Time);
+                var code = r.UserId.Trim();
 
-                punchRecords.Add((r.UserId.Trim(), vietnamTime));
+                punchRecords.Add((code, vietnamTime));
+                attendanceCodes.Add(code);
             }
 
             if (punchRecords.Count == 0)
@@ -74,6 +80,26 @@ public class AttendanceApiController : ControllerBase
                 );
                 return BadRequest(new { error = "Không có bản ghi hợp lệ." });
             }
+
+            // Resolve employee names for logging
+            var employeeInfoList = new List<string>();
+            var allEmployees = await _employeeService.GetAllAsync();
+            var employeeByCode = allEmployees
+                .Where(e => e.AttendanceCode != null)
+                .ToDictionary(e => e.AttendanceCode!, e => e);
+
+            foreach (var code in attendanceCodes)
+            {
+                if (employeeByCode.TryGetValue(code, out var emp))
+                {
+                    employeeInfoList.Add($"{emp.FullName} (#{code})");
+                }
+                else
+                {
+                    employeeInfoList.Add($"Unknown (#{code})");
+                }
+            }
+            var employeeInfo = string.Join(", ", employeeInfoList);
 
             // Get earliest and latest punch times for logging
             var earliestPunch = punchRecords.Min(pr => pr.PunchTime);
@@ -90,7 +116,8 @@ public class AttendanceApiController : ControllerBase
                 userAgent: userAgent,
                 isSuccess: true,
                 earliestPunchTime: earliestPunch,
-                latestPunchTime: latestPunch
+                latestPunchTime: latestPunch,
+                employeeInfo: employeeInfo
             );
 
             return Ok(new { message = "Import thành công.", count = punchRecords.Count });

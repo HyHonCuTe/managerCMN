@@ -55,6 +55,13 @@ public class PostHistory
     public DateTime? LatestPunchTime { get; set; }
 
     /// <summary>
+    /// Comma-separated list of employee info in format "Name (#AttendanceCode)"
+    /// e.g., "KhoiMX (#4), HoangNV (#5)"
+    /// </summary>
+    [MaxLength(2000)]
+    public string? EmployeeInfo { get; set; }
+
+    /// <summary>
     /// When this API call was received - stored as local time
     /// </summary>
     public DateTime CreatedAt { get; set; } = VietnamTimeHelper.Now;

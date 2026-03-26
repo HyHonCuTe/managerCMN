@@ -15,6 +15,7 @@
     var morningEnd = AttendanceCalendarViewModel.MorningEnd;
     var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
     var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
+    var minAfternoonCheckOut = AttendanceCalendarViewModel.MinAfternoonCheckOut;
 
     // Holidays
     var holidays = ViewBag.Holidays as HashSet<DateOnly> ?? new HashSet<DateOnly>();
@@ -56,13 +57,6 @@
             </a>
             <a asp-action="LateReport" class="btn btn-outline-warning btn-sm"><i class="bi bi-exclamation-triangle"></i> DS đi muộn</a>
             <a asp-action="Import" class="btn btn-success btn-sm"><i class="bi bi-upload"></i> Import Excel</a>
-
-            @if (User.IsInRole("Admin"))
-            {
-                <button type="button" class="btn btn-outline-danger btn-sm" onclick="fixDuplicateTimes()">
-                    <i class="bi bi-tools"></i> Sửa giờ trùng
-                </button>
-            }
         </div>
         }
     </div>
@@ -185,12 +179,17 @@
             decimal attPoints = 0;
             bool hasMorningAtt = false;
             bool hasAfternoonAtt = false;
+            bool hasEarlyCheckout = false;
             if (hasData && att!.CheckIn.HasValue)
             {
                 if (att.CheckOut.HasValue)
                 {
                     hasMorningAtt = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
-                    hasAfternoonAtt = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= afternoonStart;
+                    // NEW LOGIC: Afternoon session requires checkout after 4:00 PM (16:00)
+                    hasAfternoonAtt = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= minAfternoonCheckOut;
+                    // Check for early checkout (before 4:00 PM but after afternoon start)
+                    hasEarlyCheckout = att.CheckOut.Value >= afternoonStart && att.CheckOut.Value < minAfternoonCheckOut;
+
                     if (hasMorningAtt && hasAfternoonAtt) attPoints = 1m;
                     else if (hasMorningAtt || hasAfternoonAtt) attPoints = 0.5m;
                 }
@@ -338,6 +337,19 @@
                             @if (hasData && att!.IsLate)
                             {
                                 <div class="att-late-row att-late-warn"><i class="bi bi-exclamation-triangle"></i> Muộn @lateMin phút</div>
+                            }
+                            @if (hasEarlyCheckout)
+                            {
+                                <div class="att-late-row att-late-warn"><i class="bi bi-clock-history"></i> Checkout sớm (@att!.CheckOut!.Value.ToString("H\\:mm") < 16:00)</div>
+                            }
+                            @* DEBUG: Show calculation details *@
+                            @if (hasData && ((Model.SelectedEmployeeId == 57 && date.ToString("yyyy-MM-dd") == "2026-03-20") || (Model.SelectedEmployeeId == 84 && date.ToString("yyyy-MM-dd") == "2026-03-16")))
+                            {
+                                <div class="att-late-row" style="font-size:10px;background:yellow;color:black;">
+                                    DEBUG: att=@attPoints req=@reqPoints total=@totalPoints early=@hasEarlyCheckout
+                                    <br/>CO: @att!.CheckOut!.Value.ToString("H\\:mm") &lt; 16:00 = @(att.CheckOut.Value < minAfternoonCheckOut)
+                                    <br/>Morning: @hasMorningAtt, Afternoon: @hasAfternoonAtt
+                                </div>
                             }
 
                             @if (hasData && att!.CheckOut == null)
@@ -718,40 +730,5 @@
         dateStr = dateStr.replace(/["']/g, '');
         const parts = dateStr.split('-');
         return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-
-    // Fix duplicate check-in/out times
-    async function fixDuplicateTimes() {
-        if (!confirm('Bạn có chắc chắn muốn sửa các bản ghi có giờ CheckIn/CheckOut trùng nhau?\nThao tác này sẽ cập nhật dữ liệu trong database.')) {
-            return;
-        }
-
-        const button = event.target.closest('button');
-        const originalText = button.innerHTML;
-        button.disabled = true;
-        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Đang xử lý...';
-
-        try {
-            const response = await fetch('@Url.Action("FixDuplicateCheckInOut")', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]')?.value || ''
-                }
-            });
-
-            if (response.ok) {
-                alert('✅ Thành công!\n\nĐã sửa các bản ghi có lỗi giờ CheckIn/CheckOut trùng nhau.\nTrang sẽ được tải lại để hiển thị dữ liệu mới.');
-                // Reload page to show updated data
-                window.location.reload();
-            } else {
-                alert('❌ Có lỗi xảy ra khi sửa dữ liệu.');
-            }
-        } catch (error) {
-            alert(`❌ Lỗi kết nối: ${error.message}`);
-        } finally {
-            button.disabled = false;
-            button.innerHTML = originalText;
-        }
     }
 </script>

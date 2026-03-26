@@ -69,6 +69,25 @@ public class RequestController : Controller
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
 
+        // Validate request date: Cannot create request for past dates older than 5 working days
+        var today = DateTimeHelper.VietnamToday;
+        var requestStartDate = model.StartTime.Date;
+
+        if (requestStartDate < today)
+        {
+            var workingDaysBetween = DateTimeHelper.CountWorkingDaysBetween(requestStartDate, today);
+            // workingDaysBetween includes both start and end dates, so we need to subtract 1
+            var daysAgo = workingDaysBetween - 1;
+
+            if (daysAgo > 5)
+            {
+                ModelState.AddModelError("StartTime",
+                    $"Không thể tạo đơn cho ngày quá xa trong quá khứ. " +
+                    $"Bạn chỉ có thể tạo đơn cho tối đa 5 ngày làm việc trước (không tính T7, CN). " +
+                    $"Ngày bạn chọn ({requestStartDate:dd/MM/yyyy}) cách đây {daysAgo} ngày làm việc.");
+            }
+        }
+
         // Check leave balance and auto-convert to unpaid if insufficient
         bool autoConvertedToUnpaid = false;
         if (model.RequestType == RequestType.Leave && model.LeaveReason.HasValue)
@@ -80,7 +99,9 @@ public class RequestController : Controller
                 var totalDays = _requestService.CalculateTotalDays(model.StartTime, model.EndTime,
                     model.HalfDayStartOption > 0, model.HalfDayEndOption > 0);
 
-                var summary = await _leaveService.GetBalanceSummaryAsync(employeeId, model.StartTime);
+                // CRITICAL: Use current date to check leave balance, not request date
+                // This ensures we validate against current available leave, not historical leave
+                var summary = await _leaveService.GetBalanceSummaryAsync(employeeId, today);
                 if (summary.TotalRemaining < totalDays)
                 {
                     // Auto-convert to unpaid instead of blocking
@@ -465,6 +486,25 @@ public class RequestController : Controller
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
 
+        // Validate request date: Cannot create request for past dates older than 5 working days
+        var today = DateTimeHelper.VietnamToday;
+        var requestStartDate = model.StartTime.Date;
+
+        if (requestStartDate < today)
+        {
+            var workingDaysBetween = DateTimeHelper.CountWorkingDaysBetween(requestStartDate, today);
+            // workingDaysBetween includes both start and end dates, so we need to subtract 1
+            var daysAgo = workingDaysBetween - 1;
+
+            if (daysAgo > 5)
+            {
+                ModelState.AddModelError("StartTime",
+                    $"Không thể sửa đơn cho ngày quá xa trong quá khứ. " +
+                    $"Bạn chỉ có thể tạo/sửa đơn cho tối đa 5 ngày làm việc trước (không tính T7, CN). " +
+                    $"Ngày bạn chọn ({requestStartDate:dd/MM/yyyy}) cách đây {daysAgo} ngày làm việc.");
+            }
+        }
+
         if (!ModelState.IsValid)
         {
             model.RequestId = id;
@@ -617,7 +657,10 @@ public class RequestController : Controller
         var employeeId = GetCurrentEmployeeId();
         var totalDays = _requestService.CalculateTotalDays(startDate, endDate, isHalfDayStart, isHalfDayEnd);
 
-        var summary = await _leaveService.GetBalanceSummaryAsync(employeeId, startDate);
+        // CRITICAL: Always use current date to calculate available leave balance, not the request date
+        // This ensures we calculate based on current entitlements, not past entitlements
+        var currentDate = DateTimeHelper.VietnamToday;
+        var summary = await _leaveService.GetBalanceSummaryAsync(employeeId, currentDate);
         var availableLeave = summary.TotalRemaining;
 
         return Json(new

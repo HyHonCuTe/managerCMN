@@ -37,4 +37,33 @@ public static class DateTimeHelper
     {
         return utcDateTime?.ToVietnamTime();
     }
+
+    /// <summary>
+    /// Count working days between two dates (excluding Saturday and Sunday)
+    /// </summary>
+    /// <param name="fromDate">Start date (inclusive)</param>
+    /// <param name="toDate">End date (inclusive)</param>
+    /// <returns>Number of working days (Monday to Friday only)</returns>
+    public static int CountWorkingDaysBetween(DateTime fromDate, DateTime toDate)
+    {
+        // Ensure fromDate <= toDate for backward counting
+        if (fromDate > toDate)
+        {
+            var temp = fromDate;
+            fromDate = toDate;
+            toDate = temp;
+        }
+
+        int workingDays = 0;
+        for (var date = fromDate.Date; date <= toDate.Date; date = date.AddDays(1))
+        {
+            // Skip Saturday and Sunday
+            if (date.DayOfWeek != DayOfWeek.Saturday && date.DayOfWeek != DayOfWeek.Sunday)
+            {
+                workingDays++;
+            }
+        }
+
+        return workingDays;
+    }
 }

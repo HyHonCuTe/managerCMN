@@ -311,8 +311,9 @@ public class LeaveService : ILeaveService
 
     /// <summary>
     /// Allocate 3 days per quarter on the 26th of the first month of each quarter.
-    /// Q1=Jan 26, Q2=Apr 26, Q3=Jul 26, Q4=Oct 26
-    /// Also adds seniority bonus: 5yr=+1, 10yr=+2, 15yr=+3
+    /// Q1=Dec 26 (of previous year), Q2=Mar 26, Q3=Jun 26, Q4=Sep 26
+    /// Seniority bonus is granted on March 26 annually: 5yr=+1, 10yr=+2, 15yr=+3, etc.
+    /// Maximum carry-forward from previous year is 5 days (valid until March 25).
     /// </summary>
     public async Task AllocateQuarterlyLeaveAsync()
     {
@@ -339,9 +340,9 @@ public class LeaveService : ILeaveService
     }
 
     /// <summary>
-    /// Carry forward unused leave from previous year.
+    /// Carry forward unused leave from previous year (maximum 5 days).
     /// Carried forward leave is valid until March 25 of the next year.
-    /// After March 25, all carried forward leave is removed.
+    /// After March 25, all carried forward leave expires and is removed.
     /// </summary>
     public async Task ProcessCarryForwardAsync()
     {
@@ -413,7 +414,14 @@ public class LeaveService : ILeaveService
             .Query()
             .FirstOrDefault(lb => lb.EmployeeId == employeeId && lb.Year == year - 1);
 
-        return previousBalance == null ? 0m : Math.Max(previousBalance.RemainingLeave, 0m);
+        if (previousBalance == null)
+        {
+            return 0m;
+        }
+
+        // LIMIT: Maximum 5 days can be carried forward
+        var carryForwardAmount = Math.Max(previousBalance.RemainingLeave, 0m);
+        return Math.Min(carryForwardAmount, 5m);
     }
 
     private static decimal GetAccruedCurrentYearLeave(Employee employee, int year, DateTime asOfDate)
@@ -426,18 +434,48 @@ public class LeaveService : ILeaveService
         var startDate = employee.StartWorkingDate.Value.Date;
         var grantDates = new[]
         {
+            new DateTime(year - 1, 12, 26), // Q1 of current year
+            new DateTime(year, 3, 26),      // Q2
+            new DateTime(year, 6, 26),      // Q3
+            new DateTime(year, 9, 26)       // Q4
+        };
+
+        // Calculate quarterly leave (3 days per quarter)
+        var grantedQuarters = grantDates.Count(grantDate => asOfDate.Date >= grantDate && startDate <= grantDate);
+        var quarterlyLeave = Math.Min(grantedQuarters * QuarterlyLeaveDays, AnnualLeaveDays);
+
+        // Calculate seniority bonus (granted on March 26 annually)
+        // 5 years = +1 day, 10 years = +2 days, 15 years = +3 days, etc.
+        decimal seniorityBonus = 0m;
+        var seniorityGrantDate = new DateTime(year, 3, 26);
+
+        if (asOfDate.Date >= seniorityGrantDate)
+        {
+            var yearsOfService = (seniorityGrantDate - startDate).TotalDays / 365.25;
+            seniorityBonus = Math.Floor((decimal)yearsOfService / 5m);
+        }
+
+        return quarterlyLeave + seniorityBonus;
+    }
+
+    private static int GetGrantedQuarterCount(Employee employee, int year, DateTime asOfDate)
+    {
+        if (employee.StartWorkingDate == null)
+        {
+            return 0;
+        }
+
+        var startDate = employee.StartWorkingDate.Value.Date;
+        var grantDates = new[]
+        {
             new DateTime(year - 1, 12, 26),
             new DateTime(year, 3, 26),
             new DateTime(year, 6, 26),
             new DateTime(year, 9, 26)
         };
 
-        var grantedQuarters = grantDates.Count(grantDate => asOfDate.Date >= grantDate && startDate <= grantDate);
-        return Math.Min(grantedQuarters * QuarterlyLeaveDays, AnnualLeaveDays);
+        return grantDates.Count(grantDate => asOfDate.Date >= grantDate && startDate <= grantDate);
     }
-
-    private static int GetGrantedQuarterCount(Employee employee, int year, DateTime asOfDate)
-        => (int)(GetAccruedCurrentYearLeave(employee, year, asOfDate) / QuarterlyLeaveDays);
 
     private static void UpdateRemainingLeave(LeaveBalance balance)
     {

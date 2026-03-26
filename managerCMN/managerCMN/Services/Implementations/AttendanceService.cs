@@ -14,6 +14,7 @@ public class AttendanceService : IAttendanceService
     private readonly ISystemLogService _logService;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private static readonly TimeOnly LateThreshold = new(8, 30); // 8:30 AM
+    private static readonly TimeOnly minAfternoonCheckOut = new(16, 0); // 4:00 PM - minimum checkout for afternoon session
 
     public AttendanceService(IUnitOfWork unitOfWork, ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
     {
@@ -140,8 +141,12 @@ public class AttendanceService : IAttendanceService
                 await _unitOfWork.PunchRecords.AddAsync(punchRecord);
             }
 
+            // CRITICAL: Save punch records to database FIRST before calculating CheckIn/CheckOut
+            // This ensures the query below includes the newly added punch records
+            await _unitOfWork.SaveChangesAsync();
+
             // ==== STEP 2: Update or Insert Attendance (first/last logic) ====
-            // IMPORTANT: Load ALL punch records from database (not just current batch) to calculate correct CheckIn/CheckOut
+            // IMPORTANT: Load ALL punch records from database (including newly added ones) to calculate correct CheckIn/CheckOut
             var allPunchRecords = await _unitOfWork.PunchRecords.GetByEmployeeAndDateAsync(employee.EmployeeId, date);
             var allPunches = allPunchRecords.OrderBy(pr => pr.PunchTime).ToList();
 
@@ -250,6 +255,7 @@ public class AttendanceService : IAttendanceService
         var morningEnd = new TimeOnly(12, 0);
         var afternoonStart = new TimeOnly(13, 30);
         var afternoonEnd = new TimeOnly(17, 30);
+        // minAfternoonCheckOut is a class-level constant
 
         // Header row
         int col = 1;
@@ -394,7 +400,7 @@ public class AttendanceService : IAttendanceService
         if (att?.CheckIn != null && att.CheckOut != null)
         {
             bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
-            bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= afternoonStart;
+            bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= minAfternoonCheckOut;
 
             if (hasMorning && hasAfternoon)
             {
@@ -554,32 +560,25 @@ public class AttendanceService : IAttendanceService
         return updatedCount;
     }
 
-    /// <summary>
-    /// Fix attendance records where CheckIn = CheckOut by recalculating from PunchRecords
-    /// </summary>
-    public async Task<int> FixDuplicateCheckInOutTimesAsync()
+    public async Task<int> RecalculateAllAttendanceTimesAsync()
     {
-        // Find attendance records where CheckIn = CheckOut (invalid data)
-        var invalidAttendances = await _unitOfWork.Attendances
-            .FindAsync(a => a.CheckIn.HasValue && a.CheckOut.HasValue && a.CheckIn == a.CheckOut);
+        // Get all attendance records
+        var allAttendances = await _unitOfWork.Attendances.GetAllAsync();
+        int updatedCount = 0;
 
-        int fixedCount = 0;
-
-        foreach (var attendance in invalidAttendances)
+        foreach (var attendance in allAttendances)
         {
-            // Get punch records for this employee and date
-            var punchRecords = await _unitOfWork.PunchRecords
-                .GetByEmployeeAndDateAsync(attendance.EmployeeId, attendance.Date);
-
-            if (!punchRecords.Any())
-                continue;
-
+            // Get all punch records for this employee and date
+            var punchRecords = await _unitOfWork.PunchRecords.GetByEmployeeAndDateAsync(attendance.EmployeeId, attendance.Date);
             var orderedPunches = punchRecords.OrderBy(pr => pr.PunchTime).ToList();
 
-            // Recalculate CheckIn and CheckOut
+            if (!orderedPunches.Any())
+                continue; // No punch records, skip
+
             var newCheckIn = orderedPunches.First().PunchTime;
             TimeOnly? newCheckOut = null;
 
+            // Only set checkOut if there are multiple punches AND last is different from first
             if (orderedPunches.Count > 1)
             {
                 var lastPunchTime = orderedPunches.Last().PunchTime;
@@ -589,57 +588,43 @@ public class AttendanceService : IAttendanceService
                 }
             }
 
-            // Update if different
-            bool needsUpdate = false;
-            if (attendance.CheckIn != newCheckIn)
+            // Check if times changed
+            bool timesChanged = attendance.CheckIn != newCheckIn || attendance.CheckOut != newCheckOut;
+
+            if (timesChanged)
             {
                 attendance.CheckIn = newCheckIn;
-                needsUpdate = true;
-            }
-
-            if (attendance.CheckOut != newCheckOut)
-            {
                 attendance.CheckOut = newCheckOut;
-                needsUpdate = true;
-            }
 
-            if (needsUpdate)
-            {
                 // Recalculate working hours
                 if (newCheckOut.HasValue)
-                {
-                    attendance.WorkingHours = Math.Round(
-                        (decimal)(newCheckOut.Value.ToTimeSpan() - newCheckIn.ToTimeSpan()).TotalHours, 2);
-                }
+                    attendance.WorkingHours = Math.Round((decimal)(newCheckOut.Value.ToTimeSpan() - newCheckIn.ToTimeSpan()).TotalHours, 2);
                 else
-                {
                     attendance.WorkingHours = null;
-                }
 
-                // Recalculate late minutes
-                var isLate = newCheckIn > LateThreshold;
-                attendance.IsLate = isLate;
-                attendance.LateMinutes = isLate ? (int)(newCheckIn - LateThreshold).TotalMinutes : 0;
+                // Recalculate late status
+                attendance.IsLate = newCheckIn > LateThreshold;
+                attendance.LateMinutes = attendance.IsLate ? (int)(newCheckIn - LateThreshold).TotalMinutes : 0;
 
                 _unitOfWork.Attendances.Update(attendance);
-                fixedCount++;
+                updatedCount++;
             }
         }
 
-        if (fixedCount > 0)
+        if (updatedCount > 0)
         {
             await _unitOfWork.SaveChangesAsync();
 
             await _logService.LogAsync(
                 GetCurrentUserId(),
-                "Fix CheckIn=CheckOut attendance records",
+                "Đồng bộ lại giờ chấm công từ PunchRecords",
                 "Attendance",
                 null,
-                new { FixedCount = fixedCount },
+                new { UpdatedCount = updatedCount },
                 GetClientIP()
             );
         }
 
-        return fixedCount;
+        return updatedCount;
     }
 }

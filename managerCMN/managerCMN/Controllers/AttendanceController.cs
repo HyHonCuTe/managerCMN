@@ -186,6 +186,7 @@ public class AttendanceController : Controller
             var morningEnd = AttendanceCalendarViewModel.MorningEnd;
             var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
             var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
+            var minAfternoonCheckOut = AttendanceCalendarViewModel.MinAfternoonCheckOut;
 
             // Calculate summary with 2-shift logic
             decimal totalDeductionMinutes = 0;
@@ -196,11 +197,11 @@ public class AttendanceController : Controller
             {
                 if (att.CheckIn.HasValue && att.CheckOut.HasValue)
                 {
-                    // Check if covered both shifts: morning 8:30-12:00, afternoon 13:30-17:30
+                    // Check if covered both shifts: morning 8:30-12:00, afternoon 13:30-17:30 (with 16:00 minimum checkout)
                     var checkIn = att.CheckIn.Value;
                     var checkOut = att.CheckOut.Value;
                     bool hasMorning = checkIn <= morningEnd && checkOut >= morningStart;
-                    bool hasAfternoon = checkIn <= afternoonEnd && checkOut >= afternoonStart;
+                    bool hasAfternoon = checkIn <= afternoonEnd && checkOut >= minAfternoonCheckOut;
 
                     if (hasMorning && hasAfternoon)
                         model.TotalWorkDays += 1m;
@@ -243,7 +244,7 @@ public class AttendanceController : Controller
                     if (att.CheckIn.HasValue && att.CheckOut.HasValue)
                     {
                         bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
-                        bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= afternoonStart;
+                        bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= minAfternoonCheckOut;
                         if (hasMorning && hasAfternoon) attCong = 1m;
                         else if (hasMorning || hasAfternoon) attCong = 0.5m;
                     }
@@ -404,13 +405,14 @@ public class AttendanceController : Controller
             var morningEnd = AttendanceCalendarViewModel.MorningEnd;
             var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
             var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
+            var minAfternoonCheckOut = AttendanceCalendarViewModel.MinAfternoonCheckOut;
 
             foreach (var att in attendances)
             {
                 if (att.CheckIn.HasValue && att.CheckOut.HasValue)
                 {
                     bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
-                    bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= afternoonStart;
+                    bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= minAfternoonCheckOut;
 
                     if (hasMorning && hasAfternoon)
                         totalCong += 1m;
@@ -516,24 +518,24 @@ public class AttendanceController : Controller
 
     [Authorize(Policy = "AdminOnly")]
     [HttpPost]
-    public async Task<IActionResult> FixDuplicateCheckInOut()
+    public async Task<IActionResult> RecalculateAttendanceTimes()
     {
         try
         {
-            var fixedCount = await _attendanceService.FixDuplicateCheckInOutTimesAsync();
+            var updatedCount = await _attendanceService.RecalculateAllAttendanceTimesAsync();
 
-            if (fixedCount > 0)
+            if (updatedCount > 0)
             {
-                TempData["Success"] = $"Đã sửa {fixedCount} bản ghi chấm công có CheckIn = CheckOut.";
+                TempData["Success"] = $"Đã đồng bộ lại {updatedCount} bản ghi chấm công (CheckIn/CheckOut) từ PunchRecords.";
             }
             else
             {
-                TempData["Info"] = "Không có bản ghi nào cần sửa.";
+                TempData["Info"] = "Tất cả giờ chấm công đã đúng, không có bản ghi nào cần cập nhật.";
             }
         }
         catch (Exception ex)
         {
-            TempData["Error"] = $"Lỗi khi sửa dữ liệu: {ex.Message}";
+            TempData["Error"] = $"Lỗi khi đồng bộ: {ex.Message}";
         }
 
         return RedirectToAction(nameof(Summary));

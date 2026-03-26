@@ -16,7 +16,7 @@
 
 <form asp-action="Create" method="post" enctype="multipart/form-data">
     @Html.AntiForgeryToken()
-    <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+    <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
     @* Card 1: Thông tin chung *@
     <div class="card mb-3">
@@ -60,6 +60,7 @@
                 <div class="col-md-3">
                     <label asp-for="StartTime" class="form-label fw-semibold" id="startDateLabel">Từ ngày <span class="text-danger">*</span></label>
                     <input asp-for="StartTime" class="form-control" type="date" id="startDate" />
+                    <span asp-validation-for="StartTime" class="text-danger small"></span>
                 </div>
                 <div class="col-md-2" id="startTimeWrap" style="display: none;">
                     <label class="form-label fw-semibold">Giờ bắt đầu</label>

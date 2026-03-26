@@ -205,6 +205,13 @@ class AttendanceSync:
             logs = conn.get_attendance()
             new_records = []
 
+            # For first-time sync, only get records from the last 30 days to avoid timeout
+            first_time_cutoff = None
+            if last_sync is None:
+                first_time_days = self.config.get('sync', {}).get('first_time_days', 30)
+                first_time_cutoff = datetime.now(self.vietnam_tz) - timedelta(days=first_time_days)
+                self.logger.info(f"First time sync - only fetching records from last {first_time_days} days (since {first_time_cutoff.strftime('%Y-%m-%d')})")
+
             for log in logs:
                 try:
                     # Convert timestamp to Vietnam timezone
@@ -213,6 +220,10 @@ class AttendanceSync:
                         log_time = self.vietnam_tz.localize(log.timestamp)
                     else:
                         log_time = log.timestamp.astimezone(self.vietnam_tz)
+
+                    # For first-time sync, skip old records
+                    if first_time_cutoff is not None and log_time < first_time_cutoff:
+                        continue
 
                     # Only include records newer than last sync
                     if last_sync is None or log_time > last_sync:
@@ -259,7 +270,7 @@ class AttendanceSync:
                 api_config['endpoint'],
                 json=records,
                 headers=headers,
-                timeout=api_config.get('timeout', 30)
+                timeout=api_config.get('timeout', 60)  # Increased timeout for batches
             )
 
             if response.status_code == 200:
@@ -283,10 +294,10 @@ class AttendanceSync:
             self.logger.error(f"Unexpected error sending records: {e}")
             return False
 
-    def send_to_server_with_retry(self, records: List[Dict]) -> bool:
-        """Send records to server with retry logic"""
+    def send_batch_with_retry(self, records: List[Dict]) -> bool:
+        """Send a single batch with retry logic"""
         max_retries = self.config.get('sync', {}).get('max_retries', 3)
-        retry_delay = self.config.get('sync', {}).get('retry_delay_seconds', 30)
+        retry_delay = self.config.get('sync', {}).get('retry_delay_seconds', 10)
 
         for attempt in range(max_retries):
             try:
@@ -302,8 +313,49 @@ class AttendanceSync:
                 if attempt < max_retries - 1:
                     time.sleep(retry_delay)
 
-        self.logger.error(f"Failed to send records after {max_retries} attempts")
         return False
+
+    def send_in_batches(self, records: List[Dict]) -> bool:
+        """Send records in batches to avoid timeout"""
+        if not records:
+            self.logger.info("No records to send")
+            return True
+
+        batch_size = self.config.get('sync', {}).get('batch_size', 500)
+        total_records = len(records)
+        total_batches = (total_records + batch_size - 1) // batch_size
+
+        self.logger.info(f"Sending {total_records} records in {total_batches} batches of {batch_size}")
+
+        successful_batches = 0
+        for i in range(0, total_records, batch_size):
+            batch = records[i:i + batch_size]
+            batch_num = (i // batch_size) + 1
+
+            self.logger.info(f"Sending batch {batch_num}/{total_batches} ({len(batch)} records)")
+
+            if self.send_batch_with_retry(batch):
+                successful_batches += 1
+                self.logger.info(f"Batch {batch_num}/{total_batches} sent successfully")
+            else:
+                self.logger.error(f"Batch {batch_num}/{total_batches} failed after retries")
+                # Continue with next batch instead of failing completely
+                continue
+
+        self.logger.info(f"Completed: {successful_batches}/{total_batches} batches successful")
+        return successful_batches > 0  # Success if at least one batch was sent
+
+    def send_to_server_with_retry(self, records: List[Dict]) -> bool:
+        """Send records to server - uses batching for large datasets"""
+        if not records:
+            return True
+
+        # Use batching for large datasets
+        batch_threshold = self.config.get('sync', {}).get('batch_threshold', 100)
+        if len(records) > batch_threshold:
+            return self.send_in_batches(records)
+        else:
+            return self.send_batch_with_retry(records)
 
     def run_sync(self):
         """Main synchronization function"""

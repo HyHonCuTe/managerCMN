@@ -7,13 +7,16 @@
   "api": {
     "endpoint": "https://hyhon.io.vn/api/attendance/punch",
     "key": "att_sync_key_2026_secure_hyhon",
-    "timeout": 30
+    "timeout": 60
   },
   "sync": {
     "interval_minutes": 5,
     "skip_night_hours": true,
     "max_retries": 3,
-    "retry_delay_seconds": 30
+    "retry_delay_seconds": 10,
+    "batch_size": 500,
+    "batch_threshold": 100,
+    "first_time_days": 30
   },
   "logging": {
     "level": "INFO",

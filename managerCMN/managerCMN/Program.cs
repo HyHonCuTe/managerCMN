@@ -109,10 +109,14 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 // ── Middleware pipeline ──
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseExceptionHandler("/Error");
     app.UseHsts();
     app.UseHttpsRedirection();
 }
+
+// Handle HTTP status codes (404, 500, 502, 503, 504, etc.)
+app.UseStatusCodePagesWithReExecute("/Error/{0}");
+
 app.UseStaticFiles();
 
 app.UseRouting();

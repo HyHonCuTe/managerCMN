@@ -340,16 +340,7 @@
                             }
                             @if (hasEarlyCheckout)
                             {
-                                <div class="att-late-row att-late-warn"><i class="bi bi-clock-history"></i> Checkout sớm (@att!.CheckOut!.Value.ToString("H\\:mm") < 16:00)</div>
-                            }
-                            @* DEBUG: Show calculation details *@
-                            @if (hasData && ((Model.SelectedEmployeeId == 57 && date.ToString("yyyy-MM-dd") == "2026-03-20") || (Model.SelectedEmployeeId == 84 && date.ToString("yyyy-MM-dd") == "2026-03-16")))
-                            {
-                                <div class="att-late-row" style="font-size:10px;background:yellow;color:black;">
-                                    DEBUG: att=@attPoints req=@reqPoints total=@totalPoints early=@hasEarlyCheckout
-                                    <br/>CO: @att!.CheckOut!.Value.ToString("H\\:mm") &lt; 16:00 = @(att.CheckOut.Value < minAfternoonCheckOut)
-                                    <br/>Morning: @hasMorningAtt, Afternoon: @hasAfternoonAtt
-                                </div>
+                                <div class="att-late-row att-late-warn"><i class="bi bi-clock-history"></i> Checkout sớm (@att!.CheckOut!.Value.ToString("H\\:mm") &lt; 16:00)</div>
                             }
 
                             @if (hasData && att!.CheckOut == null)

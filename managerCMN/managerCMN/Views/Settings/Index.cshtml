@@ -11,6 +11,8 @@
     var holidays = ViewBag.Holidays as IEnumerable<Holiday> ?? Enumerable.Empty<Holiday>();
     var approvers = ViewBag.Approvers as List<Employee> ?? new List<Employee>();
     var nonApprovers = ViewBag.NonApprovers as List<Employee> ?? new List<Employee>();
+    var fullAttendanceEmployees = ViewBag.FullAttendanceEmployees as IEnumerable<FullAttendanceEmployee> ?? Enumerable.Empty<FullAttendanceEmployee>();
+    var availableEmployeesForFullAttendance = ViewBag.AvailableEmployeesForFullAttendance as List<Employee> ?? new List<Employee>();
     var users = ViewBag.Users as IEnumerable<User> ?? Enumerable.Empty<User>();
     var roles = ViewBag.Roles as IEnumerable<Role> ?? Enumerable.Empty<Role>();
     var permissionsByCategory = ViewBag.PermissionsByCategory as Dictionary<string, List<Permission>> ?? new Dictionary<string, List<Permission>>();
@@ -75,6 +77,11 @@
     <li class="nav-item">
         <a class="nav-link @(activeTab == "approvers" ? "active" : "")" href="?tab=approvers">
             <i class="bi bi-person-check"></i> Người duyệt đơn
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(activeTab == "fullattendance" ? "active" : "")" href="?tab=fullattendance">
+            <i class="bi bi-check-circle"></i> Chấm công đầy đủ
         </a>
     </li>
     <li class="nav-item">
@@ -1189,6 +1196,130 @@
 </div>
 }
 
+}
+
+@* ========== FULL ATTENDANCE SETTINGS TAB (Chấm công đầy đủ tự động) ========== *@
+@if (activeTab == "fullattendance")
+{
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-check-circle"></i> Danh sách chấm công đầy đủ tự động</span>
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addFullAttendanceModal">
+            <i class="bi bi-plus-lg"></i> Thêm nhân viên
+        </button>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Mã NV</th>
+                    <th>Họ tên</th>
+                    <th>Phòng ban</th>
+                    <th>Lý do</th>
+                    <th>Ngày thêm</th>
+                    <th style="width:120px">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var fa in fullAttendanceEmployees)
+                {
+                <tr>
+                    <td><code>@fa.Employee.EmployeeCode</code></td>
+                    <td><strong>@fa.Employee.FullName</strong></td>
+                    <td><small class="text-muted">@fa.Employee.Department?.DepartmentName</small></td>
+                    <td><small>@(string.IsNullOrEmpty(fa.Reason) ? "---" : fa.Reason)</small></td>
+                    <td><small class="text-muted">@fa.CreatedDate.ToString("dd/MM/yyyy")</small></td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#editFullAttendanceModal-@fa.Id">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <form asp-action="DeleteFullAttendanceEmployee" asp-route-id="@fa.Id" method="post" class="d-inline" onsubmit="return confirm('Xóa nhân viên này khỏi danh sách?')">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                }
+                @if (!fullAttendanceEmployees.Any())
+                {
+                <tr><td colspan="6" class="text-center text-muted py-3">Chưa có nhân viên nào trong danh sách.</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@* Add Full Attendance Modal *@
+<div class="modal fade" id="addFullAttendanceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="AddFullAttendanceEmployee" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-plus-lg"></i> Thêm nhân viên chấm công đầy đủ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Chọn nhân viên <span class="text-danger">*</span></label>
+                    <select name="employeeId" class="form-select" required>
+                        <option value="">-- Chọn nhân viên --</option>
+                        @foreach (var emp in availableEmployeesForFullAttendance)
+                        {
+                            <option value="@emp.EmployeeId">@emp.FullName (@emp.EmployeeCode) - @emp.Department?.DepartmentName</option>
+                        }
+                    </select>
+                    <small class="text-muted d-block mt-1">Chỉ những nhân viên chưa có trong danh sách</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Lý do (tuỳ chọn)</label>
+                    <textarea name="reason" class="form-control" rows="3" placeholder="VD: Công tác ngoài, cách ly,..." maxlength="500"></textarea>
+                    <small class="text-muted">Tối đa 500 ký tự</small>
+                </div>
+                <div class="alert alert-info alert-sm">
+                    <i class="bi bi-info-circle"></i> Nhân viên trong danh sách này sẽ được tính công đầy đủ (không cần kiểm tra check-in/out) trong ngày làm việc.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Thêm</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@* Edit Full Attendance Modals *@
+@foreach (var fa in fullAttendanceEmployees)
+{
+<div class="modal fade" id="editFullAttendanceModal-@fa.Id" tabindex="-1">
+    <div class="modal-dialog">
+        <form asp-action="EditFullAttendanceEmployee" method="post" class="modal-content">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="id" value="@fa.Id" />
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil"></i> Sửa: @fa.Employee.FullName</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Nhân viên</label>
+                    <input type="text" class="form-control" value="@fa.Employee.FullName (@fa.Employee.EmployeeCode)" disabled />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Lý do</label>
+                    <textarea name="reason" class="form-control" rows="3" placeholder="VD: Công tác ngoài, cách ly,..." maxlength="500">@fa.Reason</textarea>
+                    <small class="text-muted">Tối đa 500 ký tự</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+}
+}
+
 <script>
 $(document).ready(function() {
     // Load permissions when role is selected
@@ -1250,4 +1381,3 @@ $(document).ready(function() {
     });
 });
 </script>
-}

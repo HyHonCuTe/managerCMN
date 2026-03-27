@@ -12,6 +12,7 @@ public interface IUnitOfWork : IDisposable
     IAttendanceRepository Attendances { get; }
     IPunchRecordRepository PunchRecords { get; }
     IHolidayRepository Holidays { get; }
+    IFullAttendanceEmployeeRepository FullAttendanceEmployees { get; }
     IAssetRepository Assets { get; }
     IAssetAssignmentRepository AssetAssignments { get; }
     ITicketRepository Tickets { get; }

@@ -30,6 +30,7 @@ public class SettingsController : Controller
 
     public async Task<IActionResult> Index(string tab = "departments")
     {
+        tab = string.IsNullOrWhiteSpace(tab) ? "departments" : tab.Trim().ToLowerInvariant();
         ViewBag.ActiveTab = tab;
         ViewBag.Departments = await _departmentService.GetAllAsync();
         ViewBag.Positions = await _db.Positions.OrderBy(p => p.SortOrder).ToListAsync();
@@ -46,6 +47,17 @@ public class SettingsController : Controller
         ViewBag.Approvers = employees.Where(e => e.IsApprover).OrderBy(e => e.FullName).ToList();
         ViewBag.NonApprovers = employees.Where(e => !e.IsApprover && e.Status == Models.Enums.EmployeeStatus.Active)
             .OrderBy(e => e.FullName).ToList();
+
+        // Full Attendance tab
+        ViewBag.FullAttendanceEmployees = await _db.FullAttendanceEmployees
+            .Include(f => f.Employee)
+            .OrderBy(f => f.Employee.FullName)
+            .ToListAsync();
+        ViewBag.AvailableEmployeesForFullAttendance = employees
+            .Where(e => e.Status == Models.Enums.EmployeeStatus.Active &&
+                        !_db.FullAttendanceEmployees.Any(f => f.EmployeeId == e.EmployeeId))
+            .OrderBy(e => e.FullName)
+            .ToList();
 
         // Permissions tab
         if (tab == "permissions")
@@ -494,6 +506,87 @@ public class SettingsController : Controller
         {
             TempData["Error"] = "Có lỗi xảy ra: " + ex.Message;
             return RedirectToAction(nameof(Index), new { tab = "permissions" });
+        }
+    }
+
+    // === FULL ATTENDANCE SETTINGS (Chấm công đầy đủ tự động) ===
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddFullAttendanceEmployee(int employeeId, string? reason)
+    {
+        try
+        {
+            var existing = await _db.FullAttendanceEmployees.FirstOrDefaultAsync(f => f.EmployeeId == employeeId);
+            if (existing != null)
+            {
+                TempData["Error"] = "Nhân viên này đã được thêm vào danh sách!";
+                return RedirectToAction(nameof(Index), new { tab = "fullattendance" });
+            }
+
+            var emp = await _db.Employees.FindAsync(employeeId);
+            if (emp == null) return NotFound();
+
+            var fullAttendanceEmp = new FullAttendanceEmployee
+            {
+                EmployeeId = employeeId,
+                Reason = reason?.Trim(),
+                CreatedDate = DateTime.UtcNow
+            };
+
+            _db.FullAttendanceEmployees.Add(fullAttendanceEmp);
+            await _db.SaveChangesAsync();
+
+            TempData["Success"] = $"Đã thêm {emp.FullName} vào danh sách chấm công đầy đủ!";
+            return RedirectToAction(nameof(Index), new { tab = "fullattendance" });
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = "Có lỗi xảy ra: " + ex.Message;
+            return RedirectToAction(nameof(Index), new { tab = "fullattendance" });
+        }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> EditFullAttendanceEmployee(int id, string? reason)
+    {
+        try
+        {
+            var fullAttendanceEmp = await _db.FullAttendanceEmployees.FindAsync(id);
+            if (fullAttendanceEmp == null) return NotFound();
+
+            fullAttendanceEmp.Reason = reason?.Trim();
+            fullAttendanceEmp.UpdatedDate = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            TempData["Success"] = "Đã cập nhật thông tin thành công!";
+            return RedirectToAction(nameof(Index), new { tab = "fullattendance" });
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = "Có lỗi xảy ra: " + ex.Message;
+            return RedirectToAction(nameof(Index), new { tab = "fullattendance" });
+        }
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteFullAttendanceEmployee(int id)
+    {
+        try
+        {
+            var fullAttendanceEmp = await _db.FullAttendanceEmployees.Include(f => f.Employee).FirstOrDefaultAsync(f => f.Id == id);
+            if (fullAttendanceEmp == null) return NotFound();
+
+            var empName = fullAttendanceEmp.Employee.FullName;
+            _db.FullAttendanceEmployees.Remove(fullAttendanceEmp);
+            await _db.SaveChangesAsync();
+
+            TempData["Success"] = $"Đã xóa {empName} khỏi danh sách chấm công đầy đủ!";
+            return RedirectToAction(nameof(Index), new { tab = "fullattendance" });
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = "Có lỗi xảy ra: " + ex.Message;
+            return RedirectToAction(nameof(Index), new { tab = "fullattendance" });
         }
     }
 }

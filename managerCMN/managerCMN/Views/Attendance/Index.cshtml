@@ -19,6 +19,7 @@
     // Holidays
     var holidays = ViewBag.Holidays as HashSet<DateOnly> ?? new HashSet<DateOnly>();
     var holidayNames = ViewBag.HolidayNames as Dictionary<DateOnly, string> ?? new Dictionary<DateOnly, string>();
+    var isFullAttendanceEmployee = ViewBag.IsFullAttendanceEmployee as bool? ?? false;
 
     // Build grid: start from Monday of periodStart's week
     var startDow = (int)periodStart.DayOfWeek;
@@ -159,6 +160,7 @@
             var isToday = date == today;
             var isHoliday = holidays.Contains(date);
             var isWorkDay = AttendanceCalendarViewModel.IsWorkingDay(date, holidays);
+            var isFullAttendanceDay = isFullAttendanceEmployee && isWorkDay && !isFuture;
             var minAfternoonCheckOut = AttendanceCalendarViewModel.GetMinAfternoonCheckOut(date);
             var hasData = inPeriod && Model.AttendanceByDate.ContainsKey(date);
             var att = hasData ? Model.AttendanceByDate[date] : null;
@@ -182,7 +184,13 @@
             bool hasAfternoonAtt = false;
             bool hasEarlyCheckout = false;
             bool isLateCheckinNoWork = false;
-            if (hasData && att!.CheckIn.HasValue)
+            if (isFullAttendanceDay)
+            {
+                attPoints = 1m;
+                hasMorningAtt = true;
+                hasAfternoonAtt = true;
+            }
+            else if (hasData && att!.CheckIn.HasValue)
             {
                 isLateCheckinNoWork = att.CheckIn.Value > AttendanceCalendarViewModel.LateCheckinThreshold
                     && !hasApprovedCountsAsWorkReq;
@@ -236,6 +244,10 @@
             if (isSun || (isSat && !isWorkDay))
             {
                 hdrClass += "att-cell-hdr-grey";
+            }
+            else if (isFullAttendanceDay)
+            {
+                hdrClass += "att-cell-hdr-ok";
             }
             else if (hasRequest && !hasData && reqPoints > 0)
             {
@@ -295,6 +307,12 @@
                     {
                         <span class="att-time-badge">T7 Nghỉ</span>
                     }
+                    else if (isFullAttendanceDay)
+                    {
+                        <span class="att-time-badge">
+                            <i class="bi bi-check-circle"></i> Đủ công tự động
+                        </span>
+                    }
                     else if (isWorkDay && !isFuture && !hasData && !hasRequest)
                     {
                         <span class="att-time-badge">
@@ -333,7 +351,7 @@
                         }
 
                         @* Show công points *@
-                        @if (hasData || (hasRequest && reqPoints > 0))
+                        @if (isFullAttendanceDay || hasData || (hasRequest && reqPoints > 0))
                         {
                             var lateMin = 0;
                             var lateSec = 0;

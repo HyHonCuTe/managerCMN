@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using managerCMN.Data;
 using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
@@ -17,17 +19,20 @@ public class AttendanceController : Controller
     private readonly IEmployeeService _employeeService;
     private readonly IRequestService _requestService;
     private readonly IHolidayService _holidayService;
+    private readonly ApplicationDbContext _db;
 
     public AttendanceController(
         IAttendanceService attendanceService,
         IEmployeeService employeeService,
         IRequestService requestService,
-        IHolidayService holidayService)
+        IHolidayService holidayService,
+        ApplicationDbContext db)
     {
         _attendanceService = attendanceService;
         _employeeService = employeeService;
         _requestService = requestService;
         _holidayService = holidayService;
+        _db = db;
     }
 
     public async Task<IActionResult> Index(int? year, int? month, int? employeeId)
@@ -116,6 +121,12 @@ public class AttendanceController : Controller
             PeriodStart = periodStart,
             PeriodEnd = periodEnd,
         };
+
+        var fullAttendanceEmployeeIds = await _db.FullAttendanceEmployees
+            .Select(f => f.EmployeeId)
+            .ToHashSetAsync();
+        var isFullAttendanceEmployee = employeeId.HasValue && fullAttendanceEmployeeIds.Contains(employeeId.Value);
+        ViewBag.IsFullAttendanceEmployee = isFullAttendanceEmployee;
 
         if (employeeId.HasValue)
         {
@@ -320,6 +331,25 @@ public class AttendanceController : Controller
                         model.AbsentDays++;
                     // If there's a non-CountsAsWork approved request → not counted as absent, just 0 công
                 }
+            }
+
+            // Full attendance employees are auto-marked as full workday on every working day in period (up to today).
+            if (isFullAttendanceEmployee)
+            {
+                decimal autoWorkDays = 0;
+                for (var d = periodStart; d <= periodEnd && d <= todayDate; d = d.AddDays(1))
+                {
+                    if (AttendanceCalendarViewModel.IsWorkingDay(d, holidays))
+                    {
+                        autoWorkDays += 1m;
+                    }
+                }
+
+                model.TotalWorkDays = autoWorkDays;
+                model.RequestWorkDays = 0;
+                model.LateDays = 0;
+                model.AbsentDays = 0;
+                model.DeductionPoints = 0;
             }
         }
 

@@ -149,11 +149,15 @@
                     <i class="bi bi-gear"></i> Danh mục
                 </a>
             </li>
-            <li class="nav-item">
-                <a class="nav-link @(ctrl == "SystemLog" ? "active" : "")" asp-controller="SystemLog" asp-action="Index">
-                    <i class="bi bi-journal-text"></i> Nhật ký hệ thống
-                </a>
-            </li>
+                // Chỉ admin có mã nhân viên A00000 đặc biệt mới xem được nhật ký hệ thống
+                @if (isAdmin && User.Claims.FirstOrDefault(c => c.Type == "EmployeeCode" && c.Value == "A00000") != null)
+                {
+                <li class="nav-item">
+                    <a class="nav-link @(ctrl == "SystemLog" ? "active" : "")" asp-controller="SystemLog" asp-action="Index">
+                        <i class="bi bi-journal-text"></i> Nhật ký hệ thống
+                    </a>
+                </li>
+                }
             }
         </ul>
         <div style="padding:1rem 1.2rem;margin-top:auto;border-top:1px solid rgba(255,255,255,0.1);font-size:0.72rem;color:rgba(255,255,255,0.45);text-align:center;">

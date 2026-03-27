@@ -39,6 +39,9 @@ public class ApplicationDbContext : DbContext
     // Holidays
     public DbSet<Holiday> Holidays => Set<Holiday>();
 
+    // Attendance Settings
+    public DbSet<FullAttendanceEmployee> FullAttendanceEmployees => Set<FullAttendanceEmployee>();
+
     // Assets
     public DbSet<Asset> Assets => Set<Asset>();
     public DbSet<AssetAssignment> AssetAssignments => Set<AssetAssignment>();
@@ -230,6 +233,17 @@ public class ApplicationDbContext : DbContext
         // Holiday unique constraint on Date
         modelBuilder.Entity<Holiday>()
             .HasIndex(h => h.Date)
+            .IsUnique();
+
+        // FullAttendanceEmployee
+        modelBuilder.Entity<FullAttendanceEmployee>()
+            .HasOne(f => f.Employee)
+            .WithMany()
+            .HasForeignKey(f => f.EmployeeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<FullAttendanceEmployee>()
+            .HasIndex(f => f.EmployeeId)
             .IsUnique();
 
         // Asset

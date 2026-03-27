@@ -247,6 +247,11 @@ public class AttendanceService : IAttendanceService
             allRequests[emp.EmployeeId] = empRequests;
         }
 
+        // Get list of employees with automatic full attendance
+        var fullAttendanceEmployeeIds = (await _unitOfWork.FullAttendanceEmployees.FindAsync(e => true))
+            .Select(f => f.EmployeeId)
+            .ToHashSet();
+
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Bảng chấm công");
 
@@ -313,6 +318,7 @@ public class AttendanceService : IAttendanceService
                     empRequests,
                     holidays,
                     morningStart, morningEnd, afternoonStart, afternoonEnd,
+                    emp.EmployeeId, fullAttendanceEmployeeIds,
                     out var dayCong, out var dayP, out var dayK, out var dayHoliday);
 
                 totalCong += dayCong;
@@ -375,9 +381,17 @@ public class AttendanceService : IAttendanceService
 
     private string GetCellValue(DateOnly date, Models.Entities.Attendance? att, List<Models.Entities.Request> requests,
         HashSet<DateOnly> holidays, TimeOnly morningStart, TimeOnly morningEnd, TimeOnly afternoonStart, TimeOnly afternoonEnd,
+        int employeeId, HashSet<int> fullAttendanceEmployeeIds,
         out decimal dayCong, out decimal dayP, out decimal dayK, out decimal dayHoliday)
     {
         dayCong = 0; dayP = 0; dayK = 0; dayHoliday = 0;
+
+        // 0. Check if employee is in full attendance list  
+        if (fullAttendanceEmployeeIds.Contains(employeeId) && IsWorkingDayForExport(date))
+        {
+            dayCong = 1;
+            return "1";
+        }
 
         // 1. Holiday
         if (holidays.Contains(date))

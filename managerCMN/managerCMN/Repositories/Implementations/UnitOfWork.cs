@@ -20,6 +20,7 @@ public class UnitOfWork : IUnitOfWork
         Attendances = new AttendanceRepository(context);
         PunchRecords = new PunchRecordRepository(context);
         Holidays = new HolidayRepository(context);
+        FullAttendanceEmployees = new FullAttendanceEmployeeRepository(context);
         Assets = new AssetRepository(context);
         AssetAssignments = new AssetAssignmentRepository(context);
         Tickets = new TicketRepository(context);
@@ -43,6 +44,7 @@ public class UnitOfWork : IUnitOfWork
     public IAttendanceRepository Attendances { get; }
     public IPunchRecordRepository PunchRecords { get; }
     public IHolidayRepository Holidays { get; }
+    public IFullAttendanceEmployeeRepository FullAttendanceEmployees { get; }
     public IAssetRepository Assets { get; }
     public IAssetAssignmentRepository AssetAssignments { get; }
     public ITicketRepository Tickets { get; }

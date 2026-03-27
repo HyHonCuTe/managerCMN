@@ -210,7 +210,7 @@ sudo apt install -y mssql-server
 # Cấu hình SQL Server
 sudo /opt/mssql/bin/mssql-conf setup
 # Chọn: 3 (Express - Free)
-# Đặt password cho SA account (ví dụ: CMN@2026)
+# Đặt password cho SA account (ví dụ: PASSWORD)
 # Lưu ý: Password phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt
 
 # Kiểm tra SQL Server đang chạy
@@ -236,21 +236,21 @@ echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc
 source ~/.bashrc
 
 # Kiểm tra kết nối
-sqlcmd -S localhost -U SA -P 'CMN@2026' -C -Q "SELECT @@VERSION"
+sqlcmd -S localhost -U SA -P 'PASSWORD' -C -Q "SELECT @@VERSION"
 ```
 
 ### Bước 5: Tạo Database
 
 ```bash
 # Kết nối SQL Server
-sqlcmd -S localhost -U SA -P 'CMN@2026' -C
+sqlcmd -S localhost -U SA -P 'PASSWORD' -C
 
 # Trong sqlcmd, chạy các lệnh sau:
 CREATE DATABASE managerCMN;
 GO
 
 # Tạo user cho ứng dụng (optional, khuyến nghị)
-CREATE LOGIN cmnapp WITH PASSWORD = 'CMN@2026';
+CREATE LOGIN cmnapp WITH PASSWORD = 'PASSWORD
 GO
 USE managerCMN;
 GO
@@ -476,7 +476,7 @@ sudo systemctl enable certbot.timer
 
 ```bash
 # Kết nối SQL Server
-sqlcmd -S localhost -U SA -P 'CMN@2026' -C
+sqlcmd -S localhost -U SA -P 'PASSWORD' -C
 
 # Các lệnh hữu ích trong sqlcmd:
 

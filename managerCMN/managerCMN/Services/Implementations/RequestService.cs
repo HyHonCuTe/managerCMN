@@ -536,6 +536,34 @@ public class RequestService : IRequestService
             await _notificationService.CreateAsync(user.UserId, title, message);
     }
 
+    public async Task<int> CountAbsenceRequestsInMonthAsync(int employeeId, DateTime date)
+    {
+        // Count all Absence requests created in the same calendar month (not rejected/cancelled)
+        var requests = await _unitOfWork.Requests.FindAsync(r =>
+            r.EmployeeId == employeeId
+            && r.RequestType == RequestType.Absence
+            && r.Status != RequestStatus.Rejected
+            && r.Status != RequestStatus.Cancelled
+            && r.StartTime.Year == date.Year
+            && r.StartTime.Month == date.Month);
+
+        return requests.Count();
+    }
+
+    public async Task<int> CountCheckInOutRequestsInMonthAsync(int employeeId, DateTime date)
+    {
+        // Count all CheckInOut requests created in the same calendar month (not rejected/cancelled)
+        var requests = await _unitOfWork.Requests.FindAsync(r =>
+            r.EmployeeId == employeeId
+            && r.RequestType == RequestType.CheckInOut
+            && r.Status != RequestStatus.Rejected
+            && r.Status != RequestStatus.Cancelled
+            && r.StartTime.Year == date.Year
+            && r.StartTime.Month == date.Month);
+
+        return requests.Count();
+    }
+
     private static string GetRequestTypeText(RequestType type) => type switch
     {
         RequestType.Leave => "đơn xin nghỉ",

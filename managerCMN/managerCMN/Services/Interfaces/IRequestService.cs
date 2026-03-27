@@ -30,5 +30,7 @@ public interface IRequestService
     Task<Employee?> GetByEmployeeIdAsync(int employeeId);
     Task<IEnumerable<Employee>> GetAvailableApprover2ListAsync();
     Task<IEnumerable<Employee>> GetAllDepartmentEmployeesAsync(int departmentId);
+    Task<int> CountAbsenceRequestsInMonthAsync(int employeeId, DateTime date);
+    Task<int> CountCheckInOutRequestsInMonthAsync(int employeeId, DateTime date);
     decimal CalculateTotalDays(DateTime start, DateTime end, bool halfDayStart, bool halfDayEnd);
 }

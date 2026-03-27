@@ -69,8 +69,32 @@ public class RequestController : Controller
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
 
-        // Validate request date: Cannot create request for past dates older than 5 working days
+        // Validate monthly request limits
         var today = DateTimeHelper.VietnamToday;
+        
+        // Check Absence limit: max 2 per month
+        if (model.RequestType == RequestType.Absence)
+        {
+            var absenceCount = await _requestService.CountAbsenceRequestsInMonthAsync(employeeId, today);
+            if (absenceCount >= 2)
+            {
+                ModelState.AddModelError("RequestType",
+                    $"Bạn đã đạt giới hạn 2 đơn vắng mặt trong tháng này.");
+            }
+        }
+
+        // Check CheckInOut limit: max 5 per month
+        if (model.RequestType == RequestType.CheckInOut)
+        {
+            var checkInOutCount = await _requestService.CountCheckInOutRequestsInMonthAsync(employeeId, today);
+            if (checkInOutCount >= 5)
+            {
+                ModelState.AddModelError("RequestType",
+                    $"Bạn đã đạt giới hạn 5 đơn checkin/out trong tháng này.");
+            }
+        }
+
+        // Validate request date: Cannot create request for past dates older than 5 working days
         var requestStartDate = model.StartTime.Date;
 
         if (requestStartDate < today)

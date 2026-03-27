@@ -1,10 +1,12 @@
 
 using System.Security.Claims;
+using System.Globalization;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Authorization;
 using managerCMN.Data;
@@ -87,6 +89,15 @@ builder.Services.AddAuthorization(options =>
 // ── MVC ──
 builder.Services.AddControllersWithViews();
 
+// ── Localization ──
+var supportedCultures = new[] { new CultureInfo("vi-VN") };
+builder.Services.Configure<RequestLocalizationOptions>(options =>
+{
+    options.DefaultRequestCulture = new RequestCulture("vi-VN");
+    options.SupportedCultures = supportedCultures;
+    options.SupportedUICultures = supportedCultures;
+});
+
 // ── HttpContextAccessor for Service logging ──
 builder.Services.AddHttpContextAccessor();
 
@@ -118,6 +129,9 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/Error/{0}");
 
 app.UseStaticFiles();
+
+var localizationOptions = app.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<RequestLocalizationOptions>>().Value;
+app.UseRequestLocalization(localizationOptions);
 
 app.UseRouting();
 

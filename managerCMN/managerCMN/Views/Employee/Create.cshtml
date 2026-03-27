@@ -76,6 +76,7 @@
                         <div class="col-md-3">
                             <label asp-for="DateOfBirth" class="form-label">Ngày sinh</label>
                             <input asp-for="DateOfBirth" class="form-control" type="date" />
+                            <small class="text-muted">Định dạng hiển thị: dd/MM/yyyy</small>
                             <span asp-validation-for="DateOfBirth" class="text-danger"></span>
                         </div>
                         <div class="col-md-3">
@@ -116,12 +117,13 @@
                     <div class="row g-3 mb-4">
                         <div class="col-md-4">
                             <label asp-for="IdCardNumber" class="form-label">Số CCCD</label>
-                            <input asp-for="IdCardNumber" class="form-control" placeholder="9 hoặc 12 số" />
+                            <input asp-for="IdCardNumber" class="form-control" placeholder="9 hoặc 12 số (có thể bắt đầu bằng 0)" />
                             <span asp-validation-for="IdCardNumber" class="text-danger"></span>
                         </div>
                         <div class="col-md-4">
                             <label asp-for="IdCardIssueDate" class="form-label">Ngày cấp</label>
                             <input asp-for="IdCardIssueDate" class="form-control" type="date" />
+                            <small class="text-muted">Định dạng hiển thị: dd/MM/yyyy</small>
                             <span asp-validation-for="IdCardIssueDate" class="text-danger"></span>
                         </div>
                         <div class="col-md-4">
@@ -171,6 +173,7 @@
                         <div class="col-md-4">
                             <label asp-for="StartWorkingDate" class="form-label">Ngày vào làm</label>
                             <input asp-for="StartWorkingDate" class="form-control" type="date" />
+                            <small class="text-muted">Định dạng hiển thị: dd/MM/yyyy</small>
                             <span asp-validation-for="StartWorkingDate" class="text-danger"></span>
                         </div>
                         <div class="col-md-4">

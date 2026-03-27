@@ -81,7 +81,7 @@ public class EmployeeCreateViewModel
     [MaxLength(50, ErrorMessage = "Quốc tịch không được vượt quá 50 ký tự")]
     public string? Nationality { get; set; }
 
-    [MaxLength(20, ErrorMessage = "Số CCCD không được vượt quá 20 ký tự")]
+    [MaxLength(12, ErrorMessage = "Số CCCD không được vượt quá 12 ký tự")]
     [RegularExpression(@"^[0-9]{9}$|^[0-9]{12}$", ErrorMessage = "Số CCCD phải là 9 hoặc 12 số")]
     public string? IdCardNumber { get; set; }
 

@@ -15,7 +15,6 @@
     var morningEnd = AttendanceCalendarViewModel.MorningEnd;
     var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
     var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
-    var minAfternoonCheckOut = AttendanceCalendarViewModel.MinAfternoonCheckOut;
 
     // Holidays
     var holidays = ViewBag.Holidays as HashSet<DateOnly> ?? new HashSet<DateOnly>();
@@ -160,10 +159,12 @@
             var isToday = date == today;
             var isHoliday = holidays.Contains(date);
             var isWorkDay = AttendanceCalendarViewModel.IsWorkingDay(date, holidays);
+            var minAfternoonCheckOut = AttendanceCalendarViewModel.GetMinAfternoonCheckOut(date);
             var hasData = inPeriod && Model.AttendanceByDate.ContainsKey(date);
             var att = hasData ? Model.AttendanceByDate[date] : null;
             var hasRequest = inPeriod && Model.RequestsByDate.ContainsKey(date);
             var requestInfos = hasRequest ? Model.RequestsByDate[date] : null;
+            var hasApprovedCountsAsWorkReq = hasRequest && requestInfos!.Any(r => r.IsApproved && r.CountsAsWork);
 
             if (!inPeriod)
             {
@@ -180,14 +181,24 @@
             bool hasMorningAtt = false;
             bool hasAfternoonAtt = false;
             bool hasEarlyCheckout = false;
+            bool isLateCheckinNoWork = false;
             if (hasData && att!.CheckIn.HasValue)
             {
+                isLateCheckinNoWork = att.CheckIn.Value > AttendanceCalendarViewModel.LateCheckinThreshold
+                    && !hasApprovedCountsAsWorkReq;
+
+                if (isLateCheckinNoWork)
+                {
+                    attPoints = 0;
+                }
+                else
+                {
                 if (att.CheckOut.HasValue)
                 {
                     hasMorningAtt = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
-                    // NEW LOGIC: Afternoon session requires checkout after 4:00 PM (16:00)
+                    // Working Saturdays use 15:00, other days use 16:00.
                     hasAfternoonAtt = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= minAfternoonCheckOut;
-                    // Check for early checkout (before 4:00 PM but after afternoon start)
+                    // Check for early checkout against per-day threshold.
                     hasEarlyCheckout = att.CheckOut.Value >= afternoonStart && att.CheckOut.Value < minAfternoonCheckOut;
 
                     if (hasMorningAtt && hasAfternoonAtt) attPoints = 1m;
@@ -197,6 +208,7 @@
                 {
                     hasMorningAtt = true;
                     attPoints = 0.5m;
+                }
                 }
             }
 
@@ -324,10 +336,15 @@
                         @if (hasData || (hasRequest && reqPoints > 0))
                         {
                             var lateMin = 0;
+                            var lateSec = 0;
                             if (hasData && att!.IsLate && att.CheckIn.HasValue)
                             {
-                                lateMin = (int)(att.CheckIn.Value.ToTimeSpan() - morningStart.ToTimeSpan()).TotalMinutes;
-                                if (lateMin < 0) lateMin = 0;
+                                var lateSpan = att.CheckIn.Value.ToTimeSpan() - morningStart.ToTimeSpan();
+                                if (lateSpan > TimeSpan.Zero)
+                                {
+                                    lateMin = (int)lateSpan.TotalMinutes;
+                                    lateSec = lateSpan.Seconds;
+                                }
                             }
 
                             <div class="att-points @(totalPoints >= 1 ? "att-pts-full" : totalPoints > 0 ? "att-pts-half" : "att-pts-zero")">
@@ -336,11 +353,15 @@
 
                             @if (hasData && att!.IsLate)
                             {
-                                <div class="att-late-row att-late-warn"><i class="bi bi-exclamation-triangle"></i> Muộn @lateMin phút</div>
+                                <div class="att-late-row att-late-warn"><i class="bi bi-exclamation-triangle"></i> Muộn @lateMin phút @lateSec giây</div>
+                            }
+                            @if (hasData && isLateCheckinNoWork)
+                            {
+                                <div class="att-late-row att-late-warn"><i class="bi bi-x-octagon"></i> Checkin sau 10h không tính công</div>
                             }
                             @if (hasEarlyCheckout)
                             {
-                                <div class="att-late-row att-late-warn"><i class="bi bi-clock-history"></i> Checkout sớm (@att!.CheckOut!.Value.ToString("H\\:mm") &lt; 16:00)</div>
+                                <div class="att-late-row att-late-warn"><i class="bi bi-clock-history"></i> Checkout sớm (@att!.CheckOut!.Value.ToString("H\\:mm") &lt; @minAfternoonCheckOut.ToString("H\\:mm"))</div>
                             }
 
                             @if (hasData && att!.CheckOut == null)

@@ -41,6 +41,7 @@
                 <div class="col-md-3">
                     <label asp-for="DateOfBirth" class="form-label">Ngày sinh</label>
                     <input asp-for="DateOfBirth" class="form-control" type="date" />
+                    <small class="text-muted">Định dạng hiển thị: dd/MM/yyyy</small>
                 </div>
                 <div class="col-md-3">
                     <label asp-for="Gender" class="form-label">Giới tính</label>
@@ -63,7 +64,8 @@
                 </div>
                 <div class="col-md-3">
                     <label asp-for="Phone" class="form-label">Số điện thoại</label>
-                    <input asp-for="Phone" class="form-control" />
+                    <input asp-for="Phone" class="form-control" placeholder="VD: 0912345678 (có thể bắt đầu bằng 0)" />
+                    <span asp-validation-for="Phone" class="text-danger"></span>
                 </div>
                 <div class="col-md-3">
                     <label asp-for="Qualifications" class="form-label">Bằng cấp</label>
@@ -75,11 +77,14 @@
             <div class="row g-3 mb-4">
                 <div class="col-md-4">
                     <label asp-for="IdCardNumber" class="form-label">Số CCCD</label>
-                    <input asp-for="IdCardNumber" class="form-control" />
+                    <input asp-for="IdCardNumber" class="form-control" placeholder="9 hoặc 12 số (có thể bắt đầu bằng 0)" />
+                    <span asp-validation-for="IdCardNumber" class="text-danger"></span>
                 </div>
                 <div class="col-md-4">
                     <label asp-for="IdCardIssueDate" class="form-label">Ngày cấp</label>
                     <input asp-for="IdCardIssueDate" class="form-control" type="date" />
+                    <small class="text-muted">Định dạng hiển thị: dd/MM/yyyy</small>
+                    <span asp-validation-for="IdCardIssueDate" class="text-danger"></span>
                 </div>
                 <div class="col-md-4">
                     <label asp-for="IdCardIssuePlace" class="form-label">Nơi cấp</label>
@@ -122,6 +127,7 @@
                 <div class="col-md-4">
                     <label asp-for="StartWorkingDate" class="form-label">Ngày vào làm</label>
                     <input asp-for="StartWorkingDate" class="form-control" type="date" />
+                    <small class="text-muted">Định dạng hiển thị: dd/MM/yyyy</small>
                 </div>
                 <div class="col-md-4">
                     <label asp-for="AttendanceName" class="form-label">Chấm công - Tên</label>
@@ -176,6 +182,8 @@
                 <div class="col-md-4">
                     <label asp-for="ResignationDate" class="form-label">Ngày thôi việc</label>
                     <input asp-for="ResignationDate" class="form-control" type="date" />
+                    <small class="text-muted">Định dạng hiển thị: dd/MM/yyyy</small>
+                    <span asp-validation-for="ResignationDate" class="text-danger"></span>
                 </div>
                 <div class="col-md-8">
                     <label asp-for="ResignationReason" class="form-label">Lý do</label>

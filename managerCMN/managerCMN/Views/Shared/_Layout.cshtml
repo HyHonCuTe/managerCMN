@@ -11,8 +11,10 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
     <!-- DataTables -->
     <link href="https://cdn.datatables.net/1.13.11/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
+    <!-- Flatpickr -->
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet" />
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/images/cmnLOGO.png" />
+    <link rel="icon" type="image/png" href="/images/logo-CMN-(1).png" />
     <!-- Custom CSS -->
     <link rel="stylesheet" href="~/css/site.css" />
     @await RenderSectionAsync("Styles", required: false)
@@ -59,7 +61,7 @@
     <!-- Sidebar -->
     <nav class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <img src="/images/cmnLOGO.png" alt="CMN Logo" style="max-height:56px;max-width:160px;object-fit:contain;margin-bottom:0.4rem;" />
+            <img src="/images/logo-CMN-(1).png" alt="CMN Logo" style="max-height:56px;max-width:160px;object-fit:contain;margin-bottom:0.4rem;" />
             <div style="font-size:0.8rem;opacity:0.75;">Company Management</div>
         </div>
         @{
@@ -221,6 +223,8 @@
     <script src="https://cdn.datatables.net/1.13.11/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.11/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/vn.js"></script>
     <script>
         $(document).ready(function () {
             $('.data-table').DataTable({
@@ -239,6 +243,22 @@
                     if (data.count > 0) {
                         $('.notification-badge').text(data.count).show();
                     }
+                });
+            }
+
+            if (window.flatpickr) {
+                flatpickr.localize(flatpickr.l10ns.vn);
+                document.querySelectorAll('input[type="date"]').forEach(function (el) {
+                    if (el.dataset.dateUiInited === '1') return;
+                    el.dataset.dateUiInited = '1';
+
+                    flatpickr(el, {
+                        dateFormat: 'Y-m-d',
+                        altInput: true,
+                        altFormat: 'd/m/Y',
+                        allowInput: true,
+                        disableMobile: true
+                    });
                 });
             }
         });

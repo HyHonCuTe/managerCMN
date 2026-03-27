@@ -186,7 +186,7 @@ public class AttendanceController : Controller
             var morningEnd = AttendanceCalendarViewModel.MorningEnd;
             var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
             var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
-            var minAfternoonCheckOut = AttendanceCalendarViewModel.MinAfternoonCheckOut;
+            var lateCheckinThreshold = AttendanceCalendarViewModel.LateCheckinThreshold;
 
             // Calculate summary with 2-shift logic
             decimal totalDeductionMinutes = 0;
@@ -195,11 +195,24 @@ public class AttendanceController : Controller
 
             foreach (var att in attendances)
             {
+                // Check if there's an approved request for this date
+                var hasApprovedRequest = model.RequestsByDate.ContainsKey(att.Date)
+                    && model.RequestsByDate[att.Date].Any(r => r.IsApproved && r.CountsAsWork);
+
+                // Check if checkin is too late (after 10:00 AM)
+                bool isLateCheckin = att.CheckIn.HasValue && att.CheckIn.Value > lateCheckinThreshold;
+
+                // If checkin is after 10:00 AM and no approved request, skip counting this attendance
+                if (isLateCheckin && !hasApprovedRequest)
+                    continue;
+
                 if (att.CheckIn.HasValue && att.CheckOut.HasValue)
                 {
-                    // Check if covered both shifts: morning 8:30-12:00, afternoon 13:30-17:30 (with 16:00 minimum checkout)
+                    // Check if covered both shifts: morning 8:30-12:00, afternoon 13:30-17:30.
+                    // Working Saturdays use 15:00 as the minimum checkout for afternoon session.
                     var checkIn = att.CheckIn.Value;
                     var checkOut = att.CheckOut.Value;
+                    var minAfternoonCheckOut = AttendanceCalendarViewModel.GetMinAfternoonCheckOut(att.Date);
                     bool hasMorning = checkIn <= morningEnd && checkOut >= morningStart;
                     bool hasAfternoon = checkIn <= afternoonEnd && checkOut >= minAfternoonCheckOut;
 
@@ -243,6 +256,7 @@ public class AttendanceController : Controller
                     var att = model.AttendanceByDate[date];
                     if (att.CheckIn.HasValue && att.CheckOut.HasValue)
                     {
+                        var minAfternoonCheckOut = AttendanceCalendarViewModel.GetMinAfternoonCheckOut(date);
                         bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
                         bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= minAfternoonCheckOut;
                         if (hasMorning && hasAfternoon) attCong = 1m;
@@ -405,12 +419,12 @@ public class AttendanceController : Controller
             var morningEnd = AttendanceCalendarViewModel.MorningEnd;
             var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
             var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
-            var minAfternoonCheckOut = AttendanceCalendarViewModel.MinAfternoonCheckOut;
 
             foreach (var att in attendances)
             {
                 if (att.CheckIn.HasValue && att.CheckOut.HasValue)
                 {
+                    var minAfternoonCheckOut = AttendanceCalendarViewModel.GetMinAfternoonCheckOut(att.Date);
                     bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
                     bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= minAfternoonCheckOut;
 

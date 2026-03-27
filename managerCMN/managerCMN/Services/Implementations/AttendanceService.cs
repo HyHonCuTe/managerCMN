@@ -3,6 +3,7 @@ using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Models.Entities;
+using managerCMN.Models.ViewModels;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
 
@@ -14,7 +15,6 @@ public class AttendanceService : IAttendanceService
     private readonly ISystemLogService _logService;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private static readonly TimeOnly LateThreshold = new(8, 30); // 8:30 AM
-    private static readonly TimeOnly minAfternoonCheckOut = new(16, 0); // 4:00 PM - minimum checkout for afternoon session
 
     public AttendanceService(IUnitOfWork unitOfWork, ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
     {
@@ -399,6 +399,7 @@ public class AttendanceService : IAttendanceService
         // 3. Check for full attendance (both shifts covered)
         if (att?.CheckIn != null && att.CheckOut != null)
         {
+            var minAfternoonCheckOut = AttendanceCalendarViewModel.GetMinAfternoonCheckOut(date);
             bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
             bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= minAfternoonCheckOut;
 

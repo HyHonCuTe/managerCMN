@@ -74,6 +74,21 @@ public class AttendanceCalendarViewModel
     public static readonly TimeOnly AfternoonEnd = new(17, 30);
     /// <summary>Minimum checkout time to count afternoon session (4:00 PM)</summary>
     public static readonly TimeOnly MinAfternoonCheckOut = new(16, 0);
+    /// <summary>Minimum checkout time on working Saturdays to count afternoon session (3:00 PM)</summary>
+    public static readonly TimeOnly MinAfternoonCheckOutSaturday = new(15, 0);
+    /// <summary>Late checkin threshold (10:00 AM) - if after this time and no request, don't count</summary>
+    public static readonly TimeOnly LateCheckinThreshold = new(10, 0);
+
+    /// <summary>
+    /// Get minimum checkout time to count afternoon session.
+    /// Working Saturdays allow checkout from 15:00, other days keep 16:00.
+    /// </summary>
+    public static TimeOnly GetMinAfternoonCheckOut(DateOnly date)
+    {
+        return date.DayOfWeek == DayOfWeek.Saturday && IsWorkSaturday(date)
+            ? MinAfternoonCheckOutSaturday
+            : MinAfternoonCheckOut;
+    }
 
     /// <summary>Check if a Saturday is a work Saturday (alternating, anchor: 21/3/2026 = work)</summary>
     public static bool IsWorkSaturday(DateOnly date)

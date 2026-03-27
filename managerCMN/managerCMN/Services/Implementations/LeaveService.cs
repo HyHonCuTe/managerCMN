@@ -13,14 +13,22 @@ public class LeaveService : ILeaveService
 {
     private const decimal QuarterlyLeaveDays = 3m;
     private const decimal AnnualLeaveDays = 12m;
+    private const decimal FemaleSemiAnnualBonusDays = 1m;
+    private const string LeaveGrantNotificationTitle = "Cộng phép đợt mới";
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISystemLogService _logService;
+    private readonly INotificationService _notificationService;
     private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public LeaveService(IUnitOfWork unitOfWork, ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
+    public LeaveService(
+        IUnitOfWork unitOfWork,
+        ISystemLogService logService,
+        INotificationService notificationService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _unitOfWork = unitOfWork;
         _logService = logService;
+        _notificationService = notificationService;
         _httpContextAccessor = httpContextAccessor;
     }
 
@@ -386,12 +394,17 @@ public class LeaveService : ILeaveService
             await _unitOfWork.LeaveBalances.AddAsync(balance);
         }
 
+        var previousAutoCalculatedLeave = balance.TotalLeave;
         var accruedCurrentYearLeave = GetAccruedCurrentYearLeave(employee, year, asOfDate);
 
         // Only auto-calculate TotalLeave if not manually adjusted
         if (!balance.IsManuallyAdjusted)
         {
             balance.TotalLeave = accruedCurrentYearLeave;
+            if (accruedCurrentYearLeave > previousAutoCalculatedLeave)
+            {
+                await NotifyLeaveGrantIfNeededAsync(employee, year, asOfDate, previousAutoCalculatedLeave, accruedCurrentYearLeave);
+            }
         }
 
         if (!IsCarryForwardWindowOpen(asOfDate) || asOfDate.Year != year)
@@ -401,6 +414,52 @@ public class LeaveService : ILeaveService
 
         UpdateRemainingLeave(balance);
         return balance;
+    }
+
+    private async Task NotifyLeaveGrantIfNeededAsync(Employee employee, int year, DateTime asOfDate, decimal previousTotalLeave, decimal newTotalLeave)
+    {
+        if (asOfDate.Year != year || newTotalLeave <= previousTotalLeave)
+        {
+            return;
+        }
+
+        var user = (await _unitOfWork.Users.FindAsync(u => u.EmployeeId == employee.EmployeeId)).FirstOrDefault();
+        if (user == null)
+        {
+            return;
+        }
+
+        var grantedEvents = GetGrantedEvents(employee, year, asOfDate)
+            .OrderBy(e => e.GrantDate)
+            .ToList();
+
+        decimal runningTotal = 0m;
+        foreach (var grantedEvent in grantedEvents)
+        {
+            var beforeEventTotal = runningTotal;
+            runningTotal += grantedEvent.Days;
+
+            var isNewlyApplied = runningTotal > previousTotalLeave && beforeEventTotal < newTotalLeave;
+            if (!isNewlyApplied)
+            {
+                continue;
+            }
+
+            var dedupeKey = $"[LEAVE_GRANT:{grantedEvent.Key}]";
+            var alreadyNotified = await _unitOfWork.Notifications.AnyAsync(n =>
+                n.UserId == user.UserId
+                && n.Message != null
+                && n.Message.Contains(dedupeKey));
+
+            if (alreadyNotified)
+            {
+                continue;
+            }
+
+            var message =
+                $"{dedupeKey} Hệ thống đã cộng {grantedEvent.Days:0.#} ngày phép ({grantedEvent.Label}) vào ngày {grantedEvent.GrantDate:dd/MM/yyyy}.";
+            await _notificationService.CreateAsync(user.UserId, LeaveGrantNotificationTitle, message);
+        }
     }
 
     private decimal GetInitialCarryForward(int employeeId, int year, DateTime asOfDate)
@@ -431,31 +490,84 @@ public class LeaveService : ILeaveService
             return 0m;
         }
 
-        var startDate = employee.StartWorkingDate.Value.Date;
-        var grantDates = new[]
+        return GetGrantedEvents(employee, year, asOfDate).Sum(e => e.Days);
+    }
+
+    private static IEnumerable<LeaveGrantEvent> GetGrantedEvents(Employee employee, int year, DateTime asOfDate)
+    {
+        if (employee.StartWorkingDate == null)
         {
-            new DateTime(year - 1, 12, 26), // Q1 of current year
-            new DateTime(year, 3, 26),      // Q2
-            new DateTime(year, 6, 26),      // Q3
-            new DateTime(year, 9, 26)       // Q4
+            return Enumerable.Empty<LeaveGrantEvent>();
+        }
+
+        var startDate = employee.StartWorkingDate.Value.Date;
+        var events = new List<LeaveGrantEvent>();
+
+        var quarterlyEvents = new[]
+        {
+            new { Quarter = 1, Date = new DateTime(year - 1, 12, 26) },
+            new { Quarter = 2, Date = new DateTime(year, 3, 26) },
+            new { Quarter = 3, Date = new DateTime(year, 6, 26) },
+            new { Quarter = 4, Date = new DateTime(year, 9, 26) }
         };
 
-        // Calculate quarterly leave (3 days per quarter)
-        var grantedQuarters = grantDates.Count(grantDate => asOfDate.Date >= grantDate && startDate <= grantDate);
-        var quarterlyLeave = Math.Min(grantedQuarters * QuarterlyLeaveDays, AnnualLeaveDays);
+        foreach (var quarterlyEvent in quarterlyEvents)
+        {
+            if (asOfDate.Date >= quarterlyEvent.Date && startDate <= quarterlyEvent.Date)
+            {
+                events.Add(new LeaveGrantEvent(
+                    Key: $"YEAR{year}_Q{quarterlyEvent.Quarter}",
+                    Label: $"Phép quý Q{quarterlyEvent.Quarter}/{year}",
+                    Days: QuarterlyLeaveDays,
+                    GrantDate: quarterlyEvent.Date));
+            }
+        }
+
+        if (events.Count > 4)
+        {
+            events = events.Take(4).ToList();
+        }
 
         // Calculate seniority bonus (granted on March 26 annually)
         // 5 years = +1 day, 10 years = +2 days, 15 years = +3 days, etc.
-        decimal seniorityBonus = 0m;
         var seniorityGrantDate = new DateTime(year, 3, 26);
-
+        decimal seniorityBonus = 0m;
         if (asOfDate.Date >= seniorityGrantDate)
         {
             var yearsOfService = (seniorityGrantDate - startDate).TotalDays / 365.25;
             seniorityBonus = Math.Floor((decimal)yearsOfService / 5m);
+            if (seniorityBonus > 0m)
+            {
+                events.Add(new LeaveGrantEvent(
+                    Key: $"YEAR{year}_SENIORITY",
+                    Label: "Phép thâm niên",
+                    Days: seniorityBonus,
+                    GrantDate: seniorityGrantDate));
+            }
         }
 
-        return quarterlyLeave + seniorityBonus;
+        if (employee.Gender == Gender.Female)
+        {
+            var femaleGrantDates = new[]
+            {
+                new { Key = $"YEAR{year}_FEMALE_H1", Label = $"Phép nữ đợt 1/{year}", Date = new DateTime(year, 5, 26) },
+                new { Key = $"YEAR{year}_FEMALE_H2", Label = $"Phép nữ đợt 2/{year}", Date = new DateTime(year, 12, 26) }
+            };
+
+            foreach (var femaleGrant in femaleGrantDates)
+            {
+                if (asOfDate.Date >= femaleGrant.Date && startDate <= femaleGrant.Date)
+                {
+                    events.Add(new LeaveGrantEvent(
+                        Key: femaleGrant.Key,
+                        Label: femaleGrant.Label,
+                        Days: FemaleSemiAnnualBonusDays,
+                        GrantDate: femaleGrant.Date));
+                }
+            }
+        }
+
+        return events;
     }
 
     private static int GetGrantedQuarterCount(Employee employee, int year, DateTime asOfDate)
@@ -504,4 +616,6 @@ public class LeaveService : ILeaveService
 
     private static DateTime Today()
         => DateTimeHelper.VietnamToday;
+
+    private sealed record LeaveGrantEvent(string Key, string Label, decimal Days, DateTime GrantDate);
 }

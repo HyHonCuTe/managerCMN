@@ -69,6 +69,7 @@
             var action = ViewContext.RouteData.Values["action"]?.ToString();
             bool isAdmin = User.IsInRole("Admin");
             bool isManager = User.IsInRole("Manager");
+            bool isMasterAdmin = isAdmin && User.HasClaim("EmployeeCode", "A00000");
             bool isAdminOrMgr = isAdmin || isManager;
             bool isApprover = isAdminOrMgr || User.HasClaim("IsApprover", "true");
         }
@@ -149,8 +150,7 @@
                     <i class="bi bi-gear"></i> Danh mục
                 </a>
             </li>
-                // Chỉ admin có mã nhân viên A00000 đặc biệt mới xem được nhật ký hệ thống
-                @if (isAdmin && User.Claims.FirstOrDefault(c => c.Type == "EmployeeCode" && c.Value == "A00000") != null)
+                @if (isMasterAdmin)
                 {
                 <li class="nav-item">
                     <a class="nav-link @(ctrl == "SystemLog" ? "active" : "")" asp-controller="SystemLog" asp-action="Index">

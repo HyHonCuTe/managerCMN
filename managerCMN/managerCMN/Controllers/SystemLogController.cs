@@ -4,7 +4,7 @@ using managerCMN.Services.Interfaces;
 
 namespace managerCMN.Controllers;
 
-[Authorize(Policy = "AdminOnly")]
+[Authorize(Policy = "MasterAdminOnly")]
 public class SystemLogController : Controller
 {
     private readonly ISystemLogService _logService;

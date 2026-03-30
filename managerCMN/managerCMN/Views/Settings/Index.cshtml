@@ -16,6 +16,7 @@
     var users = ViewBag.Users as IEnumerable<User> ?? Enumerable.Empty<User>();
     var roles = ViewBag.Roles as IEnumerable<Role> ?? Enumerable.Empty<Role>();
     var permissionsByCategory = ViewBag.PermissionsByCategory as Dictionary<string, List<Permission>> ?? new Dictionary<string, List<Permission>>();
+    var isMasterAdmin = ViewBag.IsMasterAdmin as bool? ?? false;
 }
 
 <div class="mb-4">
@@ -1049,6 +1050,8 @@
                         <tbody>
                             @foreach (var user in users)
                             {
+                                var targetIsAdmin = user.UserRoles.Any(ur => ur.Role.RoleName == "Admin");
+                                var canEditUserRoles = isMasterAdmin || !targetIsAdmin;
                             <tr>
                                 <td><small>@user.Email</small></td>
                                 <td>
@@ -1066,9 +1069,18 @@
                                     }
                                 </td>
                                 <td class="text-center">
+                                    @if (canEditUserRoles)
+                                    {
                                     <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editUserRoleModal-@user.UserId" title="Sửa vai trò">
                                         <i class="bi bi-pencil"></i>
                                     </button>
+                                    }
+                                    else
+                                    {
+                                    <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Chỉ Admin A00000 mới được thay đổi người dùng đang là Admin">
+                                        <i class="bi bi-lock"></i>
+                                    </button>
+                                    }
                                 </td>
                             </tr>
                             }
@@ -1161,6 +1173,8 @@
 @* Edit User Role Modals *@
 @foreach (var user in users)
 {
+    var targetIsAdmin = user.UserRoles.Any(ur => ur.Role.RoleName == "Admin");
+    var canEditUserRoles = isMasterAdmin || !targetIsAdmin;
 <div class="modal fade" id="editUserRoleModal-@user.UserId" tabindex="-1">
     <div class="modal-dialog">
         <form asp-action="UpdateUserRoles" method="post" class="modal-content">
@@ -1171,14 +1185,23 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                @if (!canEditUserRoles)
+                {
+                    <div class="alert alert-warning">
+                        <i class="bi bi-shield-lock"></i> Chỉ admin có mã nhân viên <strong>A00000</strong> mới được thay đổi người dùng đang là Admin.
+                    </div>
+                }
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Chọn vai trò</label>
                     @foreach (var role in roles)
                     {
+                        var isAdminRole = role.RoleName == "Admin";
+                        var disableRoleCheckbox = !isMasterAdmin && (targetIsAdmin || isAdminRole);
                         <div class="form-check">
                             <input type="checkbox" name="roleIds" value="@role.RoleId" class="form-check-input"
                                    id="role_@(user.UserId)_@role.RoleId"
-                                   @(user.UserRoles.Any(ur => ur.RoleId == role.RoleId) ? "checked" : "") />
+                                   @(user.UserRoles.Any(ur => ur.RoleId == role.RoleId) ? "checked" : "")
+                                   @(disableRoleCheckbox ? "disabled" : "") />
                             <label class="form-check-label" for="role_@(user.UserId)_@role.RoleId">
                                 <span class="badge bg-@(role.RoleName == "Admin" ? "danger" : role.RoleName == "Manager" ? "warning" : "secondary")">@role.RoleName</span>
                                 <small class="text-muted ms-1">@role.Description</small>
@@ -1189,7 +1212,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu</button>
+                <button type="submit" class="btn btn-primary" @(canEditUserRoles ? "" : "disabled")><i class="bi bi-check-lg"></i> Lưu</button>
             </div>
         </form>
     </div>

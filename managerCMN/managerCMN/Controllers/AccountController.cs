@@ -227,6 +227,9 @@ public class AccountController : Controller
             var employee = await _unitOfWork.Employees.GetByIdAsync(user.EmployeeId.Value);
             if (employee != null)
             {
+                if (!string.IsNullOrWhiteSpace(employee.EmployeeCode))
+                    claims.Add(new Claim("EmployeeCode", employee.EmployeeCode));
+
                 bool isApprover = employee.IsApprover;
                 // Check if employee is "Trưởng phòng" (JobTitleId = 2)
                 if (!isApprover)

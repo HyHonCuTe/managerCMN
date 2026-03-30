@@ -11,6 +11,9 @@ namespace managerCMN.Controllers;
 [Authorize(Policy = "AdminOnly")]
 public class SettingsController : Controller
 {
+    private const string AdminRoleName = "Admin";
+    private const string MasterAdminEmployeeCode = "A00000";
+
     private readonly IDepartmentService _departmentService;
     private readonly IEmployeeService _employeeService;
     private readonly IPermissionService _permissionService;
@@ -27,6 +30,9 @@ public class SettingsController : Controller
         _permissionService = permissionService;
         _db = db;
     }
+
+    private bool IsMasterAdmin()
+        => User.IsInRole(AdminRoleName) && User.HasClaim("EmployeeCode", MasterAdminEmployeeCode);
 
     public async Task<IActionResult> Index(string tab = "departments")
     {
@@ -62,6 +68,7 @@ public class SettingsController : Controller
         // Permissions tab
         if (tab == "permissions")
         {
+            ViewBag.IsMasterAdmin = IsMasterAdmin();
             ViewBag.Users = await _db.Users
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
                 .Include(u => u.Employee)
@@ -483,6 +490,45 @@ public class SettingsController : Controller
         try
         {
             roleIds ??= Array.Empty<int>();
+
+            var adminRoleId = await _db.Roles
+                .Where(r => r.RoleName == AdminRoleName)
+                .Select(r => (int?)r.RoleId)
+                .FirstOrDefaultAsync();
+
+            if (!adminRoleId.HasValue)
+                throw new InvalidOperationException("Không tìm thấy role Admin trong hệ thống.");
+
+            var targetUser = await _db.Users
+                .Include(u => u.UserRoles)
+                    .ThenInclude(ur => ur.Role)
+                .Include(u => u.Employee)
+                .FirstOrDefaultAsync(u => u.UserId == userId);
+
+            if (targetUser == null)
+            {
+                TempData["Error"] = "Không tìm thấy người dùng cần cập nhật.";
+                return RedirectToAction(nameof(Index), new { tab = "permissions" });
+            }
+
+            var isMasterAdmin = IsMasterAdmin();
+            var targetIsAdmin = targetUser.UserRoles.Any(ur => ur.RoleId == adminRoleId.Value);
+            var requestedAdminRole = roleIds.Contains(adminRoleId.Value);
+
+            if (!isMasterAdmin)
+            {
+                if (targetIsAdmin)
+                {
+                    TempData["Error"] = "Chỉ admin có mã nhân viên A00000 mới được thay đổi vai trò của người dùng đang là Admin.";
+                    return RedirectToAction(nameof(Index), new { tab = "permissions" });
+                }
+
+                if (requestedAdminRole)
+                {
+                    TempData["Error"] = "Chỉ admin có mã nhân viên A00000 mới được cấp vai trò Admin cho người dùng khác.";
+                    return RedirectToAction(nameof(Index), new { tab = "permissions" });
+                }
+            }
 
             // Remove existing user roles
             var existingUserRoles = await _db.UserRoles.Where(ur => ur.UserId == userId).ToListAsync();

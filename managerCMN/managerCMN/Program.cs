@@ -76,6 +76,9 @@ builder.Services.AddAuthorization(options =>
 {
     // Role-based policies (backward compatibility)
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
+    options.AddPolicy("MasterAdminOnly", policy => policy
+        .RequireRole("Admin")
+        .RequireClaim("EmployeeCode", "A00000"));
     options.AddPolicy("ManagerOrAdmin", policy => policy.RequireRole("Admin", "Manager"));
     options.AddPolicy("Authenticated", policy => policy.RequireAuthenticatedUser());
 

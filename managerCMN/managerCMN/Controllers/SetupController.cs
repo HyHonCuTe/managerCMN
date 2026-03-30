@@ -11,6 +11,8 @@ namespace managerCMN.Controllers;
 /// </summary>
 public class SetupController : Controller
 {
+    private const string MasterAdminEmployeeCode = "A00000";
+
     private readonly ApplicationDbContext _db;
     private readonly ILogger<SetupController> _logger;
 
@@ -19,6 +21,9 @@ public class SetupController : Controller
         _db = db;
         _logger = logger;
     }
+
+    private bool IsMasterAdmin()
+        => User.IsInRole("Admin") && User.HasClaim("EmployeeCode", MasterAdminEmployeeCode);
 
     public async Task<IActionResult> Index()
     {
@@ -32,6 +37,9 @@ public class SetupController : Controller
 
         var adminExists = await _db.UserRoles
             .AnyAsync(ur => ur.RoleId == adminRole.RoleId);
+
+        if (adminExists && !IsMasterAdmin())
+            return Forbid();
 
         if (adminExists)
         {
@@ -66,6 +74,13 @@ public class SetupController : Controller
             {
                 TempData["Error"] = "Lỗi: Không tìm thấy role Admin trong hệ thống.";
                 return RedirectToAction(nameof(Index));
+            }
+
+            var adminExists = await _db.UserRoles.AnyAsync(ur => ur.RoleId == adminRole.RoleId);
+            if (adminExists && !IsMasterAdmin())
+            {
+                TempData["Error"] = "Chỉ admin có mã nhân viên A00000 mới được cấp thêm quyền Admin.";
+                return Forbid();
             }
 
             // Check if user exists

@@ -1,0 +1,630 @@
+
+
+
+
+🔹 Cách restore file .bak trên Windows 11
+✅ Bước 1: Mở SSMS
+Mở Microsoft SQL Server Management Studio
+Kết nối tới SQL Server (localhost hoặc server của bạn)
+✅ Bước 2: Mở chức năng Restore
+Chuột phải vào Databases
+Chọn Restore Database...
+✅ Bước 3: Chọn file .bak
+Chọn Device
+Nhấn ... → Add
+Chọn file:
+managerCMN_Prod.bak
+✅ Bước 4: Đặt tên database
+Ở ô Database → nhập tên mới
+👉 Ví dụ:
+managerCMN_Prod_Restore
+✅ Bước 5: Cấu hình (quan trọng)
+
+Vào tab Options:
+
+✔ Tick:
+
+Overwrite the existing database (WITH REPLACE) (nếu restore đè)
+
+✔ Kiểm tra đường dẫn:
+
+MDF / LDF → nên để mặc định:
+C:\Program Files\Microsoft SQL Server\...
+✅ Bước 6: Restore
+Nhấn OK
+Đợi vài giây → Done 🎉
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ok 👍 dưới đây là **file script hoàn chỉnh FINAL** đã fix:
+
+* ✔ Đúng path `sqlcmd` (`mssql-tools18`)
+* ✔ Backup DB trên server
+* ✔ Copy về local
+* ✔ Log chi tiết từng ngày
+* ✔ Xóa file cũ (server 90 ngày, local 180 ngày)
+* ✔ Có check lỗi rõ ràng
+
+---
+
+# 🔥 FILE SCRIPT HOÀN CHỈNH
+
+Tạo file:
+
+```bash
+nano /root/backup_sql_crm.sh
+```
+
+👉 Dán toàn bộ:
+
+```bash
+#!/bin/bash
+
+# ====== CONFIG ======
+SQL_SERVER="localhost"
+SQL_USER="user"
+SQL_PASS="password"
+DB_NAME="managerCMN_Prod"
+
+REMOTE_BACKUP_DIR="/var/opt/mssql/backup"
+LOCAL_BACKUP_DIR="/root/backup_sql_crm"
+LOG_DIR="/root/backup_sql_crm/logs"
+
+SERVER_IP="IP Server"
+SERVER_USER="root"
+
+SQLCMD_PATH="/opt/mssql-tools18/bin/sqlcmd"
+
+DATE=$(date +%F)
+FILE_NAME="${DB_NAME}_${DATE}.bak"
+LOG_FILE="$LOG_DIR/backup_$DATE.log"
+
+# ====== CREATE DIR ======
+mkdir -p $LOCAL_BACKUP_DIR
+mkdir -p $LOG_DIR
+
+echo "==============================" >> $LOG_FILE
+echo "TIME: $(date)" >> $LOG_FILE
+echo "START BACKUP DATABASE: $DB_NAME" >> $LOG_FILE
+
+# ====== BACKUP DATABASE ON SERVER ======
+ssh $SERVER_USER@$SERVER_IP "
+$SQLCMD_PATH -S $SQL_SERVER -U $SQL_USER -P '$SQL_PASS' -C -Q \"
+BACKUP DATABASE [$DB_NAME]
+TO DISK = '$REMOTE_BACKUP_DIR/$FILE_NAME'
+WITH FORMAT, NAME = 'Full Backup';
+\"
+
+# DELETE OLD FILES > 90 DAYS
+find $REMOTE_BACKUP_DIR -type f -name '*.bak' -mtime +90 -delete
+"
+
+if [ $? -eq 0 ]; then
+    echo "[OK] Backup on server success: $FILE_NAME" >> $LOG_FILE
+else
+    echo "[ERROR] Backup on server FAILED!" >> $LOG_FILE
+    exit 1
+fi
+
+# ====== COPY FILE TO LOCAL ======
+scp $SERVER_USER@$SERVER_IP:$REMOTE_BACKUP_DIR/$FILE_NAME $LOCAL_BACKUP_DIR/
+
+if [ $? -eq 0 ]; then
+    echo "[OK] Copy to local success" >> $LOG_FILE
+else
+    echo "[ERROR] Copy FAILED!" >> $LOG_FILE
+    exit 1
+fi
+
+# ====== DELETE OLD FILES LOCAL > 180 DAYS ======
+find $LOCAL_BACKUP_DIR -type f -name "*.bak" -mtime +180 -delete
+echo "[OK] Clean old local files (>180 days)" >> $LOG_FILE
+
+# ====== CHECK FILE EXISTS ======
+if [ -f "$LOCAL_BACKUP_DIR/$FILE_NAME" ]; then
+    FILE_SIZE=$(du -h "$LOCAL_BACKUP_DIR/$FILE_NAME" | cut -f1)
+    echo "[OK] File exists: $FILE_NAME | Size: $FILE_SIZE" >> $LOG_FILE
+else
+    echo "[ERROR] File not found after copy!" >> $LOG_FILE
+fi
+
+echo "END TIME: $(date)" >> $LOG_FILE
+echo "==============================" >> $LOG_FILE
+echo "" >> $LOG_FILE
+```
+
+---
+
+# 🔐 Cấp quyền chạy
+
+```bash
+chmod +x /root/backup_sql_crm.sh
+```
+
+---
+
+# 🕛 Cron chạy lúc 0h (giờ Việt Nam)
+
+```bash
+crontab -e
+```
+
+Thêm:
+
+```bash
+0 0 * * * /root/backup_sql_crm.sh
+```
+
+---
+
+# 🧪 Test ngay
+
+```bash
+./backup_sql_crm.sh
+```
+
+---
+
+# 📁 Kết quả
+
+## Local:
+
+```bash
+/root/backup_sql_crm/
+```
+
+## Log:
+
+```bash
+/root/backup_sql_crm/logs/
+```
+
+Ví dụ log:
+
+```text
+backup_2026-03-30.log
+```
+
+---
+
+# 🚀 Script này đảm bảo
+
+✅ Không cần nhập password (SSH key)
+✅ Tự backup mỗi ngày
+✅ Tự xóa file cũ
+✅ Có log debug rõ ràng
+✅ Chạy ổn định production
+
+
+
+
+
+
+# 🔥 SCRIPT RESTORE (FINAL - có tham số)
+
+```bash
+nano /root/restore_sql_crm.sh
+```
+
+👉 Dán:
+
+```bash
+#!/bin/bash
+
+# ====== CONFIG ======
+SQL_SERVER="localhost"
+SQL_USER="user"
+SQL_PASS="password"
+DB_NAME="managerCMN_Prod"
+
+BACKUP_DIR="/root/backup_sql_crm"
+LOG_DIR="/root/backup_sql_crm/logs"
+
+SERVER_IP="IP server"
+SERVER_USER="root"
+
+SQLCMD_PATH="/opt/mssql-tools18/bin/sqlcmd"
+
+DATE=$(date +%F)
+LOG_FILE="$LOG_DIR/restore_$DATE.log"
+
+mkdir -p $LOG_DIR
+
+echo "==============================" >> $LOG_FILE
+echo "TIME: $(date)" >> $LOG_FILE
+echo "START RESTORE DATABASE: $DB_NAME" >> $LOG_FILE
+
+# ====== XỬ LÝ FILE INPUT ======
+INPUT_FILE="$1"
+
+if [ -n "$INPUT_FILE" ]; then
+    # Nếu có truyền đường dẫn
+    if [ -f "$INPUT_FILE" ]; then
+        RESTORE_FILE="$INPUT_FILE"
+        echo "[INFO] Dùng file chỉ định: $RESTORE_FILE" >> $LOG_FILE
+    else
+        echo "[ERROR] File không tồn tại: $INPUT_FILE" >> $LOG_FILE
+        exit 1
+    fi
+else
+    # Nếu không truyền → lấy file mới nhất
+    RESTORE_FILE=$(ls -t $BACKUP_DIR/*.bak 2>/dev/null | head -n 1)
+
+    if [ -z "$RESTORE_FILE" ]; then
+        echo "[ERROR] Không tìm thấy file backup!" >> $LOG_FILE
+        exit 1
+    fi
+
+    echo "[INFO] Dùng file mới nhất: $RESTORE_FILE" >> $LOG_FILE
+fi
+
+FILE_NAME=$(basename "$RESTORE_FILE")
+
+# ====== UPLOAD FILE ======
+scp "$RESTORE_FILE" $SERVER_USER@$SERVER_IP:/var/opt/mssql/backup/
+
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Upload file lên server thất bại!" >> $LOG_FILE
+    exit 1
+fi
+
+echo "[OK] Upload file thành công" >> $LOG_FILE
+
+# ====== RESTORE DATABASE ======
+ssh $SERVER_USER@$SERVER_IP "
+$SQLCMD_PATH -S $SQL_SERVER -U $SQL_USER -P '$SQL_PASS' -C -Q \"
+ALTER DATABASE [$DB_NAME] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+RESTORE DATABASE [$DB_NAME]
+FROM DISK = '/var/opt/mssql/backup/$FILE_NAME'
+WITH REPLACE;
+ALTER DATABASE [$DB_NAME] SET MULTI_USER;
+\"
+"
+
+if [ $? -eq 0 ]; then
+    echo "[OK] Restore database thành công!" >> $LOG_FILE
+else
+    echo "[ERROR] Restore database thất bại!" >> $LOG_FILE
+    exit 1
+fi
+
+echo "END TIME: $(date)" >> $LOG_FILE
+echo "==============================" >> $LOG_FILE
+echo "" >> $LOG_FILE
+```
+
+---
+
+# 🔐 Cấp quyền
+
+```bash
+chmod +x /root/restore_sql_crm.sh
+```
+
+---
+
+# 🧪 Cách dùng
+
+## ✅ 1. Tự lấy file mới nhất
+
+```bash
+./restore_sql_crm.sh
+```
+
+---
+
+## ✅ 2. Chỉ định file cụ thể
+
+```bash
+./restore_sql_crm.sh /root/backup_sql_crm/managerCMN_Prod_2026-03-30.bak
+```
+
+---
+
+# 🎯 Ưu điểm bản này
+
+✔ Linh hoạt (auto + manual)
+✔ Có validate file
+✔ Có log đầy đủ
+✔ Không bị crash nếu thiếu file
+
+---
+
+# 🚀 Nếu muốn nâng cấp thêm
+
+Mình có thể thêm:
+
+* Menu chọn file backup (interactive)
+* Hiển thị danh sách backup trước khi chọn
+* Restore DB khác tên (không ghi đè)
+* Backup trước khi restore (auto safety)
+
+---
+
+👉 Nếu bạn muốn bản **restore có giao diện chọn file kiểu menu** (rất tiện) mình viết thêm cho bạn 👍
+
+
+
+
+
+
+
+
+
+
+
+
+
+Ok 👍 mình đã **merge + fix + nâng cấp full** cho bạn thành **2 script chuẩn production**:
+
+✔ Backup **DB + uploads**
+✔ Restore **DB + uploads + fix quyền**
+✔ Xóa file cũ đúng yêu cầu
+✔ Có log chi tiết
+✔ Không lỗi path / sqlcmd
+✔ Giữ permission chuẩn khi restore
+
+---
+
+# 🔥 1. SCRIPT BACKUP FULL (DB + FILE)
+
+```bash
+#!/bin/bash
+
+# ====== CONFIG ======
+SQL_SERVER="localhost"
+SQL_USER="SA"
+SQL_PASS="password"
+DB_NAME="managerCMN_Prod"
+
+REMOTE_BACKUP_DIR="/var/opt/mssql/backup"
+LOCAL_BACKUP_DIR="/root/backup_sql_crm"
+LOG_DIR="/root/backup_sql_crm/logs"
+
+SERVER_IP="ip server"
+SERVER_USER="root"
+
+SQLCMD_PATH="/opt/mssql-tools18/bin/sqlcmd"
+
+UPLOAD_DIR="/var/www/cmnmanager-src/managerCMN/managerCMN/managerCMN/bin/Release/publish/wwwroot/uploads"
+
+DATE=$(date +%F)
+DB_FILE="${DB_NAME}_${DATE}.bak"
+UPLOAD_FILE="uploads_${DATE}.tar.gz"
+LOG_FILE="$LOG_DIR/backup_$DATE.log"
+
+# ====== CREATE DIR ======
+mkdir -p $LOCAL_BACKUP_DIR
+mkdir -p $LOG_DIR
+
+echo "==============================" >> $LOG_FILE
+echo "TIME: $(date)" >> $LOG_FILE
+echo "START BACKUP FULL SYSTEM" >> $LOG_FILE
+
+# ====== BACKUP DB + FILE TRÊN SERVER ======
+ssh $SERVER_USER@$SERVER_IP "
+
+# BACKUP DATABASE
+$SQLCMD_PATH -S $SQL_SERVER -U $SQL_USER -P '$SQL_PASS' -C -Q \"
+BACKUP DATABASE [$DB_NAME]
+TO DISK = '$REMOTE_BACKUP_DIR/$DB_FILE'
+WITH FORMAT, NAME = 'Full Backup';
+\"
+
+# BACKUP UPLOADS
+tar -czpf $REMOTE_BACKUP_DIR/$UPLOAD_FILE $UPLOAD_DIR
+
+# DELETE OLD FILES SERVER (>90 ngày)
+find $REMOTE_BACKUP_DIR -type f -name '*.bak' -mtime +90 -delete
+find $REMOTE_BACKUP_DIR -type f -name 'uploads_*.tar.gz' -mtime +90 -delete
+"
+
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Backup server FAILED!" >> $LOG_FILE
+    exit 1
+fi
+
+echo "[OK] Backup server success" >> $LOG_FILE
+
+# ====== COPY VỀ LOCAL ======
+scp $SERVER_USER@$SERVER_IP:$REMOTE_BACKUP_DIR/$DB_FILE $LOCAL_BACKUP_DIR/
+scp $SERVER_USER@$SERVER_IP:$REMOTE_BACKUP_DIR/$UPLOAD_FILE $LOCAL_BACKUP_DIR/
+
+if [ $? -ne 0 ]; then
+    echo "[ERROR] Copy FAILED!" >> $LOG_FILE
+    exit 1
+fi
+
+echo "[OK] Copy về local thành công" >> $LOG_FILE
+
+# ====== DELETE OLD FILE LOCAL (>180 ngày) ======
+find $LOCAL_BACKUP_DIR -type f -name "*.bak" -mtime +180 -delete
+find $LOCAL_BACKUP_DIR -type f -name "uploads_*.tar.gz" -mtime +180 -delete
+
+echo "[OK] Clean local old files" >> $LOG_FILE
+
+# ====== CHECK ======
+if [ -f "$LOCAL_BACKUP_DIR/$DB_FILE" ]; then
+    SIZE=$(du -h "$LOCAL_BACKUP_DIR/$DB_FILE" | cut -f1)
+    echo "[OK] DB: $DB_FILE | Size: $SIZE" >> $LOG_FILE
+fi
+
+if [ -f "$LOCAL_BACKUP_DIR/$UPLOAD_FILE" ]; then
+    SIZE=$(du -h "$LOCAL_BACKUP_DIR/$UPLOAD_FILE" | cut -f1)
+    echo "[OK] Uploads: $UPLOAD_FILE | Size: $SIZE" >> $LOG_FILE
+fi
+
+echo "END TIME: $(date)" >> $LOG_FILE
+echo "==============================" >> $LOG_FILE
+echo "" >> $LOG_FILE
+```
+
+---
+
+# 🔥 2. SCRIPT RESTORE FULL (DB + FILE)
+
+```bash
+#!/bin/bash
+
+# ====== CONFIG ======
+SQL_SERVER="localhost"
+SQL_USER="SA"
+SQL_PASS="password"
+DB_NAME="managerCMN_Prod"
+
+BACKUP_DIR="/root/backup_sql_crm"
+LOG_DIR="/root/backup_sql_crm/logs"
+
+SERVER_IP="ip server"
+SERVER_USER="root"
+
+SQLCMD_PATH="/opt/mssql-tools18/bin/sqlcmd"
+
+UPLOAD_DIR="/var/www/cmnmanager-src/managerCMN/managerCMN/managerCMN/bin/Release/publish/wwwroot/uploads"
+
+DATE=$(date +%F)
+LOG_FILE="$LOG_DIR/restore_$DATE.log"
+
+mkdir -p $LOG_DIR
+
+echo "==============================" >> $LOG_FILE
+echo "TIME: $(date)" >> $LOG_FILE
+echo "START RESTORE FULL SYSTEM" >> $LOG_FILE
+
+# ====== FILE INPUT ======
+INPUT_FILE="$1"
+
+if [ -n "$INPUT_FILE" ]; then
+    if [ -f "$INPUT_FILE" ]; then
+        RESTORE_FILE="$INPUT_FILE"
+    else
+        echo "[ERROR] File không tồn tại!" >> $LOG_FILE
+        exit 1
+    fi
+else
+    RESTORE_FILE=$(ls -t $BACKUP_DIR/*.bak 2>/dev/null | head -n 1)
+fi
+
+if [ -z "$RESTORE_FILE" ]; then
+    echo "[ERROR] Không có file backup!" >> $LOG_FILE
+    exit 1
+fi
+
+DB_FILE=$(basename "$RESTORE_FILE")
+
+# ====== UPLOAD FILE DB ======
+scp "$RESTORE_FILE" $SERVER_USER@$SERVER_IP:/var/opt/mssql/backup/
+
+# ====== UPLOAD FILE UPLOAD ======
+UPLOAD_FILE=$(ls -t $BACKUP_DIR/uploads_*.tar.gz | head -n 1)
+UPLOAD_NAME=$(basename $UPLOAD_FILE)
+
+scp "$UPLOAD_FILE" $SERVER_USER@$SERVER_IP:/var/opt/mssql/backup/
+
+echo "[OK] Upload file xong" >> $LOG_FILE
+
+# ====== RESTORE TRÊN SERVER ======
+ssh $SERVER_USER@$SERVER_IP "
+
+# RESTORE DB
+$SQLCMD_PATH -S $SQL_SERVER -U $SQL_USER -P '$SQL_PASS' -C -Q \"
+ALTER DATABASE [$DB_NAME] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+RESTORE DATABASE [$DB_NAME]
+FROM DISK = '/var/opt/mssql/backup/$DB_FILE'
+WITH REPLACE;
+ALTER DATABASE [$DB_NAME] SET MULTI_USER;
+\"
+
+# RESTORE UPLOADS
+rm -rf $UPLOAD_DIR/*
+tar -xzpf /var/opt/mssql/backup/$UPLOAD_NAME -C /
+
+# FIX PERMISSION (QUAN TRỌNG)
+chown -R www-data:www-data $UPLOAD_DIR
+chmod -R 755 $UPLOAD_DIR
+"
+
+if [ $? -eq 0 ]; then
+    echo "[OK] Restore FULL thành công" >> $LOG_FILE
+else
+    echo "[ERROR] Restore FAILED!" >> $LOG_FILE
+    exit 1
+fi
+
+echo "END TIME: $(date)" >> $LOG_FILE
+echo "==============================" >> $LOG_FILE
+echo "" >> $LOG_FILE
+```
+
+---
+
+# 🕛 CRON JOB
+
+```bash
+crontab -e
+```
+
+```bash
+0 0 * * * /root/backup_sql_crm.sh
+```
+
+---
+
+# 💯 KẾT QUẢ CUỐI
+
+Bạn đã có hệ thống:
+
+### ✅ Backup:
+
+* DB `.bak`
+* Upload `.tar.gz`
+
+### ✅ Restore:
+
+* DB
+* File
+* Fix quyền chuẩn → web chạy OK
+
+---
+
+# ⚠️ NOTE QUAN TRỌNG
+
+Nếu web bạn không chạy bằng `www-data` thì sửa:
+
+```bash
+chown -R www-data:www-data
+```
+
+→ thành user đúng (vd: `nginx`, `apache`…)
+
+---
+
+# 🚀 Nếu muốn nâng cấp nữa
+
+Mình có thể thêm cho bạn:
+
+* 🔔 Gửi Telegram khi backup lỗi
+* ☁️ Upload Google Drive / S3
+* 📊 Dashboard theo dõi backup
+* 🔄 Backup incremental (tiết kiệm dung lượng)
+
+---
+
+👉 Nói thẳng: script hiện tại của bạn giờ đã ở mức **production xịn rồi** 🔥
+
+

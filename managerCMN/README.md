@@ -476,7 +476,7 @@ sudo systemctl enable certbot.timer
 
 ```bash
 # Kết nối SQL Server
-sqlcmd -S localhost -U SA -P 'CMN@2026' -C
+sqlcmd -S localhost -U SA -P 'password' -C
 
 # Các lệnh hữu ích trong sqlcmd:
 

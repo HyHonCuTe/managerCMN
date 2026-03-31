@@ -117,6 +117,23 @@ public class AttendanceCalendarViewModel
         var end = new DateOnly(year, month, 25);
         return (start, end);
     }
+
+    /// <summary>
+    /// Resolve the attendance period label for a specific date.
+    /// From the 26th onward, the company starts counting for the next month.
+    /// Example: 31/03/2026 belongs to attendance month 04/2026.
+    /// </summary>
+    public static (int year, int month) GetDisplayPeriod(DateOnly date)
+    {
+        if (date.Day >= 26)
+        {
+            return date.Month == 12
+                ? (date.Year + 1, 1)
+                : (date.Year, date.Month + 1);
+        }
+
+        return (date.Year, date.Month);
+    }
 }
 
 public class EmployeeSelectItem

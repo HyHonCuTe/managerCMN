@@ -57,7 +57,7 @@
                 <a href="@Url.Action("ExportToExcel", new { year, month })" class="btn btn-success btn-sm">
                     <i class="bi bi-file-earmark-excel"></i> Xuất Excel
                 </a>
-                @if (User.IsInRole("Admin"))
+                @* @if (User.IsInRole("Admin"))
                 {
                     <button type="button" class="btn btn-warning btn-sm" data-bs-toggle="modal" data-bs-target="#updateLateMinutesModal">
                         <i class="bi bi-arrow-clockwise"></i> Cập nhật phút muộn
@@ -65,7 +65,7 @@
                     <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#recalculateAttendanceModal">
                         <i class="bi bi-arrow-repeat"></i> Đồng bộ giờ chấm
                     </button>
-                }
+                } *@
             </div>
         </div>
         <div class="card-body">

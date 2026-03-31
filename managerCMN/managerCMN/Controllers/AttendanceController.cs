@@ -58,8 +58,10 @@ public class AttendanceController : Controller
 
     public async Task<IActionResult> Index(int? year, int? month, int? employeeId)
     {
-        year ??= DateTimeHelper.VietnamNow.Year;
-        month ??= DateTimeHelper.VietnamNow.Month;
+        var currentAttendancePeriod = AttendanceCalendarViewModel.GetDisplayPeriod(
+            DateOnly.FromDateTime(DateTimeHelper.VietnamNow));
+        year ??= currentAttendancePeriod.year;
+        month ??= currentAttendancePeriod.month;
 
         bool isAdminOrManager = User.IsInRole("Admin") || User.IsInRole("Manager");
         int? myEmployeeId = null;
@@ -380,8 +382,10 @@ public class AttendanceController : Controller
     [Authorize(Policy = "ManagerOrAdmin")]
     public async Task<IActionResult> LateReport(int? year, int? month)
     {
-        year ??= DateTimeHelper.VietnamNow.Year;
-        month ??= DateTimeHelper.VietnamNow.Month;
+        var currentAttendancePeriod = AttendanceCalendarViewModel.GetDisplayPeriod(
+            DateOnly.FromDateTime(DateTimeHelper.VietnamNow));
+        year ??= currentAttendancePeriod.year;
+        month ??= currentAttendancePeriod.month;
 
         var lateRecords = await _attendanceService.GetLateCheckInsAsync(year.Value, month.Value);
 
@@ -419,8 +423,10 @@ public class AttendanceController : Controller
     [Authorize(Policy = "ManagerOrAdmin")]
     public async Task<IActionResult> ExportToExcel(int? year, int? month)
     {
-        year ??= DateTimeHelper.VietnamNow.Year;
-        month ??= DateTimeHelper.VietnamNow.Month;
+        var currentAttendancePeriod = AttendanceCalendarViewModel.GetDisplayPeriod(
+            DateOnly.FromDateTime(DateTimeHelper.VietnamNow));
+        year ??= currentAttendancePeriod.year;
+        month ??= currentAttendancePeriod.month;
 
         var excelBytes = await _attendanceService.ExportToExcelAsync(year.Value, month.Value);
         var fileName = $"BangChamCong_{year}_{month:D2}.xlsx";
@@ -431,8 +437,10 @@ public class AttendanceController : Controller
     [Authorize(Policy = "ManagerOrAdmin")]
     public async Task<IActionResult> Summary(int? year, int? month)
     {
-        year ??= DateTimeHelper.VietnamNow.Year;
-        month ??= DateTimeHelper.VietnamNow.Month;
+        var currentAttendancePeriod = AttendanceCalendarViewModel.GetDisplayPeriod(
+            DateOnly.FromDateTime(DateTimeHelper.VietnamNow));
+        year ??= currentAttendancePeriod.year;
+        month ??= currentAttendancePeriod.month;
 
         var employees = await _employeeService.GetAllAsync();
         var (periodStart, periodEnd) = AttendanceCalendarViewModel.GetPeriodDates(year.Value, month.Value);

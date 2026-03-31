@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
 using managerCMN.Models.Entities;
@@ -13,6 +14,7 @@ public class SettingsController : Controller
 {
     private const string AdminRoleName = "Admin";
     private const string MasterAdminEmployeeCode = "A00000";
+    private const string FullAttendanceTableName = "FullAttendanceEmployees";
 
     private readonly IDepartmentService _departmentService;
     private readonly IEmployeeService _employeeService;
@@ -33,6 +35,60 @@ public class SettingsController : Controller
 
     private bool IsMasterAdmin()
         => User.IsInRole(AdminRoleName) && User.HasClaim("EmployeeCode", MasterAdminEmployeeCode);
+
+    private static bool IsMissingTableException(SqlException ex, string tableName)
+        => ex.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+        && ex.Message.Contains(tableName, StringComparison.OrdinalIgnoreCase);
+
+    private async Task<bool> IsFullAttendanceFeatureAvailableAsync()
+    {
+        try
+        {
+            await _db.FullAttendanceEmployees.AsNoTracking().AnyAsync();
+            return true;
+        }
+        catch (SqlException ex) when (IsMissingTableException(ex, FullAttendanceTableName))
+        {
+            return false;
+        }
+    }
+
+    private IActionResult RedirectFullAttendanceMigrationRequired()
+    {
+        TempData["Error"] = "Tính năng chấm công đầy đủ chưa sẵn sàng vì database chưa có bảng FullAttendanceEmployees. Vui lòng chạy migration mới nhất bằng 'dotnet ef database update'.";
+        return RedirectToAction(nameof(Index), new { tab = "fullattendance" });
+    }
+
+    private async Task LoadFullAttendanceViewDataAsync(IEnumerable<Employee> employees)
+    {
+        try
+        {
+            var fullAttendanceEmployees = await _db.FullAttendanceEmployees
+                .Include(f => f.Employee)
+                .OrderBy(f => f.Employee.FullName)
+                .ToListAsync();
+
+            var fullAttendanceEmployeeIds = fullAttendanceEmployees
+                .Select(f => f.EmployeeId)
+                .ToHashSet();
+
+            ViewBag.FullAttendanceEmployees = fullAttendanceEmployees;
+            ViewBag.AvailableEmployeesForFullAttendance = employees
+                .Where(e => e.Status == Models.Enums.EmployeeStatus.Active &&
+                            !fullAttendanceEmployeeIds.Contains(e.EmployeeId))
+                .OrderBy(e => e.FullName)
+                .ToList();
+            ViewBag.FullAttendanceFeatureAvailable = true;
+            ViewBag.FullAttendanceFeatureMessage = null;
+        }
+        catch (SqlException ex) when (IsMissingTableException(ex, FullAttendanceTableName))
+        {
+            ViewBag.FullAttendanceEmployees = new List<FullAttendanceEmployee>();
+            ViewBag.AvailableEmployeesForFullAttendance = new List<Employee>();
+            ViewBag.FullAttendanceFeatureAvailable = false;
+            ViewBag.FullAttendanceFeatureMessage = "Database hiện chưa có bảng FullAttendanceEmployees. Tab này chỉ hoạt động sau khi chạy migration mới nhất bằng 'dotnet ef database update'.";
+        }
+    }
 
     public async Task<IActionResult> Index(string tab = "departments")
     {
@@ -55,15 +111,7 @@ public class SettingsController : Controller
             .OrderBy(e => e.FullName).ToList();
 
         // Full Attendance tab
-        ViewBag.FullAttendanceEmployees = await _db.FullAttendanceEmployees
-            .Include(f => f.Employee)
-            .OrderBy(f => f.Employee.FullName)
-            .ToListAsync();
-        ViewBag.AvailableEmployeesForFullAttendance = employees
-            .Where(e => e.Status == Models.Enums.EmployeeStatus.Active &&
-                        !_db.FullAttendanceEmployees.Any(f => f.EmployeeId == e.EmployeeId))
-            .OrderBy(e => e.FullName)
-            .ToList();
+        await LoadFullAttendanceViewDataAsync(employees);
 
         // Permissions tab
         if (tab == "permissions")
@@ -562,6 +610,9 @@ public class SettingsController : Controller
     {
         try
         {
+            if (!await IsFullAttendanceFeatureAvailableAsync())
+                return RedirectFullAttendanceMigrationRequired();
+
             var existing = await _db.FullAttendanceEmployees.FirstOrDefaultAsync(f => f.EmployeeId == employeeId);
             if (existing != null)
             {
@@ -597,6 +648,9 @@ public class SettingsController : Controller
     {
         try
         {
+            if (!await IsFullAttendanceFeatureAvailableAsync())
+                return RedirectFullAttendanceMigrationRequired();
+
             var fullAttendanceEmp = await _db.FullAttendanceEmployees.FindAsync(id);
             if (fullAttendanceEmp == null) return NotFound();
 
@@ -619,6 +673,9 @@ public class SettingsController : Controller
     {
         try
         {
+            if (!await IsFullAttendanceFeatureAvailableAsync())
+                return RedirectFullAttendanceMigrationRequired();
+
             var fullAttendanceEmp = await _db.FullAttendanceEmployees.Include(f => f.Employee).FirstOrDefaultAsync(f => f.Id == id);
             if (fullAttendanceEmp == null) return NotFound();
 

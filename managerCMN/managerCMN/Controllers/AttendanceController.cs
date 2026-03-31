@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
 using managerCMN.Helpers;
@@ -15,6 +16,8 @@ namespace managerCMN.Controllers;
 [Authorize(Policy = "Authenticated")]
 public class AttendanceController : Controller
 {
+    private const string FullAttendanceTableName = "FullAttendanceEmployees";
+
     private readonly IAttendanceService _attendanceService;
     private readonly IEmployeeService _employeeService;
     private readonly IRequestService _requestService;
@@ -33,6 +36,24 @@ public class AttendanceController : Controller
         _requestService = requestService;
         _holidayService = holidayService;
         _db = db;
+    }
+
+    private static bool IsMissingFullAttendanceTable(SqlException ex)
+        => ex.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+        && ex.Message.Contains(FullAttendanceTableName, StringComparison.OrdinalIgnoreCase);
+
+    private async Task<HashSet<int>> GetFullAttendanceEmployeeIdsAsync()
+    {
+        try
+        {
+            return await _db.FullAttendanceEmployees
+                .Select(f => f.EmployeeId)
+                .ToHashSetAsync();
+        }
+        catch (SqlException ex) when (IsMissingFullAttendanceTable(ex))
+        {
+            return [];
+        }
     }
 
     public async Task<IActionResult> Index(int? year, int? month, int? employeeId)
@@ -122,9 +143,7 @@ public class AttendanceController : Controller
             PeriodEnd = periodEnd,
         };
 
-        var fullAttendanceEmployeeIds = await _db.FullAttendanceEmployees
-            .Select(f => f.EmployeeId)
-            .ToHashSetAsync();
+        var fullAttendanceEmployeeIds = await GetFullAttendanceEmployeeIdsAsync();
         var isFullAttendanceEmployee = employeeId.HasValue && fullAttendanceEmployeeIds.Contains(employeeId.Value);
         ViewBag.IsFullAttendanceEmployee = isFullAttendanceEmployee;
 

@@ -13,6 +13,8 @@
     var nonApprovers = ViewBag.NonApprovers as List<Employee> ?? new List<Employee>();
     var fullAttendanceEmployees = ViewBag.FullAttendanceEmployees as IEnumerable<FullAttendanceEmployee> ?? Enumerable.Empty<FullAttendanceEmployee>();
     var availableEmployeesForFullAttendance = ViewBag.AvailableEmployeesForFullAttendance as List<Employee> ?? new List<Employee>();
+    var fullAttendanceFeatureAvailable = ViewBag.FullAttendanceFeatureAvailable as bool? ?? true;
+    var fullAttendanceFeatureMessage = ViewBag.FullAttendanceFeatureMessage as string;
     var users = ViewBag.Users as IEnumerable<User> ?? Enumerable.Empty<User>();
     var roles = ViewBag.Roles as IEnumerable<Role> ?? Enumerable.Empty<Role>();
     var permissionsByCategory = ViewBag.PermissionsByCategory as Dictionary<string, List<Permission>> ?? new Dictionary<string, List<Permission>>();
@@ -1227,11 +1229,17 @@
 <div class="card">
     <div class="card-header d-flex justify-content-between align-items-center">
         <span><i class="bi bi-check-circle"></i> Danh sách chấm công đầy đủ tự động</span>
-        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addFullAttendanceModal">
+        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addFullAttendanceModal" @(fullAttendanceFeatureAvailable ? "" : "disabled")>
             <i class="bi bi-plus-lg"></i> Thêm nhân viên
         </button>
     </div>
     <div class="card-body p-0">
+        @if (!fullAttendanceFeatureAvailable && !string.IsNullOrWhiteSpace(fullAttendanceFeatureMessage))
+        {
+            <div class="alert alert-warning m-3 mb-0">
+                <i class="bi bi-exclamation-triangle"></i> @fullAttendanceFeatureMessage
+            </div>
+        }
         <table class="table table-hover mb-0">
             <thead class="table-light">
                 <tr>

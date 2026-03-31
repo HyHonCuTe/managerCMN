@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Models.Entities;
 using managerCMN.Models.ViewModels;
@@ -11,6 +12,8 @@ namespace managerCMN.Services.Implementations;
 
 public class AttendanceService : IAttendanceService
 {
+    private const string FullAttendanceTableName = "FullAttendanceEmployees";
+
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISystemLogService _logService;
     private readonly IHttpContextAccessor _httpContextAccessor;
@@ -30,6 +33,24 @@ public class AttendanceService : IAttendanceService
     }
 
     private string? GetClientIP() => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+
+    private static bool IsMissingFullAttendanceTable(SqlException ex)
+        => ex.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
+        && ex.Message.Contains(FullAttendanceTableName, StringComparison.OrdinalIgnoreCase);
+
+    private async Task<HashSet<int>> GetFullAttendanceEmployeeIdsAsync()
+    {
+        try
+        {
+            return (await _unitOfWork.FullAttendanceEmployees.FindAsync(e => true))
+                .Select(f => f.EmployeeId)
+                .ToHashSet();
+        }
+        catch (SqlException ex) when (IsMissingFullAttendanceTable(ex))
+        {
+            return [];
+        }
+    }
 
     public async Task<IEnumerable<Attendance>> GetByEmployeeAndMonthAsync(int employeeId, int year, int month)
         => await _unitOfWork.Attendances.GetByEmployeeAndMonthAsync(employeeId, year, month);
@@ -248,9 +269,7 @@ public class AttendanceService : IAttendanceService
         }
 
         // Get list of employees with automatic full attendance
-        var fullAttendanceEmployeeIds = (await _unitOfWork.FullAttendanceEmployees.FindAsync(e => true))
-            .Select(f => f.EmployeeId)
-            .ToHashSet();
+        var fullAttendanceEmployeeIds = await GetFullAttendanceEmployeeIdsAsync();
 
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Bảng chấm công");

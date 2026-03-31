@@ -1,7 +1,9 @@
 using System.Security.Claims;
+using System.ComponentModel.DataAnnotations;
 using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
+using managerCMN.Models.ViewModels;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -495,9 +497,6 @@ public class RequestService : IRequestService
         return jobTitleId == 4 || jobTitleId == 5;
     }
 
-    public async Task<Employee?> GetByEmployeeIdAsync(int employeeId)
-        => await _unitOfWork.Employees.GetByIdAsync(employeeId);
-
     public async Task<IEnumerable<Employee>> GetAvailableApprover2ListAsync()
     {
         var allEmployees = await _unitOfWork.Employees.GetAllAsync();
@@ -506,20 +505,34 @@ public class RequestService : IRequestService
             .OrderBy(e => e.FullName);
     }
 
-    public async Task<IEnumerable<Employee>> GetAllDepartmentEmployeesAsync(int departmentId)
+    public async Task<decimal> CalculateTotalDaysAsync(DateTime start, DateTime end, bool halfDayStart, bool halfDayEnd)
     {
-        var allEmployees = await _unitOfWork.Employees.GetAllAsync();
-        return allEmployees
-            .Where(e => e.DepartmentId == departmentId && e.Status == EmployeeStatus.Active)
-            .OrderBy(e => e.FullName);
-    }
+        var startDate = DateOnly.FromDateTime(start);
+        var endDate = DateOnly.FromDateTime(end);
 
-    public decimal CalculateTotalDays(DateTime start, DateTime end, bool halfDayStart, bool halfDayEnd)
-    {
-        var days = (end.Date - start.Date).Days + 1m;
-        if (halfDayStart) days -= 0.5m;
-        if (halfDayEnd) days -= 0.5m;
-        return Math.Max(days, 0.5m);
+        if (endDate < startDate)
+            throw new ValidationException("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.");
+
+        var holidays = (await _unitOfWork.Holidays.GetByDateRangeAsync(startDate, endDate))
+            .Select(h => h.Date)
+            .ToHashSet();
+
+        decimal totalDays = 0m;
+        for (var date = startDate; date <= endDate; date = date.AddDays(1))
+        {
+            if (!AttendanceCalendarViewModel.IsWorkingDay(date, holidays))
+                continue;
+
+            decimal dayUnits = 1m;
+            if (date == startDate && halfDayStart)
+                dayUnits -= 0.5m;
+            if (date == endDate && halfDayEnd)
+                dayUnits -= 0.5m;
+
+            totalDays += Math.Max(dayUnits, 0m);
+        }
+
+        return Math.Max(totalDays, 0m);
     }
 
     private async Task NotifyApprover(int approverEmployeeId, string title, string message)

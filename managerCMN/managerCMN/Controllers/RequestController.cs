@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -112,26 +112,26 @@ public class RequestController : Controller
             }
         }
 
+        var isHalfDayStart = model.HalfDayStartOption > 0;
+        var isHalfDayEnd = model.HalfDayEndOption > 0;
+        var totalDays = await TryCalculateTotalDaysAsync(model.StartTime, model.EndTime, isHalfDayStart, isHalfDayEnd);
+
         // Check leave balance and auto-convert to unpaid if insufficient
         bool autoConvertedToUnpaid = false;
-        if (model.RequestType == RequestType.Leave && model.LeaveReason.HasValue)
+        if (model.RequestType == RequestType.Leave && model.LeaveReason.HasValue && totalDays.HasValue)
         {
             var isUnpaid = !LeaveReasonHelper.GetCountsAsWork(model.LeaveReason.Value);
             if (!isUnpaid) // Only check paid leave
             {
-                // Calculate total days for checking
-                var totalDays = _requestService.CalculateTotalDays(model.StartTime, model.EndTime,
-                    model.HalfDayStartOption > 0, model.HalfDayEndOption > 0);
-
                 // CRITICAL: Use current date to check leave balance, not request date
                 // This ensures we validate against current available leave, not historical leave
                 var summary = await _leaveService.GetBalanceSummaryAsync(employeeId, today);
-                if (summary.TotalRemaining < totalDays)
+                if (summary.TotalRemaining < totalDays.Value)
                 {
                     // Auto-convert to unpaid instead of blocking
                     model.CountsAsWork = false;
                     autoConvertedToUnpaid = true;
-                    TempData["Warning"] = $"Không đủ số dư phép (còn {summary.TotalRemaining} ngày, cần {totalDays} ngày). Đơn được chuyển sang không tính công.";
+                    TempData["Warning"] = $"Không đủ số dư phép (còn {summary.TotalRemaining} ngày, cần {totalDays.Value} ngày). Đơn được chuyển sang không tính công.";
                 }
             }
         }
@@ -149,8 +149,8 @@ public class RequestController : Controller
         }
 
         // Map half-day option: 0=Full, 1=Morning half, 2=Afternoon half
-        model.IsHalfDayStart = model.HalfDayStartOption > 0;
-        model.IsHalfDayEnd = model.HalfDayEndOption > 0;
+        model.IsHalfDayStart = isHalfDayStart;
+        model.IsHalfDayEnd = isHalfDayEnd;
 
         var request = new Request
         {
@@ -167,7 +167,7 @@ public class RequestController : Controller
             LeaveReason = model.LeaveReason,
             Reason = model.Reason,
             Description = model.Description,
-            TotalDays = _requestService.CalculateTotalDays(model.StartTime, model.EndTime, model.IsHalfDayStart, model.IsHalfDayEnd),
+            TotalDays = totalDays!.Value,
             CountsAsWork = model.CountsAsWork // Use the potentially auto-converted value
         };
 
@@ -529,18 +529,22 @@ public class RequestController : Controller
             }
         }
 
+        var isHalfDayStart = model.HalfDayStartOption > 0;
+        var isHalfDayEnd = model.HalfDayEndOption > 0;
+        var totalDays = await TryCalculateTotalDaysAsync(model.StartTime, model.EndTime, isHalfDayStart, isHalfDayEnd);
+
         if (!ModelState.IsValid)
         {
             model.RequestId = id;
-            await PopulateCreateViewModel(model, employeeId);
+            await PopulateCreateViewModel(model, request.EmployeeId);
             return View(model);
         }
 
         if (model.LeaveReason.HasValue)
             model.Reason = LeaveReasonHelper.GetDisplayName(model.LeaveReason.Value);
 
-        model.IsHalfDayStart = model.HalfDayStartOption > 0;
-        model.IsHalfDayEnd = model.HalfDayEndOption > 0;
+        model.IsHalfDayStart = isHalfDayStart;
+        model.IsHalfDayEnd = isHalfDayEnd;
 
         request.RequestType = model.RequestType;
         request.CheckInOutType = model.CheckInOutType;
@@ -554,7 +558,7 @@ public class RequestController : Controller
         request.LeaveReason = model.LeaveReason;
         request.Reason = model.Reason;
         request.Description = model.Description;
-        request.TotalDays = _requestService.CalculateTotalDays(model.StartTime, model.EndTime, model.IsHalfDayStart, model.IsHalfDayEnd);
+        request.TotalDays = totalDays!.Value;
 
         if (model.LeaveReason.HasValue)
             request.CountsAsWork = LeaveReasonHelper.GetCountsAsWork(model.LeaveReason.Value);
@@ -562,104 +566,6 @@ public class RequestController : Controller
         await _requestService.UpdateAsync(request);
         TempData["Success"] = "Đã cập nhật đơn thành công!";
         return RedirectToAction(nameof(Index));
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> GetDebugDepartmentManagers()
-    {
-        var employeeId = GetCurrentEmployeeId();
-        var managers = await _requestService.GetDepartmentManagersAsync(employeeId);
-
-        // Get current user info for debug
-        var currentEmployee = await _requestService.GetByEmployeeIdAsync(employeeId);
-
-        var result = new
-        {
-            EmployeeId = employeeId,
-            CurrentEmployee = currentEmployee == null ? null : new
-            {
-                currentEmployee.EmployeeId,
-                currentEmployee.FullName,
-                currentEmployee.DepartmentId,
-                Department = currentEmployee.Department?.DepartmentName,
-                PositionName = currentEmployee.Position?.PositionName,
-                currentEmployee.Status
-            },
-            UserClaims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
-            Managers = managers.Select(m => new
-            {
-                m.EmployeeId,
-                m.FullName,
-                m.DepartmentId,
-                Department = m.Department?.DepartmentName,
-                PositionName = m.Position?.PositionName,
-                m.Status
-            }).ToList()
-        };
-
-        return Json(result);
-    }
-
-    [HttpGet]
-    public async Task<IActionResult> GetDebugAllISCEmployees()
-    {
-        var employeeId = GetCurrentEmployeeId();
-        var currentEmployee = await _requestService.GetByEmployeeIdAsync(employeeId);
-
-        if (currentEmployee?.DepartmentId == null)
-        {
-            return Json(new { Error = "Employee not found or no department" });
-        }
-
-        // Get all employees in the same department
-        var allDepartmentEmployees = await _requestService.GetAllDepartmentEmployeesAsync(currentEmployee.DepartmentId.Value);
-
-        var result = new
-        {
-            CurrentEmployee = new
-            {
-                currentEmployee.EmployeeId,
-                currentEmployee.FullName,
-                currentEmployee.DepartmentId,
-                Department = currentEmployee.Department?.DepartmentName,
-                PositionName = currentEmployee.Position?.PositionName,
-                currentEmployee.Status
-            },
-            AllDepartmentEmployees = allDepartmentEmployees.Select(e => new
-            {
-                e.EmployeeId,
-                e.FullName,
-                PositionName = e.Position?.PositionName,
-                JobTitleId = e.JobTitleId,
-                JobTitleName = e.JobTitle?.JobTitleName,
-                e.Status,
-                IsManager = IsManagerPositionDebug(e.JobTitleId),
-                IsApprover = e.IsApprover,
-                IsLowLevel = IsLowLevelJobTitleDebug(e.JobTitleId)
-            }).OrderBy(e => e.PositionName).ToList()
-        };
-
-        return Json(result);
-    }
-
-    private bool IsManagerPositionDebug(int? jobTitleId)
-    {
-        if (!jobTitleId.HasValue) return false;
-
-        // Manager JobTitles based on JobTitles table:
-        // 1 = Ban Giám Đốc
-        // 2 = Trưởng phòng
-        return jobTitleId == 1 || jobTitleId == 2;
-    }
-
-    private bool IsLowLevelJobTitleDebug(int? jobTitleId)
-    {
-        if (!jobTitleId.HasValue) return true; // No JobTitle = low level
-
-        // Low-level JobTitles:
-        // 4 = Nhân viên
-        // 5 = Thực tập
-        return jobTitleId == 4 || jobTitleId == 5;
     }
 
     [HttpGet]
@@ -678,24 +584,39 @@ public class RequestController : Controller
     [HttpGet]
     public async Task<IActionResult> GetLeaveBalance(DateTime startDate, DateTime endDate, bool isHalfDayStart = false, bool isHalfDayEnd = false)
     {
-        var employeeId = GetCurrentEmployeeId();
-        var totalDays = _requestService.CalculateTotalDays(startDate, endDate, isHalfDayStart, isHalfDayEnd);
-
-        // CRITICAL: Always use current date to calculate available leave balance, not the request date
-        // This ensures we calculate based on current entitlements, not past entitlements
-        var currentDate = DateTimeHelper.VietnamToday;
-        var summary = await _leaveService.GetBalanceSummaryAsync(employeeId, currentDate);
-        var availableLeave = summary.TotalRemaining;
-
-        return Json(new
+        try
         {
-            availableLeave = availableLeave,
-            totalDays = totalDays,
-            hasSufficientBalance = availableLeave >= totalDays,
-            message = availableLeave >= totalDays
-                ? $"Đủ số dư phép ({availableLeave} ngày)"
-                : $"Không đủ số dư phép (còn {availableLeave} ngày, cần {totalDays} ngày)"
-        });
+            var employeeId = GetCurrentEmployeeId();
+            var totalDays = await _requestService.CalculateTotalDaysAsync(startDate, endDate, isHalfDayStart, isHalfDayEnd);
+
+            // CRITICAL: Always use current date to calculate available leave balance, not the request date
+            // This ensures we calculate based on current entitlements, not past entitlements
+            var currentDate = DateTimeHelper.VietnamToday;
+            var summary = await _leaveService.GetBalanceSummaryAsync(employeeId, currentDate);
+            var availableLeave = summary.TotalRemaining;
+
+            return Json(new
+            {
+                availableLeave = availableLeave,
+                totalDays = totalDays,
+                hasSufficientBalance = availableLeave >= totalDays,
+                message = totalDays <= 0m
+                    ? "Khoảng chọn chưa phát sinh ngày làm việc, đơn vẫn có thể được tạo trước."
+                    : availableLeave >= totalDays
+                        ? $"Đủ số dư phép ({availableLeave} ngày)"
+                        : $"Không đủ số dư phép (còn {availableLeave} ngày, cần {totalDays} ngày)"
+            });
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(new
+            {
+                availableLeave = 0m,
+                totalDays = 0m,
+                hasSufficientBalance = false,
+                message = ex.Message
+            });
+        }
     }
 
     private async Task PopulateCreateViewModel(RequestCreateViewModel model, int employeeId)
@@ -739,15 +660,22 @@ public class RequestController : Controller
     private bool IsPrivileged()
         => User.IsInRole("Admin") || User.IsInRole("Manager") || User.HasClaim("IsApprover", "true");
 
+    private async Task<decimal?> TryCalculateTotalDaysAsync(DateTime startTime, DateTime endTime, bool isHalfDayStart, bool isHalfDayEnd)
+    {
+        try
+        {
+            return await _requestService.CalculateTotalDaysAsync(startTime, endTime, isHalfDayStart, isHalfDayEnd);
+        }
+        catch (ValidationException ex)
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.StartTime), ex.Message);
+            return null;
+        }
+    }
+
     private int GetCurrentEmployeeId()
     {
         var claim = User.FindFirst("EmployeeId")?.Value;
-        return int.TryParse(claim, out var id) ? id : 0;
-    }
-
-    private int GetCurrentUserId()
-    {
-        var claim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return int.TryParse(claim, out var id) ? id : 0;
     }
 }

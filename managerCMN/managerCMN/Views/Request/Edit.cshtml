@@ -198,23 +198,60 @@
         var leaveReasonSelect = document.getElementById('leaveReasonSelect');
         var countsAsWorkDisplay = document.getElementById('countsAsWorkDisplay');
 
-        function calcDays() {
+        async function calcDays() {
+            var type = parseInt(requestTypeSelect.value);
             var s = startDate.value, e = endDate.value;
-            if (s && e) {
-                var diff = (new Date(e) - new Date(s)) / (1000*60*60*24) + 1;
-                var startOpt = parseInt(halfDayStartOpt.value);
-                var endOpt = parseInt(halfDayEndOpt.value);
-                if (diff === 1) {
-                    if (startOpt > 0) diff = 0.5;
-                } else {
-                    if (startOpt > 0) diff -= 0.5;
-                    if (endOpt > 0) diff -= 0.5;
-                }
-                diff = Math.max(diff, 0.5);
-                totalDays.value = diff;
-                totalDaysHidden.value = diff;
-                halfDayEndWrap.style.display = (s === e) ? 'none' : '';
+
+            if (!s || !e) {
+                totalDays.value = '';
+                totalDaysHidden.value = '';
+                return;
             }
+
+            halfDayEndWrap.style.display = (s === e) ? 'none' : '';
+
+            if (type === 0) {
+                const isHalfDayStart = parseInt(halfDayStartOpt.value) > 0;
+                const isHalfDayEnd = parseInt(halfDayEndOpt.value) > 0;
+
+                try {
+                    const response = await fetch(`/Request/GetLeaveBalance?startDate=${s}&endDate=${e}&isHalfDayStart=${isHalfDayStart}&isHalfDayEnd=${isHalfDayEnd}`);
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        totalDays.value = data.totalDays ?? '';
+                        totalDaysHidden.value = data.totalDays ?? '';
+                    } else {
+                        totalDays.value = '';
+                        totalDaysHidden.value = '';
+                    }
+                } catch (error) {
+                    console.error('Error calculating leave days:', error);
+                    totalDays.value = '';
+                    totalDaysHidden.value = '';
+                }
+
+                return;
+            }
+
+            var diff = (new Date(e) - new Date(s)) / (1000*60*60*24) + 1;
+            var startOpt = parseInt(halfDayStartOpt.value);
+            var endOpt = parseInt(halfDayEndOpt.value);
+            if (diff === 1) {
+                if (startOpt > 0) diff = 0.5;
+            } else {
+                if (startOpt > 0) diff -= 0.5;
+                if (endOpt > 0) diff -= 0.5;
+            }
+
+            if (diff <= 0) {
+                totalDays.value = '';
+                totalDaysHidden.value = '';
+                return;
+            }
+
+            totalDays.value = diff;
+            totalDaysHidden.value = diff;
         }
 
         startDate.addEventListener('change', calcDays);

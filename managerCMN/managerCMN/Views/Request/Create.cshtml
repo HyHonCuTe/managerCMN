@@ -330,29 +330,37 @@
             }
             
             if (s && e) {
+                // Leave requests use server-side working-day rules so the UI matches the business logic.
+                if (type === 0) {
+                    totalDays.value = '';
+                    totalDaysHidden.value = '';
+                    halfDayEndWrap.style.display = (s === e) ? 'none' : '';
+                    checkLeaveBalance();
+                    return;
+                }
+
                 var diff = (new Date(e) - new Date(s)) / (1000*60*60*24) + 1;
-                
-                // Only calculate half-days for Leave and WorkFromHome
-                if (type === 0 || type === 3) {
+
+                // Only calculate half-days for WorkFromHome here.
+                if (type === 3) {
                     var startOpt = parseInt(halfDayStartOpt.value);
                     var endOpt = parseInt(halfDayEndOpt.value);
                     if (diff === 1) {
-                        // Same day: if either is half-day
                         if (startOpt > 0) diff = 0.5;
                     } else {
                         if (startOpt > 0) diff -= 0.5;
                         if (endOpt > 0) diff -= 0.5;
                     }
                 }
-                
-                diff = Math.max(diff, 0.5);
+
+                if (diff <= 0) {
+                    totalDays.value = '';
+                    totalDaysHidden.value = '';
+                    return;
+                }
+
                 totalDays.value = diff;
                 totalDaysHidden.value = diff;
-                
-                // When same day, hide end half-day (for Leave type only)
-                if (type === 0) {
-                    halfDayEndWrap.style.display = (s === e) ? 'none' : '';
-                }
 
                 // Check leave balance after calculating days
                 checkLeaveBalance();
@@ -371,6 +379,8 @@
 
             if (!startDateValue || !endDateValue) {
                 document.getElementById('leaveBalanceCard').style.display = 'none';
+                totalDays.value = '';
+                totalDaysHidden.value = '';
                 return;
             }
 
@@ -383,9 +393,18 @@
             try {
                 const response = await fetch(`/Request/GetLeaveBalance?startDate=${startDateValue}&endDate=${endDateValue}&isHalfDayStart=${isHalfDayStart}&isHalfDayEnd=${isHalfDayEnd}`);
                 const data = await response.json();
+                if (response.ok) {
+                    totalDays.value = data.totalDays ?? '';
+                    totalDaysHidden.value = data.totalDays ?? '';
+                } else {
+                    totalDays.value = '';
+                    totalDaysHidden.value = '';
+                }
                 updateBalanceDisplay(data);
             } catch (error) {
                 console.error('Error checking leave balance:', error);
+                totalDays.value = '';
+                totalDaysHidden.value = '';
                 updateBalanceDisplay({
                     message: 'Không thể kiểm tra số dư phép. Vui lòng thử lại.',
                     hasSufficientBalance: false

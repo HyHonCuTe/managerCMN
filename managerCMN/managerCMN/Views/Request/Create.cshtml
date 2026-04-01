@@ -14,7 +14,7 @@
     </a>
 </div>
 
-<form asp-action="Create" method="post" enctype="multipart/form-data">
+<form asp-action="Create" method="post" enctype="multipart/form-data" id="requestCreateForm">
     @Html.AntiForgeryToken()
     <div asp-validation-summary="All" class="text-danger mb-3"></div>
 
@@ -196,19 +196,111 @@
             <i class="bi bi-paperclip text-primary"></i> Tệp đính kèm
         </div>
         <div class="card-body">
-            <input asp-for="Attachments" class="form-control" type="file" multiple />
+            <input asp-for="Attachments" class="form-control" type="file" multiple id="attachmentsInput" />
             <small class="text-muted mt-1 d-block">Có thể chọn nhiều file (hình ảnh, PDF, tài liệu...)</small>
         </div>
     </div>
 
     @* Submit *@
     <div class="d-flex gap-2 mb-4">
-        <button type="submit" class="btn btn-primary px-4">
+        <button type="button" class="btn btn-primary px-4" id="openConfirmModalButton">
             <i class="bi bi-send"></i> Gửi đơn
         </button>
         <a asp-action="Index" class="btn btn-light">Hủy</a>
     </div>
 </form>
+
+<div class="modal fade" id="confirmSubmitModal" tabindex="-1" aria-labelledby="confirmSubmitModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title mb-1" id="confirmSubmitModalLabel">
+                        <i class="bi bi-clipboard-check text-primary me-2"></i>Xác nhận gửi đơn
+                    </h5>
+                    <small class="text-muted">Kiểm tra lại thông tin trước khi gửi cho người duyệt.</small>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="border rounded-3 p-3 h-100 bg-light-subtle">
+                            <div class="small text-muted mb-1">Loại đơn</div>
+                            <div class="fw-semibold" id="confirmRequestType">-</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded-3 p-3 h-100 bg-light-subtle">
+                            <div class="small text-muted mb-1">Tiêu đề</div>
+                            <div class="fw-semibold" id="confirmTitle">-</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6" id="confirmCheckInOutTypeWrap" style="display: none;">
+                        <div class="border rounded-3 p-3 h-100 bg-light-subtle">
+                            <div class="small text-muted mb-1">Loại checkin/out</div>
+                            <div class="fw-semibold" id="confirmCheckInOutType">-</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded-3 p-3 h-100 bg-light-subtle">
+                            <div class="small text-muted mb-1">Thời gian</div>
+                            <div class="fw-semibold" id="confirmTimeRange">-</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6" id="confirmTotalDaysWrap">
+                        <div class="border rounded-3 p-3 h-100 bg-light-subtle">
+                            <div class="small text-muted mb-1">Tổng ngày</div>
+                            <div class="fw-semibold" id="confirmTotalDays">-</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded-3 p-3 h-100 bg-light-subtle">
+                            <div class="small text-muted mb-1">Lý do</div>
+                            <div class="fw-semibold" id="confirmReason">-</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded-3 p-3 h-100 bg-light-subtle">
+                            <div class="small text-muted mb-1">Tính công</div>
+                            <div class="fw-semibold" id="confirmCountsAsWork">-</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded-3 p-3 h-100 bg-light-subtle">
+                            <div class="small text-muted mb-1">Người duyệt 1</div>
+                            <div class="fw-semibold" id="confirmApprover1">-</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded-3 p-3 h-100 bg-light-subtle">
+                            <div class="small text-muted mb-1">Người duyệt 2</div>
+                            <div class="fw-semibold" id="confirmApprover2">-</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="border rounded-3 p-3 bg-light-subtle">
+                            <div class="small text-muted mb-1">Tệp đính kèm</div>
+                            <div class="fw-semibold text-break" id="confirmAttachments">Không có tệp đính kèm</div>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="border rounded-3 p-3 bg-light-subtle">
+                            <div class="small text-muted mb-1">Mô tả chi tiết</div>
+                            <div class="fw-semibold text-break" id="confirmDescription">Không có mô tả.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Quay lại chỉnh sửa</button>
+                <button type="button" class="btn btn-primary px-4" id="confirmSubmitButton">
+                    <i class="bi bi-send-check me-1"></i>Xác nhận gửi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
@@ -250,6 +342,12 @@
         var checkInOutTypeWrap = document.getElementById('checkInOutTypeWrap');
         var checkInOutType = document.getElementById('checkInOutType');
         var titleWrap = document.getElementById('titleWrap');
+        var requestCreateForm = document.getElementById('requestCreateForm');
+        var attachmentsInput = document.getElementById('attachmentsInput');
+        var openConfirmModalButton = document.getElementById('openConfirmModalButton');
+        var confirmSubmitButton = document.getElementById('confirmSubmitButton');
+        var confirmSubmitModalElement = document.getElementById('confirmSubmitModal');
+        var confirmSubmitModal = new bootstrap.Modal(confirmSubmitModalElement);
 
         function updateFormByRequestType(type) {
             // Reset visibility
@@ -323,8 +421,8 @@
             var type = parseInt(requestTypeSelect.value);
             var s = startDate.value, e = endDate.value;
             
-            // For CheckInOut and WorkFromHome, sync end date with start date
-            if (type === 1 || type === 3) {
+            // Single-day request types must always keep end date in sync with start date.
+            if (type === 1 || type === 2 || type === 3) {
                 endDate.value = s;
                 e = s;
             }
@@ -454,6 +552,111 @@
                 : '<i class="bi bi-x-circle text-danger me-2"></i> Không tính công';
         }
 
+        function getSelectedText(selectElement, fallback = '-') {
+            if (!selectElement || selectElement.selectedIndex < 0) return fallback;
+
+            var selectedOption = selectElement.options[selectElement.selectedIndex];
+            if (!selectedOption || !selectedOption.value) return fallback;
+
+            return selectedOption.textContent.trim();
+        }
+
+        function formatDateDisplay(value) {
+            if (!value) return '-';
+
+            var parts = value.split('-');
+            return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : value;
+        }
+
+        function formatTimeDisplay(value) {
+            return value ? value : '--:--';
+        }
+
+        function stripHtml(html) {
+            var temp = document.createElement('div');
+            temp.innerHTML = html || '';
+            return (temp.textContent || temp.innerText || '').trim();
+        }
+
+        function getReasonSummary() {
+            return getSelectedText(leaveReasonSelect, '-- Chưa chọn lý do --').replace(/\s+\u2192\s+/g, ' | ');
+        }
+
+        function getCountsAsWorkSummary() {
+            return stripHtml(countsAsWorkDisplay.textContent) || '-';
+        }
+
+        function getTimeRangeSummary(type) {
+            var startDateText = formatDateDisplay(startDate.value);
+            var endDateText = formatDateDisplay(endDate.value);
+            var startShift = getSelectedText(halfDayStartOpt, 'Cả ngày');
+            var endShift = getSelectedText(halfDayEndOpt, 'Cả ngày');
+            var startTimeText = formatTimeDisplay(startTimeInput.value);
+            var endTimeText = formatTimeDisplay(endTimeInput.value);
+
+            if (type === 1) {
+                return `${startDateText} | ${startTimeText !== '--:--' ? startTimeText : endTimeText}`;
+            }
+
+            if (type === 2) {
+                return `${startDateText} | ${startTimeText} - ${endTimeText}`;
+            }
+
+            if (type === 3) {
+                return `${startDateText} | ${startShift}`;
+            }
+
+            if (startDate.value === endDate.value) {
+                return `${startDateText} | ${startShift}`;
+            }
+
+            return `${startDateText} (${startShift}) -> ${endDateText} (${endShift})`;
+        }
+
+        function getAttachmentsSummary() {
+            if (!attachmentsInput || !attachmentsInput.files || attachmentsInput.files.length === 0) {
+                return 'Không có tệp đính kèm';
+            }
+
+            return Array.from(attachmentsInput.files)
+                .map(file => file.name)
+                .join(', ');
+        }
+
+        function populateConfirmationModal() {
+            var requestType = parseInt(requestTypeSelect.value);
+            var totalDaysText = totalDaysHidden.value || totalDays.value || '0';
+            var descriptionHtml = $('#descriptionEditor').summernote('code');
+            var descriptionText = stripHtml(descriptionHtml);
+
+            document.getElementById('confirmRequestType').textContent = getSelectedText(requestTypeSelect);
+            document.getElementById('confirmTitle').textContent = document.getElementById('Title').value.trim() || '-';
+            document.getElementById('confirmCheckInOutType').textContent = getSelectedText(checkInOutType, '-');
+            document.getElementById('confirmTimeRange').textContent = getTimeRangeSummary(requestType);
+            document.getElementById('confirmTotalDays').textContent = `${totalDaysText} ngày`;
+            document.getElementById('confirmReason').textContent = getReasonSummary();
+            document.getElementById('confirmCountsAsWork').textContent = getCountsAsWorkSummary();
+            document.getElementById('confirmApprover1').textContent = getSelectedText(document.getElementById('approver1Select'), '-- Chưa chọn --');
+            document.getElementById('confirmApprover2').textContent = getSelectedText(document.getElementById('approver2Select'), '-- Chưa chọn --');
+            document.getElementById('confirmAttachments').textContent = getAttachmentsSummary();
+            document.getElementById('confirmDescription').textContent = descriptionText || 'Không có mô tả.';
+
+            document.getElementById('confirmCheckInOutTypeWrap').style.display = requestType === 1 ? '' : 'none';
+            document.getElementById('confirmTotalDaysWrap').style.display = requestType === 2 ? 'none' : '';
+        }
+
+        function canOpenConfirmationModal() {
+            if (typeof $ !== 'undefined' && typeof $(requestCreateForm).valid === 'function' && !$(requestCreateForm).valid()) {
+                return false;
+            }
+
+            if (typeof requestCreateForm.reportValidity === 'function' && !requestCreateForm.reportValidity()) {
+                return false;
+            }
+
+            return true;
+        }
+
         requestTypeSelect.addEventListener('change', function() {
             var type = parseInt(this.value);
             updateFormByRequestType(type);
@@ -471,6 +674,33 @@
                 var text = this.options[this.selectedIndex].textContent;
                 updateCountsAsWork(!text.includes('Không tính công'));
             }
+        });
+
+        openConfirmModalButton.addEventListener('click', async function() {
+            if (!canOpenConfirmationModal()) {
+                return;
+            }
+
+            if (parseInt(requestTypeSelect.value) === 0) {
+                await checkLeaveBalance();
+            } else {
+                calcDays();
+            }
+
+            populateConfirmationModal();
+            confirmSubmitModal.show();
+        });
+
+        confirmSubmitButton.addEventListener('click', function() {
+            confirmSubmitButton.disabled = true;
+            confirmSubmitButton.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Đang gửi...';
+            document.getElementById('descriptionEditor').value = $('#descriptionEditor').summernote('code');
+            requestCreateForm.submit();
+        });
+
+        confirmSubmitModalElement.addEventListener('hidden.bs.modal', function() {
+            confirmSubmitButton.disabled = false;
+            confirmSubmitButton.innerHTML = '<i class="bi bi-send-check me-1"></i>Xác nhận gửi';
         });
 
         // Initialize form based on default request type

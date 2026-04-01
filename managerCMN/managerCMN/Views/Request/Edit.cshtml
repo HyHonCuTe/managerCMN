@@ -208,6 +208,11 @@
                 return;
             }
 
+            if (type === 1 || type === 2 || type === 3) {
+                endDate.value = s;
+                e = s;
+            }
+
             halfDayEndWrap.style.display = (s === e) ? 'none' : '';
 
             if (type === 0) {

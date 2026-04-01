@@ -62,6 +62,7 @@ public class RequestController : Controller
     public async Task<IActionResult> Create(RequestCreateViewModel model)
     {
         var employeeId = GetCurrentEmployeeId();
+        NormalizeSingleDayRequest(model);
 
         // All employees now need to select Approver1 manually
         if (!model.Approver1Id.HasValue || model.Approver1Id == 0)
@@ -488,6 +489,7 @@ public class RequestController : Controller
         var employeeId = GetCurrentEmployeeId();
         var request = await _requestService.GetWithDetailsAsync(id);
         if (request == null) return NotFound();
+        NormalizeSingleDayRequest(model);
 
         // Admin/Manager can edit any pending request, regular users can only edit their own
         bool isAdminOrManager = User.IsInRole("Admin") || User.IsInRole("Manager");
@@ -659,6 +661,14 @@ public class RequestController : Controller
 
     private bool IsPrivileged()
         => User.IsInRole("Admin") || User.IsInRole("Manager") || User.HasClaim("IsApprover", "true");
+
+    private static void NormalizeSingleDayRequest(RequestCreateViewModel model)
+    {
+        if (model.RequestType is RequestType.Absence or RequestType.CheckInOut or RequestType.WorkFromHome)
+        {
+            model.EndTime = model.StartTime;
+        }
+    }
 
     private async Task<decimal?> TryCalculateTotalDaysAsync(DateTime startTime, DateTime endTime, bool isHalfDayStart, bool isHalfDayEnd)
     {

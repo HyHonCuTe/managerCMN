@@ -1,0 +1,63 @@
+[33m588bb0f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{0}: reset: moving to 588bb0fcd9d1d3f1f0a7455a546d7eed73912b55
+[33mb9f01bd[m[33m ([m[1;31morigin/main[m[33m)[m HEAD@{1}: commit: fix logic tính ngày nghĩ, endpoint
+[33mecf1fbf[m HEAD@{2}: commit: fix logic tính ngày nghĩ, endpoint
+[33m588bb0f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{3}: commit: Ignore .sixth folder
+[33m3504db7[m HEAD@{4}: commit: fix lịch cho hiển thị đúng tháng theo cty
+[33m61ead76[m HEAD@{5}: commit: fix phân quyền admin 0
+[33m7908791[m HEAD@{6}: commit: fix phân quyền admin 0
+[33maace6ae[m HEAD@{7}: commit: udpate readme + code admin
+[33m15c6124[m HEAD@{8}: commit: update bk and re DB + FILE
+[33me19fbb6[m HEAD@{9}: commit: update config backup and restore
+[33m58eca46[m HEAD@{10}: commit: update config backup and restore
+[33maf82d44[m HEAD@{11}: commit: update full chấm công cho user
+[33mae1a1a5[m HEAD@{12}: commit: update phép nữ
+[33m9cb6b3b[m HEAD@{13}: commit: update phép với nữ
+[33md0a6bca[m HEAD@{14}: commit: Remove nginx config from tracking
+[33m53540ba[m HEAD@{15}: commit: update formart days, số giây đi muộn, logo, t7 về 3h, in sau 10h
+[33mf63ffcd[m HEAD@{16}: commit: fix max đơn checkinout + vắng mặt
+[33m6e16f4f[m HEAD@{17}: commit: add feature: prevent deletion of employee with code A00000
+[33md99f84c[m HEAD@{18}: commit: fix done chấm công + post py
+[33m77c3752[m HEAD@{19}: commit: update post cham cong
+[33m50e4cfa[m HEAD@{20}: commit: fixed checkout sớm
+[33ma2fd79a[m HEAD@{21}: commit: fix cham cong, phép năm, bảo lưu max 5 phép
+[33m6b8252a[m HEAD@{22}: commit: fix time in out 02
+[33m74effc4[m HEAD@{23}: commit: fix time checkin out bị trùng
+[33m014e84c[m HEAD@{24}: commit: fix log, post time
+[33md9c0ff5[m HEAD@{25}: commit: update log sys
+[33m43a2c5b[m HEAD@{26}: commit: fix chấm công và hiển thị
+[33m9c4097e[m HEAD@{27}: commit: update PY post chấm công
+[33m09de30b[m HEAD@{28}: commit: fix up file tài sản, cập nhật đổi lọc tài sản, sort export excel, post API
+[33m50b3345[m HEAD@{29}: commit: fix auto lọc, count time late, update info nv
+[33m6610b28[m HEAD@{30}: commit: Simplify documentation - keep only README.md and DEPLOY.md
+[33m904a4cf[m HEAD@{31}: commit: Update deploy.sh with full write permissions for uploads
+[33mb376eb9[m HEAD@{32}: commit: fix xoá nhân viên và + phép tay
+[33m80160e1[m HEAD@{33}: reset: moving to origin/main
+[33m80160e1[m HEAD@{34}: commit: Add comprehensive debug logging to LeaveService.AdjustBalanceAsync
+[33m7cb43be[m HEAD@{35}: commit: Add debug logging for AdjustLeaveBalance action
+[33maa14711[m HEAD@{36}: commit: Fix uploads directory permissions in deployment script
+[33m44037bb[m HEAD@{37}: commit: Complete documentation overhaul for production deployment
+[33m90fc258[m HEAD@{38}: commit: Add comprehensive production deployment and operations guide
+[33m7ba596f[m HEAD@{39}: commit: Update rollback script for consistency
+[33m235b607[m HEAD@{40}: commit: Fix deploy script to handle nested project directory structure
+[33mafae1a7[m HEAD@{41}: commit: Add quick deployment guide
+[33m7bbec38[m HEAD@{42}: commit: Add comprehensive production deployment system
+[33mc48f57a[m HEAD@{43}: commit: fix excel theo định dạng, thêm ngày nghĩ lễ
+[33mf31c35c[m HEAD@{44}: commit: fix hd gia hạn, hoàn duyệt
+[33m5e72b79[m HEAD@{45}: commit: fix ngày cho tài sản, admin có quyền sữa đơn, lỗi up file
+[33m004c0e9[m HEAD@{46}: commit: fix loi hay thông báo ở đơn
+[33ma0145e4[m HEAD@{47}: commit: fix duyet don + hien thi + import HD
+[33m2e095fb[m HEAD@{48}: commit: update readme
+[33m5b05059[m HEAD@{49}: commit: done dev
+[33m8830bc3[m HEAD@{50}: commit: done ticket
+[33maf4a8bb[m HEAD@{51}: commit: fix done asset
+[33m9a622a3[m HEAD@{52}: commit: update done asset, error history
+[33m12f172e[m HEAD@{53}: commit: not app
+[33me5cf87d[m HEAD@{54}: commit: remove appsettings from tracking
+[33m8fe299f[m HEAD@{55}: commit: fix tính phép và duyệt đơn ok
+[33m5b4278e[m HEAD@{56}: commit: fix xong duyệt đơn
+[33m7909295[m HEAD@{57}: commit: update lôgo
+[33mf51f924[m HEAD@{58}: commit: con fix loi đơn từ, tài sản, phân quyền
+[33m6c7e779[m HEAD@{59}: commit: hmm update nhân viên, db, chấm công, danh mục
+[33mbf988e0[m HEAD@{60}: commit: chấm công, phân chia, login gg done
+[33m7233a1d[m HEAD@{61}: commit: app full tinh nang va co loi chua check, chi moi tao dung
+[33m657acb5[m HEAD@{62}: commit (initial): hello CMN

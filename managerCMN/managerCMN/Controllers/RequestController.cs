@@ -28,8 +28,9 @@ public class RequestController : Controller
     {
         var employeeId = GetCurrentEmployeeId();
         IEnumerable<Request> requests;
+        var isAdmin = User.IsInRole("Admin");
 
-        if (IsPrivileged())
+        if (isAdmin)
         {
             requests = await _requestService.FilterAsync(null, null);
             ViewBag.IsPrivileged = true;
@@ -48,9 +49,12 @@ public class RequestController : Controller
     public async Task<IActionResult> Create(RequestType? type)
     {
         var employeeId = GetCurrentEmployeeId();
+        var today = DateTimeHelper.VietnamToday;
         var model = new RequestCreateViewModel
         {
-            RequestType = type ?? RequestType.Leave
+            RequestType = type ?? RequestType.Leave,
+            StartDate = today,
+            EndDate = today
         };
 
         await PopulateCreateViewModel(model, employeeId);
@@ -62,7 +66,9 @@ public class RequestController : Controller
     public async Task<IActionResult> Create(RequestCreateViewModel model)
     {
         var employeeId = GetCurrentEmployeeId();
+        ApplyRequestDateInputs(model);
         NormalizeSingleDayRequest(model);
+        ValidateTimeBasedRequest(model);
 
         // All employees now need to select Approver1 manually
         if (!model.Approver1Id.HasValue || model.Approver1Id == 0)
@@ -219,7 +225,7 @@ public class RequestController : Controller
         if (request == null) return NotFound();
 
         var currentEmployeeId = GetCurrentEmployeeId();
-        if (!IsPrivileged() && request.EmployeeId != currentEmployeeId)
+        if (!CanAccessRequest(request, currentEmployeeId))
             return Forbid();
         var pendingApproval = request.Approvals
             .FirstOrDefault(a => a.ApproverId == currentEmployeeId && a.Status == ApprovalStatus.Pending);
@@ -445,9 +451,8 @@ public class RequestController : Controller
         var request = await _requestService.GetWithDetailsAsync(id);
         if (request == null) return NotFound();
 
-        // Admin/Manager can edit any pending request, regular users can only edit their own
-        bool isAdminOrManager = User.IsInRole("Admin") || User.IsInRole("Manager");
-        if (!isAdminOrManager && request.EmployeeId != employeeId)
+        var isAdmin = User.IsInRole("Admin");
+        if (!isAdmin && request.EmployeeId != employeeId)
         {
             TempData["Error"] = "Bạn không có quyền chỉnh sửa đơn này.";
             return RedirectToAction(nameof(Index));
@@ -468,6 +473,10 @@ public class RequestController : Controller
             Title = request.Title,
             StartTime = request.StartTime,
             EndTime = request.EndTime,
+            StartDate = request.StartTime.Date,
+            EndDate = request.EndTime.Date,
+            StartClock = request.StartTime.TimeOfDay > TimeSpan.Zero ? request.StartTime.ToString("HH:mm") : null,
+            EndClock = request.EndTime.TimeOfDay > TimeSpan.Zero ? request.EndTime.ToString("HH:mm") : null,
             IsHalfDayStart = request.IsHalfDayStart,
             IsHalfDayEnd = request.IsHalfDayEnd,
             HalfDayStartOption = request.IsHalfDayStart ? (request.IsHalfDayStartMorning ? 1 : 2) : 0,
@@ -489,11 +498,12 @@ public class RequestController : Controller
         var employeeId = GetCurrentEmployeeId();
         var request = await _requestService.GetWithDetailsAsync(id);
         if (request == null) return NotFound();
+        ApplyRequestDateInputs(model);
         NormalizeSingleDayRequest(model);
+        ValidateTimeBasedRequest(model);
 
-        // Admin/Manager can edit any pending request, regular users can only edit their own
-        bool isAdminOrManager = User.IsInRole("Admin") || User.IsInRole("Manager");
-        if (!isAdminOrManager && request.EmployeeId != employeeId)
+        var isAdmin = User.IsInRole("Admin");
+        if (!isAdmin && request.EmployeeId != employeeId)
         {
             TempData["Error"] = "Bạn không có quyền chỉnh sửa đơn này.";
             return RedirectToAction(nameof(Index));
@@ -662,11 +672,111 @@ public class RequestController : Controller
     private bool IsPrivileged()
         => User.IsInRole("Admin") || User.IsInRole("Manager") || User.HasClaim("IsApprover", "true");
 
+    private bool CanAccessRequest(Request request, int employeeId)
+    {
+        if (User.IsInRole("Admin"))
+        {
+            return true;
+        }
+
+        if (request.EmployeeId == employeeId)
+        {
+            return true;
+        }
+
+        return request.Approvals.Any(a => a.ApproverId == employeeId);
+    }
+
     private static void NormalizeSingleDayRequest(RequestCreateViewModel model)
     {
         if (model.RequestType is RequestType.Absence or RequestType.CheckInOut or RequestType.WorkFromHome)
         {
+            if (model.RequestType == RequestType.Absence)
+            {
+                model.EndTime = model.StartTime.Date.Add(model.EndTime.TimeOfDay);
+                return;
+            }
+
             model.EndTime = model.StartTime;
+        }
+    }
+
+    private static void ApplyRequestDateInputs(RequestCreateViewModel model)
+    {
+        model.StartTime = model.StartDate.Date;
+        model.EndTime = model.EndDate.Date;
+
+        if (model.RequestType == RequestType.Absence)
+        {
+            model.EndTime = model.StartDate.Date;
+
+            if (TimeSpan.TryParse(model.StartClock, out var absenceStart))
+            {
+                model.StartTime = model.StartDate.Date.Add(absenceStart);
+            }
+
+            if (TimeSpan.TryParse(model.EndClock, out var absenceEnd))
+            {
+                model.EndTime = model.StartDate.Date.Add(absenceEnd);
+            }
+
+            return;
+        }
+
+        if (model.RequestType == RequestType.CheckInOut)
+        {
+            model.EndTime = model.StartDate.Date;
+            var selectedClock = model.CheckInOutType == CheckInOutType.MissedCheckOut
+                ? model.EndClock
+                : model.StartClock;
+
+            if (TimeSpan.TryParse(selectedClock, out var checkInOutClock))
+            {
+                model.StartTime = model.StartDate.Date.Add(checkInOutClock);
+                model.EndTime = model.StartTime;
+            }
+
+            return;
+        }
+
+        if (model.RequestType == RequestType.WorkFromHome)
+        {
+            model.EndTime = model.StartDate.Date;
+        }
+    }
+
+    private void ValidateTimeBasedRequest(RequestCreateViewModel model)
+    {
+        if (model.RequestType != RequestType.Absence)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(model.StartClock))
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.StartClock), "Vui lòng chọn giờ bắt đầu.");
+        }
+
+        if (string.IsNullOrWhiteSpace(model.EndClock))
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock), "Vui lòng chọn giờ kết thúc.");
+        }
+
+        if (!TimeSpan.TryParse(model.StartClock, out var startClock))
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.StartClock), "Giờ bắt đầu không hợp lệ.");
+        }
+
+        if (!TimeSpan.TryParse(model.EndClock, out var endClock))
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock), "Giờ kết thúc không hợp lệ.");
+        }
+
+        if (TimeSpan.TryParse(model.StartClock, out startClock)
+            && TimeSpan.TryParse(model.EndClock, out endClock)
+            && endClock <= startClock)
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock), "Giờ kết thúc phải sau giờ bắt đầu.");
         }
     }
 

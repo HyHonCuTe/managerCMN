@@ -48,6 +48,16 @@ public class ContractController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(ContractCreateViewModel model)
     {
+        if (model.ContractType == ContractType.Indefinite)
+        {
+            model.EndDate = null;
+        }
+        else if (model.ContractType == ContractType.FixedTerm
+                 && model.SelectedDurationYears is 1 or 3)
+        {
+            model.EndDate = CalculateContractEndDate(model.StartDate, model.SelectedDurationYears.Value);
+        }
+
         if (!ModelState.IsValid)
         {
             await PopulateEmployees();
@@ -200,6 +210,9 @@ public class ContractController : Controller
         var employees = await _employeeService.GetAllAsync();
         ViewBag.Employees = new SelectList(employees, "EmployeeId", "FullName");
     }
+
+    private static DateTime CalculateContractEndDate(DateTime startDate, int years)
+        => startDate.Date.AddYears(years).AddDays(-1);
 
     [HttpGet]
     public IActionResult DownloadTemplate()

@@ -156,8 +156,8 @@
                                         </td>
                                         <td>@RenderTypeBadge(req.RequestType)</td>
                                         <td class="text-nowrap small">
-                                            @req.StartTime.ToString("dd/MM/yyyy")<br />
-                                            <span class="text-muted">~ @req.EndTime.ToString("dd/MM/yyyy")</span>
+                                            @GetRequestTimePrimary(req)<br />
+                                            <span class="text-muted">@GetRequestTimeSecondary(req)</span>
                                         </td>
                                         <td class="text-center">@req.TotalDays</td>
                                         <td><small>@(req.Reason ?? "-")</small></td>
@@ -233,6 +233,21 @@
             html += $"<div class='small'><i class='bi {icon}'></i> <span class='text-muted'>ND{a.ApproverOrder}:</span> {a.Approver?.FullName ?? "?"}</div>";
         }
         return Html.Raw(html);
+    }
+
+    string GetRequestTimePrimary(Request req)
+        => req.StartTime.ToString("dd/MM/yyyy");
+
+    string GetRequestTimeSecondary(Request req)
+    {
+        if (req.RequestType == RequestType.Absence)
+        {
+            var startClock = req.StartTime.TimeOfDay > TimeSpan.Zero ? req.StartTime.ToString("HH:mm") : "--:--";
+            var endClock = req.EndTime.TimeOfDay > TimeSpan.Zero ? req.EndTime.ToString("HH:mm") : "--:--";
+            return $"{startClock} - {endClock}";
+        }
+
+        return $"~ {req.EndTime:dd/MM/yyyy}";
     }
 }
 

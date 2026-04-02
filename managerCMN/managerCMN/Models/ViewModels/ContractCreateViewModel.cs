@@ -20,6 +20,8 @@ public class ContractCreateViewModel
 
     public DateTime? EndDate { get; set; }
 
+    public int? SelectedDurationYears { get; set; }
+
     [Required]
     public decimal Salary { get; set; }
 

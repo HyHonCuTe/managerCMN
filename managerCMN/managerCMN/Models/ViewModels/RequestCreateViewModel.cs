@@ -24,6 +24,14 @@ public class RequestCreateViewModel
     [Required]
     public DateTime EndTime { get; set; } = DateTime.Today;
 
+    public DateTime StartDate { get; set; } = DateTime.Today;
+
+    public DateTime EndDate { get; set; } = DateTime.Today;
+
+    public string? StartClock { get; set; }
+
+    public string? EndClock { get; set; }
+
     public bool IsHalfDayStart { get; set; }
 
     public bool IsHalfDayEnd { get; set; }

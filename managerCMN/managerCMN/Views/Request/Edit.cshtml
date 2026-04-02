@@ -33,6 +33,7 @@
                         <option value="2">Vắng mặt</option>
                         <option value="3">Làm ở nhà (WFH)</option>
                     </select>
+                    <input asp-for="CheckInOutType" type="hidden" id="checkInOutType" />
                 </div>
                 <div class="col-md-8">
                     <label asp-for="Title" class="form-label fw-semibold">Tiêu đề <span class="text-danger">*</span></label>
@@ -52,8 +53,13 @@
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label asp-for="StartTime" class="form-label fw-semibold">Từ ngày <span class="text-danger">*</span></label>
-                    <input asp-for="StartTime" class="form-control" type="date" id="startDate" />
+                    <input asp-for="StartDate" class="form-control" type="date" id="startDate" required />
                     <span asp-validation-for="StartTime" class="text-danger small"></span>
+                </div>
+                <div class="col-md-2" id="startTimeWrap" style="display: none;">
+                    <label asp-for="StartClock" class="form-label fw-semibold">Giá» báº¯t Ä‘áº§u</label>
+                    <input asp-for="StartClock" type="time" class="form-control form-control-sm" id="startTimeInput" />
+                    <span asp-validation-for="StartClock" class="text-danger small"></span>
                 </div>
                 <div class="col-md-2" id="halfDayStartWrap">
                     <label class="form-label fw-semibold">Ca bắt đầu</label>
@@ -63,9 +69,14 @@
                         <option value="2">Nửa ca chiều</option>
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-3" id="endDateWrap">
                     <label asp-for="EndTime" class="form-label fw-semibold">Đến ngày <span class="text-danger">*</span></label>
-                    <input asp-for="EndTime" class="form-control" type="date" id="endDate" />
+                    <input asp-for="EndDate" class="form-control" type="date" id="endDate" required />
+                </div>
+                <div class="col-md-2" id="endTimeWrap" style="display: none;">
+                    <label asp-for="EndClock" class="form-label fw-semibold">Giá» káº¿t thÃºc</label>
+                    <input asp-for="EndClock" type="time" class="form-control form-control-sm" id="endTimeInput" />
+                    <span asp-validation-for="EndClock" class="text-danger small"></span>
                 </div>
                 <div class="col-md-2" id="halfDayEndWrap">
                     <label class="form-label fw-semibold">Ca kết thúc</label>
@@ -75,7 +86,7 @@
                         <option value="2">Nửa ca chiều</option>
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-2" id="totalDaysWrap">
                     <label class="form-label fw-semibold">Tổng ngày</label>
                     <div class="input-group">
                         <input type="text" class="form-control bg-light fw-semibold text-center" id="totalDays" readonly />
@@ -188,15 +199,97 @@
         });
 
         var requestTypeSelect = document.getElementById('requestType');
+        var checkInOutType = document.getElementById('checkInOutType');
         var startDate = document.getElementById('startDate');
         var endDate = document.getElementById('endDate');
+        var startDateLabel = startDate.closest('.col-md-3').querySelector('label');
+        var startTimeWrap = document.getElementById('startTimeWrap');
+        var endTimeWrap = document.getElementById('endTimeWrap');
+        var startTimeInput = document.getElementById('startTimeInput');
+        var endTimeInput = document.getElementById('endTimeInput');
         var halfDayStartOpt = document.getElementById('halfDayStartOpt');
         var halfDayEndOpt = document.getElementById('halfDayEndOpt');
+        var halfDayStartWrap = document.getElementById('halfDayStartWrap');
         var halfDayEndWrap = document.getElementById('halfDayEndWrap');
+        var endDateWrap = document.getElementById('endDateWrap');
+        var endDateLabel = endDateWrap.querySelector('label');
+        var totalDaysWrap = document.getElementById('totalDaysWrap');
         var totalDays = document.getElementById('totalDays');
         var totalDaysHidden = document.getElementById('totalDaysHidden');
         var leaveReasonSelect = document.getElementById('leaveReasonSelect');
         var countsAsWorkDisplay = document.getElementById('countsAsWorkDisplay');
+        var startTimeLabel = startTimeWrap.querySelector('label');
+        var endTimeLabel = endTimeWrap.querySelector('label');
+
+        function updateFormByRequestType(type) {
+            startTimeLabel.textContent = 'Gi\u1edd b\u1eaft \u0111\u1ea7u';
+            endTimeLabel.textContent = 'Gi\u1edd k\u1ebft th\u00fac';
+            halfDayStartWrap.style.display = '';
+            halfDayEndWrap.style.display = '';
+            endDateWrap.style.display = '';
+            startTimeWrap.style.display = 'none';
+            endTimeWrap.style.display = 'none';
+            totalDaysWrap.style.display = '';
+
+            if (type === 1) {
+                startDateLabel.innerHTML = 'Ng\u00e0y qu\u00ean checkin/out <span class="text-danger">*</span>';
+                endDateWrap.style.display = 'none';
+                halfDayStartWrap.style.display = 'none';
+                halfDayEndWrap.style.display = 'none';
+                totalDaysWrap.style.display = 'none';
+                updateCheckInOutTimeFields();
+                endDate.value = startDate.value;
+            } else if (type === 2) {
+                startDateLabel.innerHTML = 'Ng\u00e0y v\u1eafng <span class="text-danger">*</span>';
+                endDateWrap.style.display = 'none';
+                startTimeWrap.style.display = '';
+                endTimeWrap.style.display = '';
+                halfDayStartWrap.style.display = 'none';
+                halfDayEndWrap.style.display = 'none';
+                totalDaysWrap.style.display = 'none';
+                endDate.value = startDate.value;
+            } else if (type === 3) {
+                startDateLabel.innerHTML = 'Ng\u00e0y l\u00e0m \u1edf nh\u00e0 <span class="text-danger">*</span>';
+                endDateWrap.style.display = 'none';
+                halfDayEndWrap.style.display = 'none';
+                endDate.value = startDate.value;
+            } else {
+                startDateLabel.innerHTML = 'T\u1eeb ng\u00e0y <span class="text-danger">*</span>';
+                endDateLabel.innerHTML = '\u0110\u1ebfn ng\u00e0y <span class="text-danger">*</span>';
+            }
+
+            syncTimeFieldRequirements(type);
+        }
+
+        function updateCheckInOutTimeFields() {
+            var checkInOutTypeValue = parseInt(checkInOutType.value || '0');
+            if (checkInOutTypeValue === 0) {
+                startTimeWrap.style.display = '';
+                endTimeWrap.style.display = 'none';
+            } else {
+                startTimeWrap.style.display = 'none';
+                endTimeWrap.style.display = '';
+            }
+
+            syncTimeFieldRequirements(parseInt(requestTypeSelect.value));
+        }
+
+        function syncTimeFieldRequirements(type) {
+            startTimeInput.required = false;
+            endTimeInput.required = false;
+
+            if (type === 2) {
+                startTimeInput.required = true;
+                endTimeInput.required = true;
+                return;
+            }
+
+            if (type === 1) {
+                var checkInOutTypeValue = parseInt(checkInOutType.value || '0');
+                startTimeInput.required = checkInOutTypeValue === 0;
+                endTimeInput.required = checkInOutTypeValue !== 0;
+            }
+        }
 
         async function calcDays() {
             var type = parseInt(requestTypeSelect.value);
@@ -213,7 +306,7 @@
                 e = s;
             }
 
-            halfDayEndWrap.style.display = (s === e) ? 'none' : '';
+            halfDayEndWrap.style.display = (s === e && type === 0) ? 'none' : halfDayEndWrap.style.display;
 
             if (type === 0) {
                 const isHalfDayStart = parseInt(halfDayStartOpt.value) > 0;
@@ -239,14 +332,16 @@
                 return;
             }
 
-            var diff = (new Date(e) - new Date(s)) / (1000*60*60*24) + 1;
-            var startOpt = parseInt(halfDayStartOpt.value);
-            var endOpt = parseInt(halfDayEndOpt.value);
-            if (diff === 1) {
-                if (startOpt > 0) diff = 0.5;
-            } else {
-                if (startOpt > 0) diff -= 0.5;
-                if (endOpt > 0) diff -= 0.5;
+            var diff = (new Date(e) - new Date(s)) / (1000 * 60 * 60 * 24) + 1;
+            if (type === 3) {
+                var startOpt = parseInt(halfDayStartOpt.value);
+                var endOpt = parseInt(halfDayEndOpt.value);
+                if (diff === 1) {
+                    if (startOpt > 0) diff = 0.5;
+                } else {
+                    if (startOpt > 0) diff -= 0.5;
+                    if (endOpt > 0) diff -= 0.5;
+                }
             }
 
             if (diff <= 0) {
@@ -291,6 +386,7 @@
         }
 
         requestTypeSelect.addEventListener('change', function() {
+            updateFormByRequestType(parseInt(this.value));
             loadReasons(parseInt(this.value));
             calcDays();
         });
@@ -305,6 +401,7 @@
         // Init on page load with existing values
         var initType = parseInt(requestTypeSelect.value);
         var initReason = '@((int?)Model.LeaveReason)';
+        updateFormByRequestType(initType);
         loadReasons(initType, initReason !== '' ? initReason : undefined);
         calcDays();
     </script>

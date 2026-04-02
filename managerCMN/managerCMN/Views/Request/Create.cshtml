@@ -59,12 +59,13 @@
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label asp-for="StartTime" class="form-label fw-semibold" id="startDateLabel">Từ ngày <span class="text-danger">*</span></label>
-                    <input asp-for="StartTime" class="form-control" type="date" id="startDate" />
+                    <input asp-for="StartDate" class="form-control" type="date" id="startDate" required />
                     <span asp-validation-for="StartTime" class="text-danger small"></span>
                 </div>
                 <div class="col-md-2" id="startTimeWrap" style="display: none;">
                     <label class="form-label fw-semibold">Giờ bắt đầu</label>
-                    <input type="time" class="form-control form-control-sm" id="startTimeInput" />
+                    <input asp-for="StartClock" type="time" class="form-control form-control-sm" id="startTimeInput" />
+                    <span asp-validation-for="StartClock" class="text-danger small"></span>
                 </div>
                 <div class="col-md-2" id="halfDayStartWrap">
                     <label class="form-label fw-semibold">Ca bắt đầu</label>
@@ -76,11 +77,13 @@
                 </div>
                 <div class="col-md-3" id="endDateWrap">
                     <label asp-for="EndTime" class="form-label fw-semibold" id="endDateLabel">Đến ngày <span class="text-danger">*</span></label>
-                    <input asp-for="EndTime" class="form-control" type="date" id="endDate" />
+                    <input asp-for="EndDate" class="form-control" type="date" id="endDate" required />
+                    <span asp-validation-for="EndTime" class="text-danger small"></span>
                 </div>
                 <div class="col-md-2" id="endTimeWrap" style="display: none;">
                     <label class="form-label fw-semibold">Giờ kết thúc</label>
-                    <input type="time" class="form-control form-control-sm" id="endTimeInput" />
+                    <input asp-for="EndClock" type="time" class="form-control form-control-sm" id="endTimeInput" />
+                    <span asp-validation-for="EndClock" class="text-danger small"></span>
                 </div>
                 <div class="col-md-2" id="halfDayEndWrap">
                     <label class="form-label fw-semibold">Ca kết thúc</label>
@@ -402,6 +405,8 @@
                 startDateLabel.innerHTML = 'Từ ngày <span class="text-danger">*</span>';
                 endDateLabel.innerHTML = 'Đến ngày <span class="text-danger">*</span>';
             }
+
+            syncTimeFieldRequirements(type);
         }
 
         function updateCheckInOutTimeFields() {
@@ -414,6 +419,25 @@
                 // Missed Check Out: Show end time only
                 startTimeWrap.style.display = 'none';
                 endTimeWrap.style.display = '';
+            }
+
+            syncTimeFieldRequirements(parseInt(requestTypeSelect.value));
+        }
+
+        function syncTimeFieldRequirements(type) {
+            startTimeInput.required = false;
+            endTimeInput.required = false;
+
+            if (type === 2) {
+                startTimeInput.required = true;
+                endTimeInput.required = true;
+                return;
+            }
+
+            if (type === 1) {
+                var checkInOutTypeValue = parseInt(checkInOutType.value);
+                startTimeInput.required = checkInOutTypeValue === 0;
+                endTimeInput.required = checkInOutTypeValue !== 0;
             }
         }
 

@@ -203,8 +203,18 @@
                                 </a>
                             </td>
                             <td class="text-nowrap small">
-                                @req.StartTime.ToString("dd/MM/yyyy")<br />
-                                <span class="text-muted">~ @req.EndTime.ToString("dd/MM/yyyy")</span>
+                                @if (req.RequestType == RequestType.Absence)
+                                {
+                                    var startClock = req.StartTime.TimeOfDay > TimeSpan.Zero ? req.StartTime.ToString("HH:mm") : "--:--";
+                                    var endClock = req.EndTime.TimeOfDay > TimeSpan.Zero ? req.EndTime.ToString("HH:mm") : "--:--";
+                                    @req.StartTime.ToString("dd/MM/yyyy")<br />
+                                    <span class="text-muted">@startClock - @endClock</span>
+                                }
+                                else
+                                {
+                                    @req.StartTime.ToString("dd/MM/yyyy")<br />
+                                    <span class="text-muted">~ @req.EndTime.ToString("dd/MM/yyyy")</span>
+                                }
                             </td>
                             <td class="text-center">@req.TotalDays</td>
                             <td><small>@(req.Reason ?? "-")</small></td>

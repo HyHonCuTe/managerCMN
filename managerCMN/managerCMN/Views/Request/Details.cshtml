@@ -5,6 +5,9 @@
     ViewData["Title"] = "Chi tiết đơn từ";
     var req = Model.Request;
     var approvals = req.Approvals?.OrderBy(a => a.ApproverOrder).ToList() ?? new();
+    var isAbsenceRequest = req.RequestType == RequestType.Absence;
+    var absenceStartText = req.StartTime.TimeOfDay > TimeSpan.Zero ? req.StartTime.ToString("HH:mm") : "--:--";
+    var absenceEndText = req.EndTime.TimeOfDay > TimeSpan.Zero ? req.EndTime.ToString("HH:mm") : "--:--";
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -86,10 +89,18 @@
                             </div>
                             <div>
                                 <small class="text-muted d-block">Thời gian</small>
-                                <strong>@req.StartTime.ToString("dd/MM/yyyy")</strong>
+                                @if (isAbsenceRequest)
+                                {
+                                    <strong>@req.StartTime.ToString("dd/MM/yyyy")</strong>
+                                    <span class="text-muted ms-2">@absenceStartText - @absenceEndText</span>
+                                }
+                                else
+                                {
+                                    <strong>@req.StartTime.ToString("dd/MM/yyyy")</strong>
                                 @if (req.IsHalfDayStart) { <span class="badge bg-light text-dark border ms-1">@(req.IsHalfDayStartMorning ? "Nửa ca sáng" : "Nửa ca chiều")</span> }
                                 <i class="bi bi-arrow-right text-muted mx-1"></i>
                                 <strong>@req.EndTime.ToString("dd/MM/yyyy")</strong>
+                                }
                                 @if (req.IsHalfDayEnd) { <span class="badge bg-light text-dark border ms-1">@(req.IsHalfDayEndMorning ? "Nửa ca sáng" : "Nửa ca chiều")</span> }
                             </div>
                         </div>

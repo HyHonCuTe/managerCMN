@@ -82,13 +82,14 @@
                         <div class="col-md-6" id="endDateWrapper">
                             <label asp-for="EndDate" class="form-label">Ngày kết thúc</label>
                             <input asp-for="EndDate" id="endDateInput" class="form-control" type="date" />
+                            <input asp-for="SelectedDurationYears" type="hidden" id="selectedDurationYearsInput" />
                             <!-- Quick duration options for FixedTerm -->
                             <div id="durationOptions" class="mt-2" style="display:none;">
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button type="button" class="btn btn-outline-primary" onclick="setDuration(1)">
+                                    <button type="button" class="btn btn-outline-primary duration-button" data-duration-years="1" onclick="setDuration(1)">
                                         <i class="bi bi-calendar-plus"></i> 1 năm
                                     </button>
-                                    <button type="button" class="btn btn-outline-primary" onclick="setDuration(3)">
+                                    <button type="button" class="btn btn-outline-primary duration-button" data-duration-years="3" onclick="setDuration(3)">
                                         <i class="bi bi-calendar-plus"></i> 3 năm
                                     </button>
                                 </div>
@@ -162,6 +163,8 @@
             var endDateInput = document.getElementById('endDateInput');
             var startDateInput = document.getElementById('startDateInput');
             var durationOptions = document.getElementById('durationOptions');
+            var selectedDurationYearsInput = document.getElementById('selectedDurationYearsInput');
+            var durationButtons = document.querySelectorAll('.duration-button');
 
             // ContractType enum: Probation=0, FixedTerm=1, Indefinite=2, Seasonal=3
             var FIXED_TERM = '1';
@@ -176,13 +179,29 @@
                 endDateWrapper.style.display = isIndefinite ? 'none' : '';
                 if (isIndefinite) {
                     endDateInput.value = '';
+                    selectedDurationYearsInput.value = '';
                 }
 
                 // Show/hide duration options (only for FixedTerm)
                 durationOptions.style.display = isFixedTerm ? '' : 'none';
+
+                if (!isFixedTerm) {
+                    selectedDurationYearsInput.value = '';
+                    updateDurationButtons();
+                    return;
+                }
+
+                recalculateSelectedDuration();
             }
 
             contractTypeSel.addEventListener('change', updateVisibility);
+            startDateInput.addEventListener('change', recalculateSelectedDuration);
+            endDateInput.addEventListener('change', function() {
+                if (document.activeElement === endDateInput) {
+                    selectedDurationYearsInput.value = '';
+                    updateDurationButtons();
+                }
+            });
             // Run on page load
             updateVisibility();
 
@@ -194,10 +213,42 @@
                     startDateInput.focus();
                     return;
                 }
-                var startDate = new Date(startVal);
-                startDate.setFullYear(startDate.getFullYear() + years);
-                endDateInput.value = toIso(startDate);
+                selectedDurationYearsInput.value = String(years);
+                endDateInput.value = calculateEndDate(startVal, years);
+                updateDurationButtons();
             };
+
+            function recalculateSelectedDuration() {
+                var selectedYears = parseInt(selectedDurationYearsInput.value, 10);
+                if (!startDateInput.value || !selectedYears) {
+                    updateDurationButtons();
+                    return;
+                }
+
+                endDateInput.value = calculateEndDate(startDateInput.value, selectedYears);
+                updateDurationButtons();
+            }
+
+            function calculateEndDate(startIso, years) {
+                var startDate = parseIsoDate(startIso);
+                startDate.setFullYear(startDate.getFullYear() + years);
+                startDate.setDate(startDate.getDate() - 1);
+                return toIso(startDate);
+            }
+
+            function parseIsoDate(iso) {
+                var parts = iso.split('-').map(Number);
+                return new Date(parts[0], parts[1] - 1, parts[2]);
+            }
+
+            function updateDurationButtons() {
+                var selectedYears = selectedDurationYearsInput.value;
+                durationButtons.forEach(function(button) {
+                    var isActive = button.dataset.durationYears === selectedYears;
+                    button.classList.toggle('btn-primary', isActive);
+                    button.classList.toggle('btn-outline-primary', !isActive);
+                });
+            }
 
             function toIso(d) {
                 return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());

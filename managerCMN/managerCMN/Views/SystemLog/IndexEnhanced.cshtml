@@ -1,0 +1,148 @@
+@model managerCMN.Models.ViewModels.SystemLogIndexViewModel
+@{
+    ViewData["Title"] = "Nhat ky he thong";
+}
+
+<h4 class="mb-3">
+    <i class="bi bi-journal-text"></i> Nhat ky he thong
+    <small class="text-muted">(@Model.TotalCount ban ghi)</small>
+</h4>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="get" class="row g-2 align-items-end" id="logFilterForm">
+            <div class="col-md-3">
+                <label class="form-label">Module</label>
+                <select name="module" id="moduleFilter" class="form-select">
+                    <option value="">Tat ca module</option>
+                    @foreach (var moduleOption in Model.ModuleOptions)
+                    {
+                        <option value="@moduleOption" selected="@(Model.Module == moduleOption ? "selected" : null)">@moduleOption</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Hanh dong</label>
+                <select name="logAction" id="actionFilter" class="form-select">
+                    <option value="">Tat ca hanh dong</option>
+                    @foreach (var actionOption in Model.ActionOptions)
+                    {
+                        <option value="@actionOption" selected="@(Model.LogAction == actionOption ? "selected" : null)">@actionOption</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tu ngay</label>
+                <input name="from" type="date" class="form-control" value="@(Model.From?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Den ngay</label>
+                <input name="to" type="date" class="form-control" value="@(Model.To?.ToString("yyyy-MM-dd"))" />
+            </div>
+            <div class="col-md-2 d-flex gap-2">
+                <a asp-action="Index" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        @if (!Model.Logs.Any())
+        {
+            <div class="text-muted">Khong tim thay ban ghi phu hop.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Thoi gian</th>
+                            <th>Nguoi thao tac</th>
+                            <th>Module</th>
+                            <th>Hanh dong</th>
+                            <th>Chi tiet</th>
+                            <th>IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var item in Model.Logs)
+                    {
+                        var modalId = $"logDetailModal{item.Log.LogId}";
+                        <tr>
+                            <td>@item.Log.CreatedDate.ToString("dd/MM/yyyy HH:mm:ss")</td>
+                            <td>
+                                <div>@item.UserDisplayName</div>
+                                @if (item.Log.UserId.HasValue)
+                                {
+                                    <small class="text-muted">UserId: @item.Log.UserId</small>
+                                }
+                            </td>
+                            <td><span class="badge bg-secondary">@item.Log.Module</span></td>
+                            <td>@item.Log.Action</td>
+                            <td>
+                                <div class="small text-break">@item.DetailPreview</div>
+                                <button type="button" class="btn btn-sm btn-outline-primary mt-2" data-bs-toggle="modal" data-bs-target="#@modalId">
+                                    Xem chi tiet
+                                </button>
+                            </td>
+                            <td><small>@item.Log.IPAddress</small></td>
+                        </tr>
+
+                        <div class="modal fade" id="@modalId" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <div>
+                                            <h5 class="modal-title mb-1">@item.Log.Action</h5>
+                                            <div class="small text-muted">
+                                                @item.Log.CreatedDate.ToString("dd/MM/yyyy HH:mm:ss") |
+                                                @item.UserDisplayName |
+                                                @item.Log.Module
+                                            </div>
+                                        </div>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="row g-3">
+                                            <div class="col-12">
+                                                <label class="form-label fw-semibold">IP</label>
+                                                <div class="form-control">@item.Log.IPAddress</div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold">DataBefore</label>
+                                                <pre class="form-control bg-light small mb-0" style="min-height: 220px; white-space: pre-wrap;">@item.DataBeforePretty</pre>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-semibold">DataAfter</label>
+                                                <pre class="form-control bg-light small mb-0" style="min-height: 220px; white-space: pre-wrap;">@item.DataAfterPretty</pre>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    const logForm = document.getElementById('logFilterForm');
+    const moduleFilter = document.getElementById('moduleFilter');
+    const actionFilter = document.getElementById('actionFilter');
+
+    moduleFilter?.addEventListener('change', () => logForm.submit());
+    actionFilter?.addEventListener('change', () => logForm.submit());
+
+    document.querySelectorAll('#logFilterForm input[type="date"]').forEach(input => {
+        input.addEventListener('change', () => logForm.submit());
+    });
+</script>
+}

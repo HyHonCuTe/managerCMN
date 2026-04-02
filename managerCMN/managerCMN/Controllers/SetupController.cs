@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
 using managerCMN.Models.Entities;
+using managerCMN.Services.Interfaces;
+using System.Security.Claims;
 
 namespace managerCMN.Controllers;
 
@@ -15,11 +17,16 @@ public class SetupController : Controller
 
     private readonly ApplicationDbContext _db;
     private readonly ILogger<SetupController> _logger;
+    private readonly ISystemLogService _systemLogService;
 
-    public SetupController(ApplicationDbContext db, ILogger<SetupController> logger)
+    public SetupController(
+        ApplicationDbContext db,
+        ILogger<SetupController> logger,
+        ISystemLogService systemLogService)
     {
         _db = db;
         _logger = logger;
+        _systemLogService = systemLogService;
     }
 
     private bool IsMasterAdmin()
@@ -108,6 +115,20 @@ public class SetupController : Controller
             _db.UserRoles.Add(userRole);
             await _db.SaveChangesAsync();
 
+            await _systemLogService.LogAsync(
+                GetCurrentUserId(),
+                "Cap quyen Admin",
+                "Setup",
+                null,
+                new
+                {
+                    TargetUserId = user.UserId,
+                    user.Email,
+                    RoleId = adminRole.RoleId,
+                    RoleName = adminRole.RoleName
+                },
+                GetClientIP());
+
             _logger.LogInformation("Admin role assigned to user: {Email}", user.Email);
             TempData["Success"] = $"Đã gán quyền Admin cho {user.Email} thành công!";
 
@@ -120,4 +141,13 @@ public class SetupController : Controller
             return RedirectToAction(nameof(Index));
         }
     }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP()
+        => HttpContext.Connection.RemoteIpAddress?.ToString();
 }

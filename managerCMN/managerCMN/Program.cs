@@ -40,6 +40,7 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IPostHistoryService, PostHistoryService>();
+builder.Services.AddScoped<SystemLogActionFilter>();
 
 // ── Authentication (Google OAuth + Cookie) ──
 
@@ -90,7 +91,10 @@ builder.Services.AddAuthorization(options =>
 });
 
 // ── MVC ──
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.AddService<SystemLogActionFilter>();
+});
 
 // ── Localization ──
 var supportedCultures = new[] { new CultureInfo("vi-VN") };

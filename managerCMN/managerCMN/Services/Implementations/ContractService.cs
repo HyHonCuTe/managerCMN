@@ -108,7 +108,21 @@ public class ContractService : IContractService
             c.Status = ContractStatus.Expired;
 
         if (expired.Any())
+        {
             await _unitOfWork.SaveChangesAsync();
+            await _logService.LogAsync(
+                GetCurrentUserId(),
+                "Dong bo hop dong het han",
+                "Contract",
+                null,
+                new
+                {
+                    UpdatedCount = expired.Count(),
+                    ContractIds = expired.Select(c => c.ContractId).ToArray(),
+                    Date = today
+                },
+                GetClientIP());
+        }
     }
 
     public async Task<bool> IsContractNumberUniqueAsync(string contractNumber, int? excludeContractId = null)
@@ -137,5 +151,22 @@ public class ContractService : IContractService
         }
 
         await _unitOfWork.SaveChangesAsync();
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Sinh ma hop dong cu thieu du lieu",
+            "Contract",
+            null,
+            new
+            {
+                UpdatedCount = contractsWithEmptyNumber.Count(),
+                Contracts = contractsWithEmptyNumber
+                    .Select(contract => new
+                    {
+                        contract.ContractId,
+                        contract.ContractNumber
+                    })
+                    .ToArray()
+            },
+            GetClientIP());
     }
 }

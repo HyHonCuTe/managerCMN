@@ -7,4 +7,9 @@ public interface ISystemLogService
     Task<IEnumerable<Models.Entities.SystemLog>> GetByUserAsync(int userId);
     Task<IEnumerable<Models.Entities.SystemLog>> GetByDateRangeAsync(DateTime startDate, DateTime endDate);
     Task<IEnumerable<Models.Entities.SystemLog>> GetAllAsync();
+    Task<IReadOnlyList<Models.Entities.SystemLog>> SearchAsync(
+        string? module,
+        string? logAction,
+        DateTime? startDate,
+        DateTime? endDate);
 }

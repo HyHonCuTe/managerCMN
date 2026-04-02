@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Models.Entities;
 using managerCMN.Repositories.Interfaces;
+using managerCMN.Services.Interfaces;
 
 namespace managerCMN.Controllers;
 
@@ -14,12 +15,18 @@ public class AccountController : Controller
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWebHostEnvironment _env;
     private readonly managerCMN.Data.ApplicationDbContext _db;
+    private readonly ISystemLogService _systemLogService;
 
-    public AccountController(IUnitOfWork unitOfWork, IWebHostEnvironment env, managerCMN.Data.ApplicationDbContext db)
+    public AccountController(
+        IUnitOfWork unitOfWork,
+        IWebHostEnvironment env,
+        managerCMN.Data.ApplicationDbContext db,
+        ISystemLogService systemLogService)
     {
         _unitOfWork = unitOfWork;
         _env = env;
         _db = db;
+        _systemLogService = systemLogService;
     }
 
     [HttpGet]
@@ -68,12 +75,27 @@ public class AccountController : Controller
         if (employee == null)
         {
             // Email not in employee list - DENY LOGIN
+            await _systemLogService.LogAsync(
+                null,
+                "Tu choi dang nhap Google",
+                "Account",
+                null,
+                new
+                {
+                    Email = email,
+                    LoginType = "Google",
+                    Reason = "Email khong ton tai trong danh sach nhan vien"
+                },
+                GetClientIP());
             TempData["LoginError"] = $"Email {email} không có trong danh sách nhân viên. Vui lòng liên hệ Admin để được cấp quyền truy cập.";
             await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
             return RedirectToAction(nameof(Login));
         }
 
         var user = await _unitOfWork.Users.GetByEmailAsync(email);
+        bool createdUser = false;
+        bool linkedEmployee = false;
+        int? assignedRoleId = null;
         if (user == null)
         {
             // Try to find matching employee by email
@@ -91,11 +113,13 @@ public class AccountController : Controller
             };
             await _unitOfWork.Users.AddAsync(user);
             await _unitOfWork.SaveChangesAsync();
+            createdUser = true;
 
             // Assign role: Admin for the master account, User for everyone else
             int roleId = string.Equals(email, "tienthanhnguyen811@gmail.com", StringComparison.OrdinalIgnoreCase) ? 1 : 3;
             _db.Set<UserRole>().Add(new UserRole { UserId = user.UserId, RoleId = roleId });
             await _db.SaveChangesAsync();
+            assignedRoleId = roleId;
         }
         else if (!user.EmployeeId.HasValue)
         {
@@ -106,12 +130,30 @@ public class AccountController : Controller
                 user.EmployeeId = matchedEmployee.EmployeeId;
                 _unitOfWork.Users.Update(user);
                 await _unitOfWork.SaveChangesAsync();
+                linkedEmployee = true;
             }
         }
 
         user.LastLogin = DateTime.UtcNow;
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync();
+
+        await _systemLogService.LogAsync(
+            user.UserId,
+            "Dang nhap Google thanh cong",
+            "Account",
+            null,
+            new
+            {
+                user.UserId,
+                user.Email,
+                user.EmployeeId,
+                LoginType = "Google",
+                CreatedUser = createdUser,
+                LinkedEmployee = linkedEmployee,
+                AssignedRoleId = assignedRoleId
+            },
+            GetClientIP());
 
         await SignInUserAsync(user);
         return LocalRedirect(returnUrl ?? "/");
@@ -127,6 +169,10 @@ public class AccountController : Controller
             return NotFound();
 
         User? user;
+        bool createdUser = false;
+        bool linkedEmployee = false;
+        bool assignedAdminRole = false;
+        int? effectiveEmployeeId = employeeId;
 
         if (employeeId.HasValue)
         {
@@ -147,6 +193,7 @@ public class AccountController : Controller
                 };
                 await _unitOfWork.Users.AddAsync(user);
                 await _unitOfWork.SaveChangesAsync();
+                createdUser = true;
 
                 // Default role: User (3)
                 _db.Set<UserRole>().Add(new UserRole { UserId = user.UserId, RoleId = 3 });
@@ -171,6 +218,7 @@ public class AccountController : Controller
                 };
                 await _unitOfWork.Users.AddAsync(user);
                 await _unitOfWork.SaveChangesAsync();
+                createdUser = true;
             }
             else if (!user.EmployeeId.HasValue)
             {
@@ -180,6 +228,7 @@ public class AccountController : Controller
                     user.EmployeeId = nv001.EmployeeId;
                     _unitOfWork.Users.Update(user);
                     await _unitOfWork.SaveChangesAsync();
+                    linkedEmployee = true;
                 }
             }
 
@@ -189,12 +238,34 @@ public class AccountController : Controller
             {
                 _db.Set<UserRole>().Add(new UserRole { UserId = user.UserId, RoleId = 1 });
                 await _db.SaveChangesAsync();
+                assignedAdminRole = true;
             }
+
+            effectiveEmployeeId = user.EmployeeId;
         }
 
         user.LastLogin = DateTime.UtcNow;
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync();
+
+        await _systemLogService.LogAsync(
+            user.UserId,
+            "Dang nhap dev thanh cong",
+            "Account",
+            null,
+            new
+            {
+                user.UserId,
+                user.Email,
+                user.EmployeeId,
+                LoginType = "Development",
+                RequestedEmployeeId = employeeId,
+                EffectiveEmployeeId = effectiveEmployeeId,
+                CreatedUser = createdUser,
+                LinkedEmployee = linkedEmployee,
+                AssignedAdminRole = assignedAdminRole
+            },
+            GetClientIP());
 
         await SignInUserAsync(user);
         return LocalRedirect(returnUrl ?? "/");
@@ -203,6 +274,19 @@ public class AccountController : Controller
     [HttpPost]
     public async Task<IActionResult> Logout()
     {
+        await _systemLogService.LogAsync(
+            GetCurrentUserId(),
+            "Dang xuat",
+            "Account",
+            null,
+            new
+            {
+                UserId = GetCurrentUserId(),
+                Email = User.FindFirstValue(ClaimTypes.Email),
+                FullName = User.FindFirstValue(ClaimTypes.Name)
+            },
+            GetClientIP());
+
         await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         return RedirectToAction(nameof(Login));
     }
@@ -256,4 +340,13 @@ public class AccountController : Controller
         var principal = new ClaimsPrincipal(identity);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
     }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP()
+        => HttpContext.Connection.RemoteIpAddress?.ToString();
 }

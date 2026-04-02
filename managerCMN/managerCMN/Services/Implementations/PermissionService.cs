@@ -3,6 +3,8 @@ using managerCMN.Data;
 using managerCMN.Models.Entities;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
+using Microsoft.AspNetCore.Http;
+using System.Security.Claims;
 
 namespace managerCMN.Services.Implementations;
 
@@ -10,11 +12,19 @@ public class PermissionService : IPermissionService
 {
     private readonly IUnitOfWork _unitOfWork;
     private readonly ApplicationDbContext _context;
+    private readonly ISystemLogService _systemLogService;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public PermissionService(IUnitOfWork unitOfWork, ApplicationDbContext context)
+    public PermissionService(
+        IUnitOfWork unitOfWork,
+        ApplicationDbContext context,
+        ISystemLogService systemLogService,
+        IHttpContextAccessor httpContextAccessor)
     {
         _unitOfWork = unitOfWork;
         _context = context;
+        _systemLogService = systemLogService;
+        _httpContextAccessor = httpContextAccessor;
     }
 
     public async Task<IEnumerable<Permission>> GetAllPermissionsAsync()
@@ -39,10 +49,23 @@ public class PermissionService : IPermissionService
     {
         try
         {
+            permissionIds ??= [];
+            var role = await _context.Roles.FirstOrDefaultAsync(r => r.RoleId == roleId);
+
             // Remove existing role permissions
             var existingRolePermissions = await _context.RolePermissions
                 .Where(rp => rp.RoleId == roleId)
                 .ToListAsync();
+
+            var dataBefore = new
+            {
+                RoleId = roleId,
+                RoleName = role?.RoleName,
+                PermissionIds = existingRolePermissions
+                    .Select(rp => rp.PermissionId)
+                    .OrderBy(id => id)
+                    .ToArray()
+            };
 
             _context.RolePermissions.RemoveRange(existingRolePermissions);
 
@@ -56,6 +79,19 @@ public class PermissionService : IPermissionService
 
             await _context.RolePermissions.AddRangeAsync(newRolePermissions);
             await _context.SaveChangesAsync();
+
+            await _systemLogService.LogAsync(
+                GetCurrentUserId(),
+                "Cap nhat quyen cho vai tro",
+                "RolePermission",
+                dataBefore,
+                new
+                {
+                    RoleId = roleId,
+                    RoleName = role?.RoleName,
+                    PermissionIds = permissionIds.OrderBy(id => id).ToArray()
+                },
+                GetClientIP());
 
             return true;
         }
@@ -89,4 +125,13 @@ public class PermissionService : IPermissionService
 
         return permissionKeys;
     }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP()
+        => _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
 }

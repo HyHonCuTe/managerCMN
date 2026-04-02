@@ -285,6 +285,16 @@ public class AssetService : IAssetService
         assignment.AssignmentCondition = condition;
 
         var asset = await _unitOfWork.Assets.GetByIdAsync(assignment.AssetId);
+        var dataBefore = asset == null
+            ? null
+            : new
+            {
+                AssetId = asset.AssetId,
+                asset.AssetCode,
+                asset.AssetName,
+                Status = asset.Status.ToString()
+            };
+
         if (asset != null)
         {
             asset.Status = AssetStatus.Assigned;
@@ -300,6 +310,23 @@ public class AssetService : IAssetService
             "Available", "Assigned", assignment.Note);
 
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Gan tai san cho nhan vien",
+            "AssetAssignment",
+            dataBefore,
+            new
+            {
+                assignment.AssignmentId,
+                assignment.AssetId,
+                assignment.EmployeeId,
+                assignment.AssignedDate,
+                AssignmentReason = reason.ToString(),
+                AssignmentCondition = condition,
+                AssetStatus = asset?.Status.ToString()
+            },
+            GetClientIP());
     }
 
     // Enhanced return with reason and manual return date
@@ -307,6 +334,15 @@ public class AssetService : IAssetService
     {
         var assignment = await _unitOfWork.AssetAssignments.GetByIdAsync(assignmentId);
         if (assignment == null) return;
+
+        var dataBefore = new
+        {
+            assignment.AssignmentId,
+            assignment.AssetId,
+            assignment.EmployeeId,
+            Status = assignment.Status.ToString(),
+            assignment.ReturnDate
+        };
 
         assignment.Status = AssetAssignmentStatus.Returned;
         assignment.ReturnDate = returnDate; // Use manual return date from form
@@ -328,6 +364,24 @@ public class AssetService : IAssetService
             "Assigned", "Available", condition);
 
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Thu hoi tai san",
+            "AssetAssignment",
+            dataBefore,
+            new
+            {
+                assignment.AssignmentId,
+                assignment.AssetId,
+                assignment.EmployeeId,
+                Status = assignment.Status.ToString(),
+                assignment.ReturnDate,
+                ReturnReason = reason.ToString(),
+                ReturnCondition = condition,
+                AssetStatus = asset?.Status.ToString()
+            },
+            GetClientIP());
     }
 
     // Get assets assigned to employee
@@ -437,6 +491,14 @@ public class AssetService : IAssetService
             null, null, "Asset condition updated", null, condition, notes);
 
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Cap nhat tinh trang tai san",
+            "Asset",
+            new { AssetId = assetId },
+            new { AssetId = assetId, Condition = condition, Notes = notes },
+            GetClientIP());
     }
 
     // Move asset location
@@ -447,5 +509,13 @@ public class AssetService : IAssetService
             null, null, "Asset location changed", null, newLocation, notes);
 
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Di chuyen vi tri tai san",
+            "Asset",
+            new { AssetId = assetId },
+            new { AssetId = assetId, NewLocation = newLocation, Notes = notes },
+            GetClientIP());
     }
 }

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
 using managerCMN.Models.Entities;
 using managerCMN.Services.Interfaces;
+using System.Security.Claims;
 
 namespace managerCMN.Controllers;
 
@@ -20,17 +21,20 @@ public class SettingsController : Controller
     private readonly IEmployeeService _employeeService;
     private readonly IPermissionService _permissionService;
     private readonly ApplicationDbContext _db;
+    private readonly ISystemLogService _systemLogService;
 
     public SettingsController(
         IDepartmentService departmentService,
         IEmployeeService employeeService,
         IPermissionService permissionService,
-        ApplicationDbContext db)
+        ApplicationDbContext db,
+        ISystemLogService systemLogService)
     {
         _departmentService = departmentService;
         _employeeService = employeeService;
         _permissionService = permissionService;
         _db = db;
+        _systemLogService = systemLogService;
     }
 
     private bool IsMasterAdmin()
@@ -578,6 +582,15 @@ public class SettingsController : Controller
                 }
             }
 
+            var previousRoles = targetUser.UserRoles
+                .Select(ur => new
+                {
+                    ur.RoleId,
+                    RoleName = ur.Role?.RoleName
+                })
+                .OrderBy(ur => ur.RoleId)
+                .ToArray();
+
             // Remove existing user roles
             var existingUserRoles = await _db.UserRoles.Where(ur => ur.UserId == userId).ToListAsync();
             _db.UserRoles.RemoveRange(existingUserRoles);
@@ -593,6 +606,36 @@ public class SettingsController : Controller
             await _db.UserRoles.AddRangeAsync(newUserRoles);
             await _db.SaveChangesAsync();
 
+            var updatedRoles = await _db.Roles
+                .Where(role => roleIds.Contains(role.RoleId))
+                .Select(role => new
+                {
+                    role.RoleId,
+                    RoleName = role.RoleName
+                })
+                .OrderBy(role => role.RoleId)
+                .ToArrayAsync();
+
+            await _systemLogService.LogAsync(
+                GetCurrentUserId(),
+                "Cap nhat vai tro nguoi dung",
+                "UserRole",
+                new
+                {
+                    TargetUserId = targetUser.UserId,
+                    targetUser.Email,
+                    EmployeeCode = targetUser.Employee?.EmployeeCode,
+                    Roles = previousRoles
+                },
+                new
+                {
+                    TargetUserId = targetUser.UserId,
+                    targetUser.Email,
+                    EmployeeCode = targetUser.Employee?.EmployeeCode,
+                    Roles = updatedRoles
+                },
+                GetClientIP());
+
             TempData["Success"] = "Đã cập nhật vai trò người dùng thành công!";
             return RedirectToAction(nameof(Index), new { tab = "permissions" });
         }
@@ -604,6 +647,15 @@ public class SettingsController : Controller
     }
 
     // === FULL ATTENDANCE SETTINGS (Chấm công đầy đủ tự động) ===
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return int.TryParse(userIdClaim, out var id) ? id : null;
+    }
+
+    private string? GetClientIP()
+        => HttpContext.Connection.RemoteIpAddress?.ToString();
 
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> AddFullAttendanceEmployee(int employeeId, string? reason)

@@ -1,8 +1,9 @@
 @model DashboardViewModel
 @using managerCMN.Models.Enums
+@using managerCMN.Helpers
 @{
     ViewData["Title"] = "Dashboard";
-    var today = DateTime.Today;
+    var today = DateTimeHelper.VietnamToday;
     var p = Model.Personal;
 
     string ContractTypeText(ContractType ct) => ct switch
@@ -87,8 +88,8 @@
         <div class="col-6 col-md-3 col-lg-2">
             <div class="card text-center h-100 border-primary">
                 <div class="card-body py-3">
-                    <div class="text-muted small"><i class="bi bi-person-check text-primary"></i> Đi làm tháng @today.Month</div>
-                    <div class="fs-2 fw-bold text-primary">@p.AttendanceDaysWorked</div>
+                    <div class="text-muted small"><i class="bi bi-person-check text-primary"></i> Đi làm tháng @p.AttendancePeriodMonth/@p.AttendancePeriodYear</div>
+                    <div class="fs-2 fw-bold text-primary">@p.AttendanceDaysWorked.ToString("0.#")</div>
                     <div class="text-muted small">ngày</div>
                 </div>
             </div>
@@ -97,7 +98,7 @@
             <div class="card text-center h-100 @(p.AttendanceLateCount > 0 ? "border-danger" : "border-secondary")">
                 <div class="card-body py-3">
                     <div class="text-muted small">
-                        <i class="bi bi-clock-history @(p.AttendanceLateCount > 0 ? "text-danger" : "text-secondary")"></i> Đi trễ tháng @today.Month
+                        <i class="bi bi-clock-history @(p.AttendanceLateCount > 0 ? "text-danger" : "text-secondary")"></i> Đi trễ tháng @p.AttendancePeriodMonth/@p.AttendancePeriodYear
                     </div>
                     <div class="fs-2 fw-bold @(p.AttendanceLateCount > 0 ? "text-danger" : "text-secondary")">@p.AttendanceLateCount</div>
                     <div class="text-muted small">lần</div>

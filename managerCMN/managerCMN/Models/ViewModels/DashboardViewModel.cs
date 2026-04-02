@@ -40,10 +40,12 @@ public class PersonalDashboardData
     // Leave
     public LeaveBalanceSummaryViewModel? LeaveSummary { get; set; }
 
-    // Attendance (current month)
-    public int AttendanceDaysWorked { get; set; }
+    // Attendance (current company period: 26 -> 25)
+    public decimal AttendanceDaysWorked { get; set; }
     public int AttendanceLateCount { get; set; }
     public decimal AttendanceOvertimeHours { get; set; }
+    public int AttendancePeriodMonth { get; set; }
+    public int AttendancePeriodYear { get; set; }
 
     // Pending requests
     public int MyPendingRequests { get; set; }

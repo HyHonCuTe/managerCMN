@@ -51,9 +51,7 @@ public class TicketController : Controller
         var employeeId = GetCurrentEmployeeId();
         var model = new TicketCreateViewModel
         {
-            AvailableRecipients = (await _ticketService.GetAvailableRecipientsAsync(employeeId))
-                .Select(e => new SelectListItem(e.FullName, e.EmployeeId.ToString()))
-                .ToList()
+            AvailableRecipients = await BuildRecipientSelectListAsync(employeeId)
         };
         return View(model);
     }
@@ -64,9 +62,7 @@ public class TicketController : Controller
     {
         if (!ModelState.IsValid)
         {
-            model.AvailableRecipients = (await _ticketService.GetAvailableRecipientsAsync(GetCurrentEmployeeId()))
-                .Select(e => new SelectListItem(e.FullName, e.EmployeeId.ToString()))
-                .ToList();
+            model.AvailableRecipients = await BuildRecipientSelectListAsync(GetCurrentEmployeeId());
             return View(model);
         }
 
@@ -265,5 +261,32 @@ public class TicketController : Controller
     {
         var claim = User.FindFirst("EmployeeId")?.Value;
         return int.TryParse(claim, out var id) ? id : 0;
+    }
+
+    private async Task<List<SelectListItem>> BuildRecipientSelectListAsync(int? excludeEmployeeId = null)
+    {
+        var groupCache = new Dictionary<string, SelectListGroup>(StringComparer.OrdinalIgnoreCase);
+
+        return (await _ticketService.GetAvailableRecipientsAsync(excludeEmployeeId))
+            .Select(employee =>
+            {
+                var departmentName = string.IsNullOrWhiteSpace(employee.Department?.DepartmentName)
+                    ? "Chưa phân phòng ban"
+                    : employee.Department!.DepartmentName;
+
+                if (!groupCache.TryGetValue(departmentName, out var group))
+                {
+                    group = new SelectListGroup { Name = departmentName };
+                    groupCache[departmentName] = group;
+                }
+
+                return new SelectListItem(employee.FullName, employee.EmployeeId.ToString())
+                {
+                    Group = group
+                };
+            })
+            .OrderBy(item => item.Group?.Name)
+            .ThenBy(item => item.Text)
+            .ToList();
     }
 }

@@ -104,4 +104,5 @@ public class Employee
     public ICollection<AssetAssignment> AssetAssignments { get; set; } = new List<AssetAssignment>();
     public ICollection<Ticket> CreatedTickets { get; set; } = new List<Ticket>();
     public ICollection<Ticket> AssignedTickets { get; set; } = new List<Ticket>();
+    public ICollection<MeetingRoomBooking> MeetingRoomBookings { get; set; } = new List<MeetingRoomBooking>();
 }

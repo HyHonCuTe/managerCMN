@@ -108,6 +108,11 @@
                     <i class="bi bi-send"></i> Đơn từ
                 </a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link @(ctrl == "MeetingRoom" ? "active" : "")" asp-controller="MeetingRoom" asp-action="Index">
+                    <i class="bi bi-calendar2-week"></i> Phòng họp
+                </a>
+            </li>
             @if (isApprover)
             {
             <li class="nav-item">

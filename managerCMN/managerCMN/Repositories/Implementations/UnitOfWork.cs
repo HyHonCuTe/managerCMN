@@ -13,6 +13,8 @@ public class UnitOfWork : IUnitOfWork
         Employees = new EmployeeRepository(context);
         Departments = new DepartmentRepository(context);
         Contracts = new ContractRepository(context);
+        MeetingRooms = new MeetingRoomRepository(context);
+        MeetingRoomBookings = new MeetingRoomBookingRepository(context);
         LeaveBalances = new LeaveBalanceRepository(context);
         LeaveRequests = new LeaveRequestRepository(context);
         Requests = new RequestRepository(context);
@@ -37,6 +39,8 @@ public class UnitOfWork : IUnitOfWork
     public IEmployeeRepository Employees { get; }
     public IDepartmentRepository Departments { get; }
     public IContractRepository Contracts { get; }
+    public IMeetingRoomRepository MeetingRooms { get; }
+    public IMeetingRoomBookingRepository MeetingRoomBookings { get; }
     public ILeaveBalanceRepository LeaveBalances { get; }
     public ILeaveRequestRepository LeaveRequests { get; }
     public IRequestRepository Requests { get; }

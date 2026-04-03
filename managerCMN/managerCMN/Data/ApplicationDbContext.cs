@@ -22,6 +22,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<JobTitle> JobTitles => Set<JobTitle>();
     public DbSet<Position> Positions => Set<Position>();
     public DbSet<Contract> Contracts => Set<Contract>();
+    public DbSet<MeetingRoom> MeetingRooms => Set<MeetingRoom>();
+    public DbSet<MeetingRoomBooking> MeetingRoomBookings => Set<MeetingRoomBooking>();
 
     // Leave
     public DbSet<LeaveBalance> LeaveBalances => Set<LeaveBalance>();
@@ -137,6 +139,49 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<Contract>()
             .HasIndex(c => c.ContractNumber)
             .IsUnique();
+
+        // MeetingRoom
+        modelBuilder.Entity<MeetingRoom>()
+            .HasIndex(r => r.Name)
+            .IsUnique();
+
+        modelBuilder.Entity<MeetingRoomBooking>()
+            .HasOne(b => b.MeetingRoom)
+            .WithMany(r => r.Bookings)
+            .HasForeignKey(b => b.MeetingRoomId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<MeetingRoomBooking>()
+            .HasOne(b => b.Employee)
+            .WithMany(e => e.MeetingRoomBookings)
+            .HasForeignKey(b => b.EmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<MeetingRoomBooking>()
+            .HasIndex(b => new { b.MeetingRoomId, b.StartTime, b.EndTime });
+
+        modelBuilder.Entity<MeetingRoomBooking>()
+            .HasIndex(b => new { b.EmployeeId, b.StartTime });
+
+        modelBuilder.Entity<MeetingRoomBooking>()
+            .Property(b => b.StartTime)
+            .HasColumnType("datetime2");
+
+        modelBuilder.Entity<MeetingRoomBooking>()
+            .Property(b => b.EndTime)
+            .HasColumnType("datetime2");
+
+        modelBuilder.Entity<MeetingRoomBooking>()
+            .Property(b => b.CreatedAt)
+            .HasColumnType("datetime2");
+
+        modelBuilder.Entity<MeetingRoomBooking>()
+            .Property(b => b.ModifiedAt)
+            .HasColumnType("datetime2");
+
+        modelBuilder.Entity<MeetingRoomBooking>()
+            .Property(b => b.CancelledAt)
+            .HasColumnType("datetime2");
 
         // LeaveBalance
         modelBuilder.Entity<LeaveBalance>()

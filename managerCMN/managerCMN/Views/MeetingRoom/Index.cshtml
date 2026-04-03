@@ -1,0 +1,954 @@
+@model managerCMN.Models.ViewModels.MeetingRoomScheduleViewModel
+@{
+    ViewData["Title"] = "Đặt phòng họp";
+    var previousDate = Model.SelectedDate.AddDays(-1);
+    var nextDate = Model.SelectedDate.AddDays(1);
+    var today = managerCMN.Helpers.DateTimeHelper.VietnamToday;
+    var now = managerCMN.Helpers.DateTimeHelper.VietnamNow;
+    var minAdvanceTime = now.AddMinutes(30);
+    var currentEmployeeId = int.TryParse(User.FindFirst("EmployeeId")?.Value, out var employeeId) ? employeeId : 0;
+    var upcomingTitle = Model.IsAdmin ? "Lịch sắp tới toàn hệ thống" : "Lịch sắp tới của bạn";
+    var canCreateBooking = Model.Rooms.Any()
+        && (Model.SelectedDate.Date > today || (Model.SelectedDate.Date == today && minAdvanceTime.TimeOfDay < Model.DayEnd));
+}
+
+<div class="meeting-page">
+
+    <div class="row g-4 align-items-start">
+        <div class="col-xl-8">
+            <div class="card meeting-board-card">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <div class="meeting-board-summary">
+                        <div class="meeting-stat meeting-stat-inline meeting-stat-room">
+                            <div class="meeting-stat-icon"><i class="bi bi-door-open"></i></div>
+                            <div>
+                                <div class="meeting-stat-label">Phòng đang khả dụng</div>
+                                <div class="meeting-stat-value">@Model.TotalRooms</div>
+                            </div>
+                        </div>
+                        <div class="meeting-stat meeting-stat-inline meeting-stat-booking">
+                            <div class="meeting-stat-icon"><i class="bi bi-calendar-check"></i></div>
+                            <div>
+                                <div class="meeting-stat-label">Lịch trong ngày</div>
+                                <div class="meeting-stat-value">@Model.TotalBookings</div>
+                            </div>
+                        </div>
+                    </div>
+                    <form method="get" class="meeting-date-picker card shadow-sm border-0 ms-auto">
+                        <div class="card-body p-3">
+                            <div class="text-muted small mb-2">Ngày đang xem</div>
+                            <div class="d-flex align-items-center gap-2">
+                                <a class="btn btn-outline-secondary" asp-action="Index" asp-route-date="@previousDate.ToString("yyyy-MM-dd")">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                                <input type="date" name="date" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" class="form-control" id="meetingDateInput" />
+                                <a class="btn btn-outline-secondary" asp-action="Index" asp-route-date="@nextDate.ToString("yyyy-MM-dd")">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </div>
+                            <div class="meeting-date-caption mt-2">@Model.SelectedDateDisplay</div>
+                        </div>
+                    </form>
+                </div>
+                <div class="card-body p-0">
+                    @if (!Model.Rooms.Any())
+                    {
+                        <div class="p-4">
+                            <div class="alert alert-warning mb-0">
+                                <i class="bi bi-exclamation-circle me-2"></i>
+                                Hiện chưa có phòng họp nào đang khả dụng.
+                                @if (Model.IsAdmin)
+                                {
+                                    <text>Bạn có thể tạo phòng mới ở khung bên phải.</text>
+                                }
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="meeting-board-wrap">
+                            <div class="meeting-board-header" style="grid-template-columns: 92px repeat(@Model.Rooms.Count, minmax(220px, 1fr));">
+                                <div class="meeting-board-corner">Giờ</div>
+                                @foreach (var roomColumn in Model.Rooms)
+                                {
+                                    var headerBackground = $"{roomColumn.Room.ColorHex}14";
+                                    <div class="meeting-room-header" style="background: @headerBackground;">
+                                        <div class="meeting-room-header-top">
+                                            <span class="meeting-room-dot" style="background:@roomColumn.Room.ColorHex;"></span>
+                                            <span class="meeting-room-name">@roomColumn.Room.Name</span>
+                                        </div>
+                                        <div class="meeting-room-meta">
+                                            @if (!string.IsNullOrWhiteSpace(roomColumn.Room.Location))
+                                            {
+                                                <span><i class="bi bi-geo-alt"></i> @roomColumn.Room.Location</span>
+                                            }
+                                            @if (roomColumn.Room.Capacity.HasValue)
+                                            {
+                                                <span><i class="bi bi-people"></i> @roomColumn.Room.Capacity.Value người</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="meeting-board-body" style="grid-template-columns: 92px repeat(@Model.Rooms.Count, minmax(220px, 1fr));">
+                                <div class="meeting-time-column" style="--slot-count:@Model.SlotCount;">
+                                    @foreach (var slot in Model.TimeSlots)
+                                    {
+                                        <div class="meeting-time-cell">@slot.Label</div>
+                                    }
+                                </div>
+
+                                @foreach (var roomColumn in Model.Rooms)
+                                {
+                                    <div class="meeting-room-track" style="--slot-count:@Model.SlotCount; --room-color:@roomColumn.Room.ColorHex;">
+                                        @foreach (var slot in Model.TimeSlots)
+                                        {
+                                            var slotStart = Model.SelectedDate.Date.Add(slot.Start);
+                                            var slotEnd = Model.SelectedDate.Date.Add(slot.End);
+                                            var isPastSlot = Model.SelectedDate.Date < today
+                                                || (Model.SelectedDate.Date == today && slotStart < minAdvanceTime);
+                                            <button type="button"
+                                                    class="meeting-slot @(isPastSlot ? "meeting-slot-past" : string.Empty)"
+                                                    style="grid-row:@(slot.Index + 1);"
+                                                    data-room-id="@roomColumn.Room.MeetingRoomId"
+                                                    data-start="@slot.Start.ToString(@"hh\:mm")"
+                                                    data-end="@slot.End.ToString(@"hh\:mm")"
+                                                    @(isPastSlot ? "disabled" : null)
+                                                    title="Chọn @roomColumn.Room.Name lúc @slot.Start.ToString(@"hh\:mm")">
+                                            </button>
+                                        }
+
+                                        @foreach (var booking in roomColumn.Bookings)
+                                        {
+                                            if (!Model.IsBookingVisible(booking.StartTime, booking.EndTime))
+                                            {
+                                                continue;
+                                            }
+
+                                            var isOwnBooking = booking.EmployeeId == currentEmployeeId;
+                                            var canCancel = Model.IsAdmin || isOwnBooking;
+                                            var accentBackground = $"{roomColumn.Room.ColorHex}1A";
+                                            <article class="meeting-booking @(isOwnBooking ? "meeting-booking-own" : string.Empty)"
+                                                     title="@booking.Description"
+                                                     style="top: calc(@Model.GetVisibleTopMinutes(booking.StartTime) * var(--meeting-minute-height)); height: calc(@Model.GetVisibleDurationMinutes(booking.StartTime, booking.EndTime) * var(--meeting-minute-height)); border-left-color:@roomColumn.Room.ColorHex; background:@accentBackground;">
+                                                <div class="meeting-booking-line">
+                                                    <span class="meeting-booking-time">@booking.StartTime.ToString("HH:mm") - @booking.EndTime.ToString("HH:mm")</span>
+                                                    <span class="meeting-booking-title">@booking.Title</span>
+                                                    <span class="meeting-booking-owner">
+                                                        <i class="bi bi-person-circle"></i> @booking.Employee.FullName
+                                                    </span>
+                                                    @if (!string.IsNullOrWhiteSpace(booking.Employee.Department?.DepartmentName))
+                                                    {
+                                                        <span class="meeting-booking-department">@booking.Employee.Department.DepartmentName</span>
+                                                    }
+                                                </div>
+                                                @if (canCancel)
+                                                {
+                                                    <form asp-action="CancelBooking" method="post" class="meeting-cancel-form">
+                                                        @Html.AntiForgeryToken()
+                                                        <input type="hidden" name="id" value="@booking.MeetingRoomBookingId" />
+                                                        <input type="hidden" name="selectedDate" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+                                                        <button type="submit" class="btn btn-sm btn-light meeting-cancel-btn" title="Hủy lịch">
+                                                            <i class="bi bi-x-circle"></i>
+                                                        </button>
+                                                    </form>
+                                                }
+                                            </article>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4">
+            <div class="card meeting-form-card mb-4" id="bookingFormCard">
+                <div class="card-header">
+                    <h5 class="mb-1">Đặt phòng họp mới</h5>
+                    <div class="text-muted small">Chọn một slot trống trên lịch hoặc nhập trực tiếp thông tin bên dưới.</div>
+                </div>
+                <div class="card-body">
+                    <form asp-action="CreateBooking" method="post" id="meetingBookingForm">
+                        @Html.AntiForgeryToken()
+                        <input asp-for="NewBooking.BookingDate" type="hidden" id="bookingDateInput" />
+                        <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Ngày họp</label>
+                            <div class="meeting-selected-date">@Model.SelectedDateDisplay</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="NewBooking.MeetingRoomId" class="form-label">Phòng họp</label>
+                            <select asp-for="NewBooking.MeetingRoomId" class="form-select" id="bookingRoomId" disabled="@(!canCreateBooking)">
+                                <option value="">-- Chọn phòng họp --</option>
+                                @foreach (var roomColumn in Model.Rooms)
+                                {
+                                    <option value="@roomColumn.Room.MeetingRoomId">
+                                        @roomColumn.Room.Name
+                                        @if (roomColumn.Room.Capacity.HasValue)
+                                        {
+                                            <text> - @roomColumn.Room.Capacity.Value người</text>
+                                        }
+                                    </option>
+                                }
+                            </select>
+                            <span asp-validation-for="NewBooking.MeetingRoomId" class="text-danger small"></span>
+                        </div>
+
+                        <div class="mb-3">
+                            <label asp-for="NewBooking.Title" class="form-label">Tiêu đề cuộc họp</label>
+                            <input asp-for="NewBooking.Title" class="form-control" id="bookingTitleInput" placeholder="Ví dụ: Họp kickoff dự án" />
+                            <span asp-validation-for="NewBooking.Title" class="text-danger small"></span>
+                        </div>
+
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label asp-for="NewBooking.StartClock" class="form-label">Giờ bắt đầu</label>
+                                <input asp-for="NewBooking.StartClock" type="time" step="60" class="form-control" id="bookingStartClock" />
+                                <span asp-validation-for="NewBooking.StartClock" class="text-danger small"></span>
+                            </div>
+                            <div class="col-6">
+                                <label asp-for="NewBooking.EndClock" class="form-label">Giờ kết thúc</label>
+                                <input asp-for="NewBooking.EndClock" type="time" step="60" class="form-control" id="bookingEndClock" />
+                                <span asp-validation-for="NewBooking.EndClock" class="text-danger small"></span>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 mb-3">
+                            <label asp-for="NewBooking.Description" class="form-label">Nội dung họp</label>
+                            <textarea asp-for="NewBooking.Description" class="form-control" rows="4" placeholder="Ghi chú ngắn về nội dung hoặc thành phần tham gia..."></textarea>
+                            <span asp-validation-for="NewBooking.Description" class="text-danger small"></span>
+                        </div>
+
+                        <div class="meeting-form-hint mb-3">
+                            <i class="bi bi-lightbulb"></i>
+                            Bạn có thể đặt ở mọi khung giờ, chỉ cần đặt trước ít nhất 30 phút so với giờ bắt đầu.
+                        </div>
+
+                        @if (Model.SelectedDate.Date < today)
+                        {
+                            <div class="alert alert-secondary small">
+                                Bạn đang xem lịch của ngày trong quá khứ, nên chỉ có thể theo dõi mà không thể tạo lịch họp mới.
+                            </div>
+                        }
+
+                        <button type="submit" class="btn btn-primary w-100" disabled="@(!canCreateBooking)">
+                            <i class="bi bi-calendar-plus me-1"></i> Xác nhận đặt phòng
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card meeting-upcoming-card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-1">@upcomingTitle</h5>
+                    <div class="text-muted small">Danh sách gần nhất để theo dõi và hủy nhanh khi cần.</div>
+                </div>
+                <div class="card-body p-0">
+                    @if (!Model.UpcomingBookings.Any())
+                    {
+                        <div class="p-4 text-muted">Chưa có lịch họp sắp tới.</div>
+                    }
+                    else
+                    {
+                        <div class="meeting-upcoming-list">
+                            @foreach (var item in Model.UpcomingBookings)
+                            {
+                                <div class="meeting-upcoming-item">
+                                    <div class="meeting-upcoming-main">
+                                        <div class="meeting-upcoming-title">@item.Booking.Title</div>
+                                        <div class="meeting-upcoming-meta">
+                                            <span><i class="bi bi-door-open"></i> @item.Booking.MeetingRoom.Name</span>
+                                            <span><i class="bi bi-clock"></i> @item.TimeDisplay</span>
+                                            @if (Model.IsAdmin)
+                                            {
+                                                <span><i class="bi bi-person"></i> @item.Booking.Employee.FullName</span>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    @if (item.CanCancel)
+                                    {
+                                        <form asp-action="CancelBooking" method="post">
+                                            @Html.AntiForgeryToken()
+                                            <input type="hidden" name="id" value="@item.Booking.MeetingRoomBookingId" />
+                                            <input type="hidden" name="selectedDate" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">Hủy</button>
+                                        </form>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @if (Model.IsAdmin)
+            {
+                <div class="card meeting-admin-card">
+                    <div class="card-header">
+                        <h5 class="mb-1">Quản lý phòng họp</h5>
+                        <div class="text-muted small">Admin có thể tạo mới hoặc tạm ngưng sử dụng từng phòng.</div>
+                    </div>
+                    <div class="card-body">
+                        <form asp-action="CreateRoom" method="post" class="mb-4">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="selectedDate" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+                            <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
+
+                            <div class="mb-3">
+                                <label asp-for="NewRoom.Name" class="form-label">Tên phòng</label>
+                                <input asp-for="NewRoom.Name" class="form-control" placeholder="Ví dụ: Phòng họp Sunflower" />
+                                <span asp-validation-for="NewRoom.Name" class="text-danger small"></span>
+                            </div>
+
+                            <div class="row g-3">
+                                <div class="col-md-7">
+                                    <label asp-for="NewRoom.Location" class="form-label">Vị trí</label>
+                                    <input asp-for="NewRoom.Location" class="form-control" placeholder="Tầng 3, khu A" />
+                                    <span asp-validation-for="NewRoom.Location" class="text-danger small"></span>
+                                </div>
+                                <div class="col-md-5">
+                                    <label asp-for="NewRoom.Capacity" class="form-label">Sức chứa</label>
+                                    <input asp-for="NewRoom.Capacity" type="number" min="1" class="form-control" placeholder="12" />
+                                    <span asp-validation-for="NewRoom.Capacity" class="text-danger small"></span>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 mb-3">
+                                <label asp-for="NewRoom.ColorHex" class="form-label">Màu nhận diện</label>
+                                <div class="d-flex gap-2">
+                                    <input asp-for="NewRoom.ColorHex" class="form-control" placeholder="#f97316" />
+                                    <input type="color" value="@Model.NewRoom.ColorHex" class="form-control form-control-color" id="roomColorPicker" title="Chọn màu phòng" />
+                                </div>
+                                <span asp-validation-for="NewRoom.ColorHex" class="text-danger small"></span>
+                            </div>
+
+                            <button type="submit" class="btn btn-dark w-100">
+                                <i class="bi bi-plus-circle me-1"></i> Thêm phòng họp
+                            </button>
+                        </form>
+
+                        <div class="meeting-room-admin-list">
+                            @foreach (var room in Model.AllRooms)
+                            {
+                                <div class="meeting-room-admin-item">
+                                    <div>
+                                        <div class="meeting-room-admin-name">
+                                            <span class="meeting-room-dot" style="background:@room.ColorHex;"></span>
+                                            @room.Name
+                                        </div>
+                                        <div class="meeting-room-admin-meta">
+                                            @if (!string.IsNullOrWhiteSpace(room.Location))
+                                            {
+                                                <span>@room.Location</span>
+                                            }
+                                            @if (room.Capacity.HasValue)
+                                            {
+                                                <span>@room.Capacity.Value người</span>
+                                            }
+                                            <span class="badge @(room.IsActive ? "bg-success-subtle text-success-emphasis" : "bg-secondary-subtle text-secondary-emphasis")">
+                                                @(room.IsActive ? "Đang hoạt động" : "Đang tạm ngưng")
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <form asp-action="ToggleRoomStatus" method="post">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@room.MeetingRoomId" />
+                                        <input type="hidden" name="isActive" value="@(!room.IsActive)" />
+                                        <input type="hidden" name="selectedDate" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+                                        <button type="submit" class="btn btn-sm @(room.IsActive ? "btn-outline-danger" : "btn-outline-success")">
+                                            @(room.IsActive ? "Ngưng dùng" : "Kích hoạt")
+                                        </button>
+                                    </form>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .meeting-page {
+            --meeting-orange: #f97316;
+            --meeting-border: #ece2da;
+        }
+
+        .meeting-hero {
+            overflow: hidden;
+            border-radius: 22px;
+            background:
+                radial-gradient(circle at top right, rgba(249, 115, 22, 0.20), transparent 30%),
+                linear-gradient(135deg, #ffffff 0%, #fff6ef 55%, #fff0e1 100%);
+        }
+
+        .meeting-kicker {
+            color: #c2410c;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            margin-bottom: 0.65rem;
+        }
+
+        .meeting-title {
+            font-size: clamp(1.8rem, 3vw, 2.5rem);
+            font-weight: 800;
+            color: #1f2937;
+        }
+
+        .meeting-subtitle {
+            max-width: 720px;
+            color: #6b7280;
+            font-size: 1rem;
+            line-height: 1.65;
+        }
+
+        .meeting-date-picker {
+            min-width: min(100%, 320px);
+            border-radius: 18px;
+            background: rgba(255, 255, 255, 0.88);
+        }
+
+        .meeting-date-caption {
+            color: #c2410c;
+            font-weight: 600;
+        }
+
+        .meeting-stat {
+            height: 100%;
+            padding: 1.2rem 1.25rem;
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: #1f2937;
+            background: #fff;
+            box-shadow: 0 14px 35px rgba(15, 23, 42, 0.06);
+        }
+
+        .meeting-stat-room {
+            background: linear-gradient(135deg, #fff4eb, #ffffff);
+        }
+
+        .meeting-stat-booking {
+            background: linear-gradient(135deg, #eef8ff, #ffffff);
+        }
+
+        .meeting-stat-upcoming {
+            background: linear-gradient(135deg, #f5f3ff, #ffffff);
+        }
+
+        .meeting-stat-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            font-size: 1.4rem;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.8);
+        }
+
+        .meeting-stat-label {
+            color: #6b7280;
+            font-size: 0.9rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .meeting-stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .meeting-board-summary {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.85rem;
+        }
+
+        .meeting-stat-inline {
+            min-width: 200px;
+            padding: 0.85rem 1rem;
+            border-radius: 16px;
+            gap: 0.8rem;
+            box-shadow: none;
+        }
+
+        .meeting-stat-inline .meeting-stat-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+        }
+
+        .meeting-stat-inline .meeting-stat-label {
+            font-size: 0.8rem;
+            margin-bottom: 0.1rem;
+        }
+
+        .meeting-stat-inline .meeting-stat-value {
+            font-size: 1.45rem;
+        }
+
+        .meeting-board-card,
+        .meeting-form-card,
+        .meeting-upcoming-card,
+        .meeting-admin-card {
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .meeting-board-wrap {
+            overflow: auto;
+            max-height: 72vh;
+            padding-bottom: 0.5rem;
+        }
+
+        .meeting-board-header,
+        .meeting-board-body {
+            min-width: 100%;
+            display: grid;
+        }
+
+        .meeting-board-header {
+            position: sticky;
+            top: 0;
+            z-index: 12;
+            background: #fff;
+            border-bottom: 1px solid var(--meeting-border);
+        }
+
+        .meeting-board-corner {
+            position: sticky;
+            left: 0;
+            z-index: 13;
+            background: #fff7f2;
+            border-right: 1px solid var(--meeting-border);
+            padding: 1rem 0.75rem;
+            font-weight: 700;
+            color: #9a3412;
+        }
+
+        .meeting-room-header {
+            min-height: 86px;
+            padding: 1rem;
+            border-right: 1px solid var(--meeting-border);
+        }
+
+        .meeting-room-header-top {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.45rem;
+        }
+
+        .meeting-room-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            display: inline-block;
+            flex: 0 0 auto;
+        }
+
+        .meeting-room-name {
+            font-weight: 700;
+            color: #1f2937;
+        }
+
+        .meeting-room-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            font-size: 0.82rem;
+            color: #6b7280;
+        }
+
+        .meeting-time-column {
+            position: sticky;
+            left: 0;
+            z-index: 10;
+            background: #fff;
+            border-right: 1px solid var(--meeting-border);
+            display: grid;
+            grid-template-rows: repeat(var(--slot-count), 40px);
+        }
+
+        .meeting-time-cell {
+            padding: 0.6rem 0.75rem;
+            color: #6b7280;
+            font-size: 0.85rem;
+            border-bottom: 1px solid var(--meeting-border);
+            background: linear-gradient(90deg, rgba(249, 115, 22, 0.08), rgba(249, 115, 22, 0.01));
+        }
+
+        .meeting-room-track {
+            position: relative;
+            display: grid;
+            --slot-height: 40px;
+            --meeting-minute-height: calc(var(--slot-height) / 30);
+            grid-template-rows: repeat(var(--slot-count), var(--slot-height));
+            border-right: 1px solid var(--meeting-border);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 250, 246, 0.95));
+        }
+
+        .meeting-slot {
+            grid-column: 1;
+            width: 100%;
+            border: 0;
+            border-bottom: 1px solid var(--meeting-border);
+            background: transparent;
+            cursor: pointer;
+            transition: background 0.18s ease, box-shadow 0.18s ease;
+            z-index: 1;
+        }
+
+        .meeting-slot:hover:not(:disabled) {
+            background: color-mix(in srgb, var(--room-color) 12%, white);
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--room-color) 35%, white);
+        }
+
+        .meeting-slot-selected {
+            background: color-mix(in srgb, var(--room-color) 24%, white);
+            box-shadow:
+                inset 0 0 0 2px color-mix(in srgb, var(--room-color) 55%, white),
+                inset 0 0 0 999px color-mix(in srgb, var(--room-color) 12%, white);
+        }
+
+        .meeting-slot-selected:hover:not(:disabled) {
+            background: color-mix(in srgb, var(--room-color) 28%, white);
+        }
+
+        .meeting-slot:disabled,
+        .meeting-slot-past {
+            cursor: not-allowed;
+            background: repeating-linear-gradient(
+                135deg,
+                rgba(148, 163, 184, 0.08),
+                rgba(148, 163, 184, 0.08) 10px,
+                transparent 10px,
+                transparent 20px
+            );
+        }
+
+        .meeting-booking {
+            position: absolute;
+            left: 0.35rem;
+            right: 0.35rem;
+            z-index: 4;
+            border-left: 5px solid var(--meeting-orange);
+            border-radius: 14px;
+            padding: 0.45rem 2.75rem 0.45rem 0.7rem;
+            min-height: 28px;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.10);
+            backdrop-filter: blur(6px);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+
+        .meeting-booking-own {
+            box-shadow: 0 16px 28px rgba(249, 115, 22, 0.18);
+        }
+
+        .meeting-booking-line {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .meeting-booking-time {
+            font-size: 0.78rem;
+            color: #9a3412;
+            font-weight: 700;
+            flex: 0 0 auto;
+        }
+
+        .meeting-booking-title,
+        .meeting-upcoming-title,
+        .meeting-room-admin-name {
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: #111827;
+            line-height: 1.2;
+        }
+
+        .meeting-booking-title,
+        .meeting-booking-owner,
+        .meeting-booking-department {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .meeting-booking-owner {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            color: #1f2937;
+            font-size: 0.82rem;
+            font-weight: 600;
+            flex: 0 1 auto;
+        }
+
+        .meeting-booking-department {
+            color: #6b7280;
+            font-size: 0.78rem;
+            flex: 0 1 auto;
+        }
+
+        .meeting-upcoming-meta,
+        .meeting-room-admin-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.55rem 0.85rem;
+            color: #6b7280;
+            font-size: 0.8rem;
+            margin-top: 0.4rem;
+        }
+
+        .meeting-cancel-form {
+            position: absolute;
+            top: 50%;
+            right: 0.45rem;
+            transform: translateY(-50%);
+            margin: 0;
+        }
+
+        .meeting-cancel-btn {
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .meeting-selected-date {
+            padding: 0.8rem 0.95rem;
+            border-radius: 14px;
+            background: #fff7f2;
+            color: #9a3412;
+            font-weight: 600;
+        }
+
+        .meeting-form-hint {
+            border-radius: 14px;
+            padding: 0.85rem 0.95rem;
+            background: #fff7f2;
+            color: #9a3412;
+            font-size: 0.9rem;
+            display: flex;
+            gap: 0.65rem;
+            align-items: flex-start;
+        }
+
+        .meeting-upcoming-list {
+            display: grid;
+        }
+
+        .meeting-upcoming-item,
+        .meeting-room-admin-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid #f1e9e2;
+        }
+
+        .meeting-upcoming-item:last-child,
+        .meeting-room-admin-item:last-child {
+            border-bottom: 0;
+        }
+
+        .meeting-room-admin-name {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        @@media (max-width: 1199px) {
+            .meeting-board-wrap {
+                border-radius: 0 0 20px 20px;
+            }
+        }
+
+        @@media (max-width: 767px) {
+            .meeting-title {
+                font-size: 1.55rem;
+            }
+
+            .meeting-board-summary {
+                width: 100%;
+            }
+
+            .meeting-stat-inline {
+                min-width: 0;
+                flex: 1 1 100%;
+            }
+
+            .meeting-stat {
+                padding: 1rem;
+            }
+
+            .meeting-stat-value {
+                font-size: 1.6rem;
+            }
+
+            .meeting-upcoming-item,
+            .meeting-room-admin-item {
+                flex-direction: column;
+                align-items: stretch;
+            }
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        (function () {
+            const dateInput = document.getElementById('meetingDateInput');
+            const bookingCard = document.getElementById('bookingFormCard');
+            const bookingRoomId = document.getElementById('bookingRoomId');
+            const bookingStartClock = document.getElementById('bookingStartClock');
+            const bookingEndClock = document.getElementById('bookingEndClock');
+            const bookingTitleInput = document.getElementById('bookingTitleInput');
+            const bookingDateInput = document.getElementById('bookingDateInput');
+            const roomColorInput = document.getElementById('NewRoom_ColorHex');
+            const roomColorPicker = document.getElementById('roomColorPicker');
+            const meetingSlots = Array.from(document.querySelectorAll('.meeting-slot'));
+
+            if (dateInput) {
+                dateInput.addEventListener('change', function () {
+                    this.form.submit();
+                });
+            }
+
+            if (roomColorInput && roomColorPicker) {
+                roomColorPicker.addEventListener('input', function () {
+                    roomColorInput.value = this.value;
+                });
+
+                roomColorInput.addEventListener('input', function () {
+                    if (/^#([0-9a-fA-F]{6})$/.test(this.value)) {
+                        roomColorPicker.value = this.value;
+                    }
+                });
+            }
+
+            function addMinutes(clock, minutesToAdd) {
+                if (!clock || !clock.includes(':')) {
+                    return '';
+                }
+
+                const parts = clock.split(':').map(Number);
+                const date = new Date(2000, 0, 1, parts[0], parts[1] || 0, 0, 0);
+                date.setMinutes(date.getMinutes() + minutesToAdd);
+
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${hours}:${minutes}`;
+            }
+
+            function syncEndClock() {
+                if (!bookingStartClock || !bookingEndClock || !bookingStartClock.value) {
+                    return;
+                }
+
+                if (!bookingEndClock.value || bookingEndClock.value <= bookingStartClock.value) {
+                    const nextSlot = addMinutes(bookingStartClock.value, 30);
+                    bookingEndClock.value = nextSlot > '23:59' ? '23:59' : nextSlot;
+                }
+            }
+
+            function refreshSelectedRange() {
+                const roomId = bookingRoomId ? bookingRoomId.value : '';
+                const startClock = bookingStartClock ? bookingStartClock.value : '';
+                const endClock = bookingEndClock ? bookingEndClock.value : '';
+
+                meetingSlots.forEach(function (slot) {
+                    slot.classList.remove('meeting-slot-selected');
+
+                    if (!roomId || !startClock || !endClock) {
+                        return;
+                    }
+
+                    if (slot.dataset.roomId !== roomId) {
+                        return;
+                    }
+
+                    const slotStart = slot.dataset.start || '';
+                    const slotEnd = slot.dataset.end || '';
+                    if (slotStart < endClock && startClock < slotEnd) {
+                        slot.classList.add('meeting-slot-selected');
+                    }
+                });
+            }
+
+            if (bookingStartClock) {
+                bookingStartClock.addEventListener('change', function () {
+                    syncEndClock();
+                    refreshSelectedRange();
+                });
+            }
+
+            if (bookingEndClock) {
+                bookingEndClock.addEventListener('change', refreshSelectedRange);
+            }
+
+            if (bookingRoomId) {
+                bookingRoomId.addEventListener('change', refreshSelectedRange);
+            }
+
+            document.querySelectorAll('.meeting-slot').forEach(function (slot) {
+                slot.addEventListener('click', function () {
+                    if (slot.disabled) {
+                        return;
+                    }
+
+                    if (bookingRoomId) {
+                        bookingRoomId.value = slot.dataset.roomId || '';
+                    }
+
+                    if (bookingStartClock) {
+                        bookingStartClock.value = slot.dataset.start || '';
+                    }
+
+                    if (bookingEndClock) {
+                        bookingEndClock.value = slot.dataset.end || '';
+                    }
+
+                    if (bookingDateInput) {
+                        bookingDateInput.value = '@Model.SelectedDate.ToString("yyyy-MM-dd")';
+                    }
+
+                    refreshSelectedRange();
+
+                    if (bookingCard) {
+                        bookingCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+
+                    if (bookingTitleInput) {
+                        window.setTimeout(function () {
+                            bookingTitleInput.focus();
+                        }, 150);
+                    }
+                });
+            });
+
+            refreshSelectedRange();
+        })();
+    </script>
+}

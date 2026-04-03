@@ -5,6 +5,8 @@ public interface IUnitOfWork : IDisposable
     IEmployeeRepository Employees { get; }
     IDepartmentRepository Departments { get; }
     IContractRepository Contracts { get; }
+    IMeetingRoomRepository MeetingRooms { get; }
+    IMeetingRoomBookingRepository MeetingRoomBookings { get; }
     ILeaveBalanceRepository LeaveBalances { get; }
     ILeaveRequestRepository LeaveRequests { get; }
     IRequestRepository Requests { get; }

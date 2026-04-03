@@ -165,6 +165,7 @@
             var durationOptions = document.getElementById('durationOptions');
             var selectedDurationYearsInput = document.getElementById('selectedDurationYearsInput');
             var durationButtons = document.querySelectorAll('.duration-button');
+            var isProgrammaticEndDateUpdate = false;
 
             // ContractType enum: Probation=0, FixedTerm=1, Indefinite=2, Seasonal=3
             var FIXED_TERM = '1';
@@ -178,7 +179,7 @@
                 // Show/hide end date wrapper
                 endDateWrapper.style.display = isIndefinite ? 'none' : '';
                 if (isIndefinite) {
-                    endDateInput.value = '';
+                    setDateInputValue(endDateInput, '');
                     selectedDurationYearsInput.value = '';
                 }
 
@@ -197,10 +198,13 @@
             contractTypeSel.addEventListener('change', updateVisibility);
             startDateInput.addEventListener('change', recalculateSelectedDuration);
             endDateInput.addEventListener('change', function() {
-                if (document.activeElement === endDateInput) {
-                    selectedDurationYearsInput.value = '';
-                    updateDurationButtons();
+                if (isProgrammaticEndDateUpdate) {
+                    isProgrammaticEndDateUpdate = false;
+                    return;
                 }
+
+                selectedDurationYearsInput.value = '';
+                updateDurationButtons();
             });
             // Run on page load
             updateVisibility();
@@ -210,11 +214,11 @@
                 var startVal = startDateInput.value;
                 if (!startVal) {
                     alert('Vui lòng chọn ngày bắt đầu trước.');
-                    startDateInput.focus();
+                    focusDateInput(startDateInput);
                     return;
                 }
                 selectedDurationYearsInput.value = String(years);
-                endDateInput.value = calculateEndDate(startVal, years);
+                setDateInputValue(endDateInput, calculateEndDate(startVal, years));
                 updateDurationButtons();
             };
 
@@ -225,7 +229,7 @@
                     return;
                 }
 
-                endDateInput.value = calculateEndDate(startDateInput.value, selectedYears);
+                setDateInputValue(endDateInput, calculateEndDate(startDateInput.value, selectedYears));
                 updateDurationButtons();
             }
 
@@ -248,6 +252,31 @@
                     button.classList.toggle('btn-primary', isActive);
                     button.classList.toggle('btn-outline-primary', !isActive);
                 });
+            }
+
+            function setDateInputValue(input, isoValue) {
+                isProgrammaticEndDateUpdate = true;
+
+                if (input._flatpickr) {
+                    if (isoValue) {
+                        input._flatpickr.setDate(isoValue, true, 'Y-m-d');
+                    } else {
+                        input._flatpickr.clear();
+                    }
+                    return;
+                }
+
+                input.value = isoValue;
+                isProgrammaticEndDateUpdate = false;
+            }
+
+            function focusDateInput(input) {
+                if (input._flatpickr && input._flatpickr.altInput) {
+                    input._flatpickr.altInput.focus();
+                    return;
+                }
+
+                input.focus();
             }
 
             function toIso(d) {

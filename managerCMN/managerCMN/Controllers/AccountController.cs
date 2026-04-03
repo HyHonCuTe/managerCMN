@@ -1,9 +1,11 @@
 using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
@@ -156,6 +158,7 @@ public class AccountController : Controller
             GetClientIP());
 
         await SignInUserAsync(user);
+        await QueueBirthdayCelebrationAsync(user);
         return LocalRedirect(returnUrl ?? "/");
     }
 
@@ -268,6 +271,7 @@ public class AccountController : Controller
             GetClientIP());
 
         await SignInUserAsync(user);
+        await QueueBirthdayCelebrationAsync(user);
         return LocalRedirect(returnUrl ?? "/");
     }
 
@@ -339,6 +343,25 @@ public class AccountController : Controller
         var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
         await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+    }
+
+    private async Task QueueBirthdayCelebrationAsync(User user)
+    {
+        if (!user.EmployeeId.HasValue)
+            return;
+
+        var employee = await _db.Employees
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.EmployeeId == user.EmployeeId.Value);
+
+        if (employee == null)
+            return;
+
+        var celebration = BirthdayCelebrationHelper.Build(employee, DateTimeHelper.VietnamToday);
+        if (celebration == null)
+            return;
+
+        TempData["BirthdayCelebration"] = JsonSerializer.Serialize(celebration);
     }
 
     private int? GetCurrentUserId()

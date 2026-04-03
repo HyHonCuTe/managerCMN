@@ -37,20 +37,20 @@
         <div class="card-header d-flex justify-content-between align-items-center">
             <h4 class="mb-0"><i class="bi bi-list-check"></i> Danh sách chấm công tổng</h4>
             <div class="d-flex gap-2">
-                <form method="get" class="d-flex gap-2">
-                    <select name="month" class="form-select form-select-sm">
+                <form method="get" class="d-flex gap-2 attendance-summary-filter" id="attendanceSummaryFilterForm">
+                    <select name="month" class="form-select form-select-sm" id="attendanceSummaryMonth">
                         @for (int i = 1; i <= 12; i++)
                         {
                             <option value="@i" selected="@(i == month)">Tháng @i</option>
                         }
                     </select>
-                    <select name="year" class="form-select form-select-sm">
+                    <select name="year" class="form-select form-select-sm" id="attendanceSummaryYear">
                         @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++)
                         {
                             <option value="@y" selected="@(y == year)">@y</option>
                         }
                     </select>
-                    <button type="submit" class="btn btn-primary btn-sm">
+                    <button type="submit" class="btn btn-primary btn-sm d-none">
                         <i class="bi bi-funnel me-1"></i> Lọc
                     </button>
                 </form>
@@ -69,6 +69,7 @@
             </div>
         </div>
         <div class="card-body">
+            <div class="summary-table-wrap">
             <table class="table table-bordered table-hover table-sm" id="summaryTable">
                 <thead class="table-light">
                     <tr>
@@ -147,6 +148,7 @@
                     }
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </div>
@@ -235,12 +237,37 @@
     <script>
         $(document).ready(function() {
             $('#summaryTable').DataTable({
-                "pageLength": 25,
+                "paging": false,
+                "info": false,
+                "lengthChange": false,
+                "scrollY": "62vh",
+                "scrollCollapse": true,
                 "language": {
                     "url": "https://cdn.datatables.net/plug-ins/1.13.6/i18n/vi.json"
                 },
                 "order": [[2, 'asc']] // Sort by name
             });
+
+            const filterForm = document.getElementById('attendanceSummaryFilterForm');
+            document.getElementById('attendanceSummaryMonth')?.addEventListener('change', function () {
+                filterForm?.submit();
+            });
+            document.getElementById('attendanceSummaryYear')?.addEventListener('change', function () {
+                filterForm?.submit();
+            });
         });
     </script>
+    <style>
+        .summary-table-wrap {
+            overflow: hidden;
+        }
+
+        .attendance-summary-filter .form-select {
+            min-width: 120px;
+        }
+
+        #summaryTable_wrapper .dataTables_scrollBody {
+            border-bottom: 0 !important;
+        }
+    </style>
 }

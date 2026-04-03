@@ -1,3 +1,20 @@
+@using System.Text.Json
+@using managerCMN.Models.ViewModels
+@{
+    BirthdayCelebrationViewModel? birthdayCelebration = null;
+    if (TempData["BirthdayCelebration"] is string birthdayCelebrationJson
+        && !string.IsNullOrWhiteSpace(birthdayCelebrationJson))
+    {
+        try
+        {
+            birthdayCelebration = JsonSerializer.Deserialize<BirthdayCelebrationViewModel>(birthdayCelebrationJson);
+        }
+        catch
+        {
+            birthdayCelebration = null;
+        }
+    }
+}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -50,10 +67,188 @@
         .stat-card .stat-value { font-size: 1.8rem; font-weight: 700; }
         .stat-card .stat-label { font-size: 0.85rem; color: #6c757d; text-transform: uppercase; }
         .btn-sm { font-size: 0.8rem; }
+        .birthday-celebration-dialog { max-width: 460px; }
+        .birthday-celebration-modal {
+            border: 0;
+            border-radius: 24px;
+            overflow: hidden;
+            background: linear-gradient(160deg, #fff8ef 0%, #fffdf8 45%, #ffe6d5 100%);
+            box-shadow: 0 24px 70px rgba(185, 85, 17, 0.24);
+        }
+        .birthday-celebration-shell {
+            position: relative;
+            padding: 1.5rem;
+            isolation: isolate;
+        }
+        .birthday-celebration-shell::before,
+        .birthday-celebration-shell::after {
+            content: "";
+            position: absolute;
+            border-radius: 999px;
+            z-index: -1;
+            opacity: 0.9;
+        }
+        .birthday-celebration-shell::before {
+            width: 170px;
+            height: 170px;
+            right: -55px;
+            top: -65px;
+            background: radial-gradient(circle, rgba(255, 183, 77, 0.42) 0%, rgba(255, 183, 77, 0) 72%);
+        }
+        .birthday-celebration-shell::after {
+            width: 150px;
+            height: 150px;
+            left: -40px;
+            bottom: -65px;
+            background: radial-gradient(circle, rgba(255, 121, 74, 0.25) 0%, rgba(255, 121, 74, 0) 74%);
+        }
+        .birthday-celebration-shell.is-today {
+            background: linear-gradient(160deg, #fff4da 0%, #fffef9 45%, #ffe3cc 100%);
+        }
+        .birthday-celebration-close {
+            position: absolute;
+            right: 1rem;
+            top: 1rem;
+            background: rgba(255,255,255,0.72);
+            border-radius: 999px;
+            padding: 0.45rem;
+            opacity: 0.9;
+        }
+        .birthday-celebration-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.86);
+            color: #ba4f11;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+        }
+        .birthday-celebration-title {
+            margin: 1rem 0 0.45rem;
+            font-size: 1.55rem;
+            font-weight: 800;
+            color: #7f2f10;
+            line-height: 1.2;
+        }
+        .birthday-celebration-subtitle {
+            color: #8b5a3c;
+            margin-bottom: 1rem;
+        }
+        .birthday-celebration-message {
+            margin: 1rem 0 0;
+            color: #5f4638;
+            line-height: 1.65;
+        }
+        .birthday-celebration-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            margin-top: 1rem;
+        }
+        .birthday-celebration-meta span {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.82);
+            color: #8a4a28;
+            font-size: 0.88rem;
+            font-weight: 600;
+        }
+        .birthday-countdown-panel {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.82);
+            border: 1px solid rgba(255, 169, 105, 0.32);
+        }
+        .birthday-countdown-label {
+            color: #a65524;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .birthday-countdown-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.7rem;
+            margin-top: 0.8rem;
+        }
+        .birthday-countdown-item {
+            text-align: center;
+            padding: 0.75rem 0.4rem;
+            border-radius: 16px;
+            background: linear-gradient(180deg, #fff3e9 0%, #fff 100%);
+            box-shadow: inset 0 0 0 1px rgba(255, 166, 102, 0.22);
+        }
+        .birthday-countdown-value {
+            display: block;
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #b74b18;
+            line-height: 1;
+        }
+        .birthday-countdown-name {
+            display: block;
+            margin-top: 0.35rem;
+            font-size: 0.72rem;
+            color: #8a684f;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .birthday-today-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.85rem;
+            margin-top: 1rem;
+            padding: 1rem 1.05rem;
+            border-radius: 20px;
+            background: linear-gradient(135deg, rgba(255, 205, 112, 0.28), rgba(255, 255, 255, 0.85));
+            border: 1px solid rgba(255, 184, 77, 0.3);
+        }
+        .birthday-today-banner strong {
+            display: block;
+            color: #a74112;
+            font-size: 1rem;
+        }
+        .birthday-today-banner span {
+            color: #8e6144;
+            font-size: 0.9rem;
+        }
+        .birthday-today-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,0.88);
+            color: #d56616;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+        }
+        .birthday-celebration-actions {
+            margin-top: 1.2rem;
+            display: flex;
+            justify-content: flex-end;
+        }
+        .birthday-celebration-actions .btn {
+            border-radius: 999px;
+            padding-inline: 1.2rem;
+            font-weight: 700;
+        }
         @@media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
             .sidebar.show { transform: translateX(0); }
             .content-wrapper { margin-left: 0; }
+            .birthday-countdown-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
     </style>
 </head>
@@ -226,6 +421,78 @@
         </div>
     </div>
 
+    @if (birthdayCelebration != null)
+    {
+        <div class="modal fade" id="birthdayCelebrationModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered birthday-celebration-dialog">
+                <div class="modal-content birthday-celebration-modal">
+                    <div class="birthday-celebration-shell @(birthdayCelebration.IsBirthdayToday ? "is-today" : "")">
+                        <button type="button" class="btn-close birthday-celebration-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+
+                        <div class="birthday-celebration-kicker">
+                            <i class="bi bi-stars"></i>
+                            Bất ngờ nhỏ dành riêng cho bạn 🌷
+                        </div>
+
+                        <h5 class="birthday-celebration-title">@birthdayCelebration.Title</h5>
+                        <p class="birthday-celebration-subtitle">@birthdayCelebration.Subtitle</p>
+
+                        @if (birthdayCelebration.IsBirthdayToday)
+                        {
+                            <div class="birthday-today-banner">
+                                <div>
+                                    <strong>Chúc bạn một ngày thật đáng nhớ!</strong>
+                                    <span>Em Võ Đào Huy Hoàng chúc  @birthdayCelebration.FullName sinh nhật tròn tuổi mới thật nhiều niềm vui, thật nhiều may mắn và thật nhiều năng lượng tích cực.</span>
+                                </div>
+                                <div class="birthday-today-icon">
+                                    <i class="bi bi-cake2"></i>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="birthday-countdown-panel">
+                                <div class="birthday-countdown-label">@birthdayCelebration.CountdownLabel</div>
+                                <div class="birthday-countdown-grid" data-birthday-target="@birthdayCelebration.CountdownTargetIso">
+                                    <div class="birthday-countdown-item">
+                                        <span class="birthday-countdown-value" data-birthday-days>@birthdayCelebration.DaysUntilBirthday</span>
+                                        <span class="birthday-countdown-name">Ngày</span>
+                                    </div>
+                                    <div class="birthday-countdown-item">
+                                        <span class="birthday-countdown-value" data-birthday-hours>00</span>
+                                        <span class="birthday-countdown-name">Giờ</span>
+                                    </div>
+                                    <div class="birthday-countdown-item">
+                                        <span class="birthday-countdown-value" data-birthday-minutes>00</span>
+                                        <span class="birthday-countdown-name">Phút</span>
+                                    </div>
+                                    <div class="birthday-countdown-item">
+                                        <span class="birthday-countdown-value" data-birthday-seconds>00</span>
+                                        <span class="birthday-countdown-name">Giây</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <p class="birthday-celebration-message">@birthdayCelebration.Message</p>
+
+                        <div class="birthday-celebration-meta">
+                            <span><i class="bi bi-calendar-heart"></i> @birthdayCelebration.BirthdayDateLabel</span>
+                            <span><i class="bi bi-balloon-heart"></i> Tuổi mới @birthdayCelebration.UpcomingAge</span>
+                            <span><i class="bi bi-person-hearts"></i> @birthdayCelebration.FullName</span>
+                        </div>
+
+                        <div class="birthday-celebration-actions">
+                            <button type="button" class="btn btn-warning" data-bs-dismiss="modal">
+                                <i class="bi bi-heart-fill"></i> Cảm ơn CMN 🌷
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
@@ -236,6 +503,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/vn.js"></script>
     <script>
         $(document).ready(function () {
+            const birthdayTodayWish = @Html.Raw(JsonSerializer.Serialize(birthdayCelebration?.TodaySpecialWish ?? string.Empty));
             $('.data-table').DataTable({
                 language: {
                     url: 'https://cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json'
@@ -269,6 +537,54 @@
                         disableMobile: true
                     });
                 });
+            }
+
+            const birthdayModalEl = document.getElementById('birthdayCelebrationModal');
+            if (birthdayModalEl && window.bootstrap) {
+                const todayWishEl = birthdayModalEl.querySelector('.birthday-today-banner span');
+                if (todayWishEl && birthdayTodayWish) {
+                    todayWishEl.textContent = birthdayTodayWish;
+                }
+
+                const birthdayModal = new bootstrap.Modal(birthdayModalEl);
+                const countdownEl = birthdayModalEl.querySelector('[data-birthday-target]');
+                let countdownTimer = null;
+
+                if (countdownEl) {
+                    const targetDate = new Date(countdownEl.dataset.birthdayTarget);
+                    const dayEl = countdownEl.querySelector('[data-birthday-days]');
+                    const hourEl = countdownEl.querySelector('[data-birthday-hours]');
+                    const minuteEl = countdownEl.querySelector('[data-birthday-minutes]');
+                    const secondEl = countdownEl.querySelector('[data-birthday-seconds]');
+
+                    const updateBirthdayCountdown = function () {
+                        const diff = targetDate.getTime() - Date.now();
+                        const safeDiff = Math.max(diff, 0);
+                        const totalSeconds = Math.floor(safeDiff / 1000);
+                        const days = Math.floor(totalSeconds / 86400);
+                        const hours = Math.floor((totalSeconds % 86400) / 3600);
+                        const minutes = Math.floor((totalSeconds % 3600) / 60);
+                        const seconds = totalSeconds % 60;
+
+                        if (dayEl) dayEl.textContent = String(days);
+                        if (hourEl) hourEl.textContent = String(hours).padStart(2, '0');
+                        if (minuteEl) minuteEl.textContent = String(minutes).padStart(2, '0');
+                        if (secondEl) secondEl.textContent = String(seconds).padStart(2, '0');
+                    };
+
+                    updateBirthdayCountdown();
+                    countdownTimer = window.setInterval(updateBirthdayCountdown, 1000);
+                }
+
+                birthdayModalEl.addEventListener('hidden.bs.modal', function () {
+                    if (countdownTimer) {
+                        window.clearInterval(countdownTimer);
+                    }
+                }, { once: true });
+
+                window.setTimeout(function () {
+                    birthdayModal.show();
+                }, 280);
             }
         });
     </script>

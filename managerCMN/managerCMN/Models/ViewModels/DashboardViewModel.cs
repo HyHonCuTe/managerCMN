@@ -10,6 +10,7 @@ public class DashboardViewModel
     public int ActiveTickets { get; set; }
     public int TotalAssets { get; set; }
     public IEnumerable<Contract> ExpiringContracts { get; set; } = [];
+    public UpcomingBirthdaysDashboardData? UpcomingBirthdays { get; set; }
 
     // ---- Post History (Admin/Manager only) ----
     public PostHistoryDashboardData? PostHistory { get; set; }
@@ -52,4 +53,21 @@ public class PersonalDashboardData
 
     // Assets
     public int AssignedAssetsCount { get; set; }
+}
+
+public class UpcomingBirthdaysDashboardData
+{
+    public int ReminderWindowDays { get; set; }
+    public List<UpcomingBirthdayReminderItem> Items { get; set; } = [];
+}
+
+public class UpcomingBirthdayReminderItem
+{
+    public int EmployeeId { get; set; }
+    public string EmployeeCode { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? DepartmentName { get; set; }
+    public DateOnly UpcomingBirthday { get; set; }
+    public int DaysUntilBirthday { get; set; }
+    public int UpcomingAge { get; set; }
 }

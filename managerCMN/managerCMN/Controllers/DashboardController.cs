@@ -15,6 +15,8 @@ namespace managerCMN.Controllers;
 public class DashboardController : Controller
 {
     private const string FullAttendanceTableName = "FullAttendanceEmployees";
+    private const string MasterAdminEmployeeCode = "A00000";
+    private const int UpcomingBirthdayReminderDays = 20;
 
     private readonly IDashboardService _dashboardService;
     private readonly ILeaveService _leaveService;
@@ -35,6 +37,7 @@ public class DashboardController : Controller
     public async Task<IActionResult> Index()
     {
         var isPrivileged = User.IsInRole("Admin") || User.IsInRole("Manager");
+        var isMasterAdmin = User.IsInRole("Admin") && User.HasClaim("EmployeeCode", MasterAdminEmployeeCode);
 
         var model = new DashboardViewModel
         {
@@ -62,6 +65,9 @@ public class DashboardController : Controller
                 FailedPosts = failedPosts
             };
         }
+
+        if (isMasterAdmin)
+            model.UpcomingBirthdays = await GetUpcomingBirthdaysAsync(UpcomingBirthdayReminderDays);
 
         if (!isPrivileged)
         {
@@ -204,5 +210,56 @@ public class DashboardController : Controller
         }
 
         return (currentAttendancePeriod.year, currentAttendancePeriod.month, totalWorkDays, lateDays, overtimeHours);
+    }
+
+    private async Task<UpcomingBirthdaysDashboardData> GetUpcomingBirthdaysAsync(int reminderWindowDays)
+    {
+        var today = DateOnly.FromDateTime(DateTimeHelper.VietnamToday);
+
+        var employees = await _db.Employees
+            .AsNoTracking()
+            .Where(e => e.Status == EmployeeStatus.Active && e.DateOfBirth.HasValue)
+            .Select(e => new
+            {
+                e.EmployeeId,
+                e.EmployeeCode,
+                e.FullName,
+                e.DateOfBirth,
+                DepartmentName = e.Department != null ? e.Department.DepartmentName : null
+            })
+            .ToListAsync();
+
+        var items = employees
+            .Select(e =>
+            {
+                var birthday = BirthdayCelebrationHelper.GetNextBirthdayDate(e.DateOfBirth!.Value, today);
+                var daysUntilBirthday = birthday.DayNumber - today.DayNumber;
+
+                if (daysUntilBirthday < 0 || daysUntilBirthday > reminderWindowDays)
+                    return null;
+
+                return new UpcomingBirthdayReminderItem
+                {
+                    EmployeeId = e.EmployeeId,
+                    EmployeeCode = e.EmployeeCode,
+                    FullName = e.FullName,
+                    DepartmentName = e.DepartmentName,
+                    UpcomingBirthday = birthday,
+                    DaysUntilBirthday = daysUntilBirthday,
+                    UpcomingAge = Math.Max(1, birthday.Year - e.DateOfBirth.Value.Year)
+                };
+            })
+            .Where(item => item != null)
+            .Select(item => item!)
+            .OrderBy(item => item.DaysUntilBirthday)
+            .ThenBy(item => item.UpcomingBirthday)
+            .ThenBy(item => item.FullName)
+            .ToList();
+
+        return new UpcomingBirthdaysDashboardData
+        {
+            ReminderWindowDays = reminderWindowDays,
+            Items = items
+        };
     }
 }

@@ -16,10 +16,7 @@ public static class BirthdayCelebrationHelper
             return null;
 
         var today = DateOnly.FromDateTime((referenceDate ?? DateTimeHelper.VietnamToday).Date);
-        var nextBirthday = ResolveBirthdayDate(employee.DateOfBirth.Value, today.Year);
-
-        if (nextBirthday < today)
-            nextBirthday = ResolveBirthdayDate(employee.DateOfBirth.Value, today.Year + 1);
+        var nextBirthday = GetNextBirthdayDate(employee.DateOfBirth.Value, today);
 
         var daysUntilBirthday = nextBirthday.DayNumber - today.DayNumber;
         if (daysUntilBirthday < 0 || daysUntilBirthday > CountdownWindowDays)
@@ -52,6 +49,16 @@ public static class BirthdayCelebrationHelper
             AddressPronoun = addressPronoun,
             TodaySpecialWish = $"Em Võ Đào Huy Hoàng chúc {addressPronoun} {employee.FullName} sinh nhật tròn tuổi mới thật nhiều niềm vui, thật nhiều may mắn và thật nhiều năng lượng tích cực."
         };
+    }
+
+    public static DateOnly GetNextBirthdayDate(DateTime birthday, DateOnly referenceDate)
+    {
+        var nextBirthday = ResolveBirthdayDate(birthday, referenceDate.Year);
+
+        if (nextBirthday < referenceDate)
+            nextBirthday = ResolveBirthdayDate(birthday, referenceDate.Year + 1);
+
+        return nextBirthday;
     }
 
     private static string GetAddressPronoun(Gender gender) => gender switch

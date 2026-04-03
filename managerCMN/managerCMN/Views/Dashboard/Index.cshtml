@@ -248,6 +248,69 @@ else
     </div>
 </div>
 
+@if (Model.UpcomingBirthdays != null)
+{
+    <div class="card mb-4 border-warning shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center bg-warning bg-opacity-10">
+            <span><i class="bi bi-gift text-warning me-1"></i> Sinh nhật sắp tới trong @Model.UpcomingBirthdays.ReminderWindowDays ngày</span>
+            <span class="badge bg-warning text-dark">@Model.UpcomingBirthdays.Items.Count người</span>
+        </div>
+        <div class="card-body p-0">
+            @if (Model.UpcomingBirthdays.Items.Any())
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nhân viên</th>
+                                <th>Phòng ban</th>
+                                <th>Sinh nhật</th>
+                                <th>Còn lại</th>
+                                <th>Tuổi mới</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.UpcomingBirthdays.Items)
+                            {
+                                <tr class="@(item.DaysUntilBirthday == 0 ? "table-danger" : item.DaysUntilBirthday <= 5 ? "table-warning" : "")">
+                                    <td>
+                                        <div class="fw-semibold">@item.FullName</div>
+                                        <div class="small text-muted">@item.EmployeeCode</div>
+                                    </td>
+                                    <td>@(item.DepartmentName ?? "Chưa phân phòng ban")</td>
+                                    <td>@item.UpcomingBirthday.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        @if (item.DaysUntilBirthday == 0)
+                                        {
+                                            <span class="badge bg-danger">Hôm nay</span>
+                                        }
+                                        else if (item.DaysUntilBirthday == 1)
+                                        {
+                                            <span class="badge bg-warning text-dark">Ngày mai</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark">Còn @item.DaysUntilBirthday ngày</span>
+                                        }
+                                    </td>
+                                    <td><span class="badge bg-info text-dark">@item.UpcomingAge tuổi</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-balloon-heart fs-3 d-block mb-2"></i>
+                    Chưa có sinh nhật nào trong @Model.UpcomingBirthdays.ReminderWindowDays ngày tới.
+                </div>
+            }
+        </div>
+    </div>
+}
+
 @if (Model.ExpiringContracts?.Any() == true)
 {
     <div class="card mb-4">

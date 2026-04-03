@@ -11,6 +11,8 @@ public class MeetingRoomScheduleViewModel
 
     public bool IsAdmin { get; set; }
 
+    public DateTime CurrentTime { get; set; } = DateTimeHelper.VietnamNow;
+
     public List<MeetingRoomColumnViewModel> Rooms { get; set; } = [];
 
     public List<MeetingRoom> AllRooms { get; set; } = [];
@@ -85,6 +87,9 @@ public class MeetingRoomScheduleViewModel
         var clippedEnd = endTime.TimeOfDay > DayEnd ? DayEnd : endTime.TimeOfDay;
         return Math.Max(1, (int)Math.Ceiling((clippedEnd - clippedStart).TotalMinutes));
     }
+
+    public bool CanCancelBooking(MeetingRoomBooking booking, int currentEmployeeId)
+        => IsAdmin || (booking.EmployeeId == currentEmployeeId && booking.StartTime > CurrentTime);
 }
 
 public class MeetingRoomColumnViewModel

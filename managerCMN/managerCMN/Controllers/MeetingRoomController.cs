@@ -176,17 +176,19 @@ public class MeetingRoomController : Controller
         {
             SelectedDate = selectedDate.Date,
             IsAdmin = isAdmin,
+            CurrentTime = DateTimeHelper.VietnamNow,
             AllRooms = allRooms.ToList(),
-            UpcomingBookings = upcoming
-                .Select(b => new MeetingRoomBookingSummaryViewModel
-                {
-                    Booking = b,
-                    CanCancel = isAdmin || b.EmployeeId == employeeId
-                })
-                .ToList(),
             NewBooking = bookingForm ?? CreateDefaultBookingForm(selectedDate, activeRooms.FirstOrDefault()?.MeetingRoomId),
             NewRoom = roomForm ?? new MeetingRoomCreateViewModel()
         };
+
+        model.UpcomingBookings = upcoming
+            .Select(b => new MeetingRoomBookingSummaryViewModel
+            {
+                Booking = b,
+                CanCancel = model.CanCancelBooking(b, employeeId)
+            })
+            .ToList();
 
         foreach (var room in activeRooms)
         {

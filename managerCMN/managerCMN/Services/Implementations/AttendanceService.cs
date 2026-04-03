@@ -425,82 +425,62 @@ public class AttendanceService : IAttendanceService
             return "";
         }
 
-        // Get requests affecting this date
-        var dayRequests = GetRequestsForDate(requests, date);
-        var approvedRequests = dayRequests.Where(r => r.request.Status == Models.Enums.RequestStatus.FullyApproved).ToList();
-
-        // 3. Check for full attendance (both shifts covered)
-        if (att?.CheckIn != null && att.CheckOut != null)
-        {
-            var minAfternoonCheckOut = AttendanceCalendarViewModel.GetMinAfternoonCheckOut(date);
-            bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
-            bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= minAfternoonCheckOut;
-
-            if (hasMorning && hasAfternoon)
+        var dayRequestInfos = requests
+            .Where(request =>
             {
-                dayCong = 1;
-                return "1";
-            }
+                var reqStart = DateOnly.FromDateTime(request.StartTime);
+                var reqEnd = DateOnly.FromDateTime(request.EndTime);
+                return date >= reqStart && date <= reqEnd;
+            })
+            .Select(request => RequestDayInfo.FromRequest(
+                request,
+                date,
+                request.Status == Models.Enums.RequestStatus.FullyApproved))
+            .ToList();
+        var approvedRequestInfos = dayRequestInfos.Where(r => r.IsApproved).ToList();
+
+        var paidLeaveReq = approvedRequestInfos
+            .FirstOrDefault(r => r.RequestType == Models.Enums.RequestType.Leave && r.CountsAsWork);
+        if (paidLeaveReq != null)
+        {
+            dayP = paidLeaveReq.IsHalfDayMorning.HasValue ? 0.5m : 1m;
+            dayCong = dayP;
+            return dayP == 0.5m ? "P/2" : "P";
         }
 
-        // 4. Check approved CountsAsWork requests (non-Leave types: Absence, WorkFromHome, CheckInOut)
-        var countsAsWorkNonLeave = approvedRequests
-            .Where(r => r.request.RequestType != Models.Enums.RequestType.Leave && r.request.CountsAsWork)
-            .FirstOrDefault();
-
-        if (countsAsWorkNonLeave.request != null)
+        var unpaidLeaveReq = approvedRequestInfos
+            .FirstOrDefault(r => r.RequestType == Models.Enums.RequestType.Leave && !r.CountsAsWork);
+        if (unpaidLeaveReq != null)
         {
-            bool isHalf = countsAsWorkNonLeave.isHalf;
-            dayCong = isHalf ? 0.5m : 1;
-            return isHalf ? "1/2" : "1";
+            dayK = unpaidLeaveReq.IsHalfDayMorning.HasValue ? 0.5m : 1m;
+            return dayK == 0.5m ? "K/2" : "K";
         }
 
-        // 5. Check approved Leave requests with CountsAsWork = true (paid leave reasons)
-        var paidLeaveReq = approvedRequests
-            .Where(r => r.request.RequestType == Models.Enums.RequestType.Leave && r.request.CountsAsWork)
-            .FirstOrDefault();
+        var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att);
+        var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att, approvedRequestInfos);
+        var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedRequestInfos);
+        var finalPoints = AttendanceCalendarViewModel.GetWorkPoints(
+            correctedCoverage.HasMorning || requestCoverage.Morning,
+            correctedCoverage.HasAfternoon || requestCoverage.Afternoon);
+        var extraFromRequest = finalPoints - rawCoverage.WorkPoints;
 
-        if (paidLeaveReq.request != null)
+        if (finalPoints >= 1m)
         {
-            bool isHalf = paidLeaveReq.isHalf;
-            dayP = isHalf ? 0.5m : 1;
-            dayCong = dayP; // Paid leave counts as work
-            return isHalf ? "P/2" : "P";
-        }
-
-        // 6. Check approved Leave requests with CountsAsWork = false (unpaid leave)
-        var unpaidLeaveReq = approvedRequests
-            .Where(r => r.request.RequestType == Models.Enums.RequestType.Leave && !r.request.CountsAsWork)
-            .FirstOrDefault();
-
-        if (unpaidLeaveReq.request != null)
-        {
-            bool isHalf = unpaidLeaveReq.isHalf;
-            dayK = isHalf ? 0.5m : 1;
-            return isHalf ? "K/2" : "K";
-        }
-
-        // 7. ForgotCheckInOut with partial attendance = count as full attendance
-        var forgotCheckReq = approvedRequests
-            .Where(r => r.request.LeaveReason == Models.Enums.LeaveReason.ForgotCheckInOut)
-            .FirstOrDefault();
-
-        if (forgotCheckReq.request != null && att != null)
-        {
-            dayCong = 1;
+            dayCong = 1m;
             return "1";
         }
 
-        // 8. Half attendance without approved request
-        if (att?.CheckIn != null)
+        if (finalPoints > 0)
         {
-            dayCong = 0.5m;
+            dayCong = finalPoints;
+            if (extraFromRequest > 0 || approvedRequestInfos.Any(r => r.RequestType != Models.Enums.RequestType.Leave && r.CountsAsWork))
+                return "1/2";
+
             dayK = 0.5m;
             return "K/2";
         }
 
-        // 9. No record on working day
-        dayK = 1;
+        dayK = 1m;
         return "K";
     }
 

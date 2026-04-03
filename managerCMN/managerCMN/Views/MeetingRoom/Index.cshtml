@@ -97,6 +97,12 @@
                                     {
                                         <div class="meeting-time-cell">@slot.Label</div>
                                     }
+                                    @*
+                                    else if (!Model.IsAdmin && item.Booking.EmployeeId == currentEmployeeId)
+                                    {
+                                        <span class="text-muted small">Đã tới giờ họp</span>
+                                    }
+                                    *@
                                 </div>
 
                                 @foreach (var roomColumn in Model.Rooms)
@@ -127,7 +133,7 @@
                                             }
 
                                             var isOwnBooking = booking.EmployeeId == currentEmployeeId;
-                                            var canCancel = Model.IsAdmin || isOwnBooking;
+                                            var canCancel = Model.CanCancelBooking(booking, currentEmployeeId);
                                             var accentBackground = $"{roomColumn.Room.ColorHex}1A";
                                             <article class="meeting-booking @(isOwnBooking ? "meeting-booking-own" : string.Empty)"
                                                      title="@booking.Description"
@@ -219,11 +225,11 @@
                             </div>
                         </div>
 
-                        <div class="mt-3 mb-3">
+                        @* <div class="mt-3 mb-3">
                             <label asp-for="NewBooking.Description" class="form-label">Nội dung họp</label>
                             <textarea asp-for="NewBooking.Description" class="form-control" rows="4" placeholder="Ghi chú ngắn về nội dung hoặc thành phần tham gia..."></textarea>
                             <span asp-validation-for="NewBooking.Description" class="text-danger small"></span>
-                        </div>
+                        </div> *@
 
                         <div class="meeting-form-hint mb-3">
                             <i class="bi bi-lightbulb"></i>
@@ -280,6 +286,10 @@
                                             <input type="hidden" name="selectedDate" value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
                                             <button type="submit" class="btn btn-outline-danger btn-sm">Hủy</button>
                                         </form>
+                                    }
+                                    else if (!Model.IsAdmin && item.Booking.EmployeeId == currentEmployeeId)
+                                    {
+                                        <span class="text-muted small">Đã tới giờ họp</span>
                                     }
                                 </div>
                             }

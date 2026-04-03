@@ -171,38 +171,10 @@ public class AttendanceController : Controller
                 .ToList();
 
             // Build date → request info mapping
-            foreach (var req in activeRequests)
-            {
-                var reqStart = DateOnly.FromDateTime(req.StartTime);
-                var reqEnd = DateOnly.FromDateTime(req.EndTime);
-                var totalReqDays = reqEnd.DayNumber - reqStart.DayNumber + 1;
-                var isApproved = req.Status == RequestStatus.FullyApproved;
-
-                for (var d = reqStart; d <= reqEnd; d = d.AddDays(1))
-                {
-                    if (d >= periodStart && d <= periodEnd)
-                    {
-                        if (!model.RequestsByDate.ContainsKey(d))
-                            model.RequestsByDate[d] = new List<RequestDayInfo>();
-
-                        // Determine half-day info for this specific date
-                        bool? isHalfDayMorning = null; // null = full day
-                        if (d == reqStart && req.IsHalfDayStart)
-                            isHalfDayMorning = req.IsHalfDayStartMorning; // true=morning, false=afternoon
-                        else if (d == reqEnd && req.IsHalfDayEnd)
-                            isHalfDayMorning = req.IsHalfDayEndMorning; // true=morning, false=afternoon
-
-                        model.RequestsByDate[d].Add(new RequestDayInfo
-                        {
-                            RequestId = req.RequestId,
-                            RequestType = req.RequestType,
-                            CountsAsWork = req.CountsAsWork,
-                            IsHalfDayMorning = isHalfDayMorning,
-                            IsApproved = isApproved
-                        });
-                    }
-                }
-            }
+            model.RequestsByDate = AttendanceCalendarViewModel.BuildRequestCalendar(
+                activeRequests,
+                periodStart,
+                periodEnd);
 
             // Calculate standard work days for the period
             decimal standardDays = 0;
@@ -218,27 +190,46 @@ public class AttendanceController : Controller
             var morningEnd = AttendanceCalendarViewModel.MorningEnd;
             var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
             var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
-            var lateCheckinThreshold = AttendanceCalendarViewModel.LateCheckinThreshold;
 
             // Calculate summary with 2-shift logic
             decimal totalDeductionMinutes = 0;
             decimal requestWorkDays = 0;
             var todayDate = DateOnly.FromDateTime(DateTimeHelper.VietnamNow);
+            var useLegacyCoverage = false;
 
-            foreach (var att in attendances)
+            foreach (var date in Enumerable.Range(0, periodEnd.DayNumber - periodStart.DayNumber + 1)
+                         .Select(offset => periodStart.AddDays(offset)))
             {
-                // Check if there's an approved request for this date
-                var hasApprovedRequest = model.RequestsByDate.ContainsKey(att.Date)
-                    && model.RequestsByDate[att.Date].Any(r => r.IsApproved && r.CountsAsWork);
-
-                // Check if checkin is too late (after 10:00 AM)
-                bool isLateCheckin = att.CheckIn.HasValue && att.CheckIn.Value > lateCheckinThreshold;
-
-                // If checkin is after 10:00 AM and no approved request, skip counting this attendance
-                if (isLateCheckin && !hasApprovedRequest)
+                if (!AttendanceCalendarViewModel.IsWorkingDay(date, holidays))
                     continue;
 
-                if (att.CheckIn.HasValue && att.CheckOut.HasValue)
+                var attendance = model.AttendanceByDate.GetValueOrDefault(date);
+                var approvedReqs = model.RequestsByDate.GetValueOrDefault(date)?
+                    .Where(r => r.IsApproved)
+                    .ToList() ?? [];
+
+                var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance);
+                model.TotalWorkDays += rawCoverage.WorkPoints;
+
+                var lateDuration = AttendanceCalendarViewModel.GetLateDuration(date, attendance, approvedReqs);
+                if (lateDuration > TimeSpan.Zero)
+                {
+                    model.LateDays++;
+                    totalDeductionMinutes += (decimal)lateDuration.TotalMinutes;
+                }
+            }
+
+            foreach (var att in Enumerable.Empty<managerCMN.Models.Entities.Attendance>())
+            {
+                // Check if there's an approved request for this date
+                var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(att.Date, att);
+                model.TotalWorkDays += rawCoverage.WorkPoints;
+
+                // If checkin is after 10:00 AM and no approved request, skip counting this attendance
+                if (useLegacyCoverage)
+                    continue;
+
+                if (useLegacyCoverage && att.CheckIn.HasValue && att.CheckOut.HasValue)
                 {
                     // Check if covered both shifts: morning 8:30-12:00, afternoon 13:30-17:30.
                     // Working Saturdays use 15:00 as the minimum checkout for afternoon session.
@@ -253,7 +244,7 @@ public class AttendanceController : Controller
                     else if (hasMorning || hasAfternoon)
                         model.TotalWorkDays += 0.5m;
                 }
-                else if (att.CheckIn.HasValue)
+                else if (useLegacyCoverage && att.CheckIn.HasValue)
                 {
                     // Only check-in, no check-out → count as half day (morning only)
                     model.TotalWorkDays += 0.5m;
@@ -281,31 +272,18 @@ public class AttendanceController : Controller
                 if (!approvedReqs.Any()) continue;
 
                 // Calculate request công for this date (don't double count with attendance)
-                bool hasAttendance = model.AttendanceByDate.ContainsKey(date);
-                decimal attCong = 0;
-                if (hasAttendance)
-                {
-                    var att = model.AttendanceByDate[date];
-                    if (att.CheckIn.HasValue && att.CheckOut.HasValue)
-                    {
-                        var minAfternoonCheckOut = AttendanceCalendarViewModel.GetMinAfternoonCheckOut(date);
-                        bool hasMorning = att.CheckIn.Value <= morningEnd && att.CheckOut.Value >= morningStart;
-                        bool hasAfternoon = att.CheckIn.Value <= afternoonEnd && att.CheckOut.Value >= minAfternoonCheckOut;
-                        if (hasMorning && hasAfternoon) attCong = 1m;
-                        else if (hasMorning || hasAfternoon) attCong = 0.5m;
-                    }
-                    else if (att.CheckIn.HasValue)
-                    {
-                        attCong = 0.5m;
-                    }
-                }
+                var attendance = model.AttendanceByDate.GetValueOrDefault(date);
+                var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance);
+                var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, approvedReqs);
+                var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedReqs);
+                decimal attCong = correctedCoverage.WorkPoints;
 
                 // Check which shifts are covered by approved requests
-                bool morningCoveredByRequest = false;
-                bool afternoonCoveredByRequest = false;
+                bool morningCoveredByRequest = requestCoverage.Morning;
+                bool afternoonCoveredByRequest = requestCoverage.Afternoon;
                 foreach (var reqInfo in approvedReqs)
                 {
-                    if (!reqInfo.CountsAsWork) continue;
+                    if (!reqInfo.CountsAsWork || reqInfo.RequestType == RequestType.CheckInOut) continue;
                     if (reqInfo.IsHalfDayMorning == null) // full day
                     {
                         morningCoveredByRequest = true;
@@ -327,7 +305,7 @@ public class AttendanceController : Controller
 
                 // Total for this day = min(attCong + reqCong, 1) — don't exceed 1 công
                 decimal dayCong = Math.Min(attCong + reqCong, 1m);
-                decimal extraFromRequest = dayCong - attCong;
+                decimal extraFromRequest = dayCong - rawCoverage.WorkPoints;
                 if (extraFromRequest > 0)
                     requestWorkDays += extraFromRequest;
             }
@@ -339,11 +317,21 @@ public class AttendanceController : Controller
             {
                 if (!AttendanceCalendarViewModel.IsWorkingDay(d)) continue;
 
-                bool hasAtt = model.AttendanceByDate.ContainsKey(d);
-                bool hasApprovedCountsAsWorkReq = model.RequestsByDate.ContainsKey(d)
-                    && model.RequestsByDate[d].Any(r => r.IsApproved && r.CountsAsWork);
+                var attendance = model.AttendanceByDate.GetValueOrDefault(d);
+                var approvedReqs = model.RequestsByDate.GetValueOrDefault(d)?
+                    .Where(r => r.IsApproved)
+                    .ToList() ?? [];
+                var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(d, attendance, approvedReqs);
+                var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedReqs);
+                var finalPoints = AttendanceCalendarViewModel.GetWorkPoints(
+                    correctedCoverage.HasMorning || requestCoverage.Morning,
+                    correctedCoverage.HasAfternoon || requestCoverage.Afternoon);
+                var hasApprovedNonWorkRequest = approvedReqs.Any(r => !r.CountsAsWork);
 
-                if (!hasAtt && !hasApprovedCountsAsWorkReq)
+                if (finalPoints == 0 && !hasApprovedNonWorkRequest)
+                    model.AbsentDays++;
+
+                if (useLegacyCoverage)
                 {
                     // Check if there's any approved request at all (non-counting-as-work like unpaid leave)
                     bool hasAnyApprovedReq = model.RequestsByDate.ContainsKey(d)
@@ -461,6 +449,8 @@ public class AttendanceController : Controller
             decimal donCoPhep = 0;
             decimal donKhongPhep = 0;
             int totalLateMinutes = 0;
+            var requestsByDate = AttendanceCalendarViewModel.BuildRequestCalendar(activeRequests, periodStart, periodEnd);
+            var attendanceByDate = attendances.ToDictionary(a => a.Date);
 
             // Get approved checkin requests for this employee in this period
             var approvedCheckinRequests = activeRequests
@@ -477,7 +467,32 @@ public class AttendanceController : Controller
             var afternoonStart = AttendanceCalendarViewModel.AfternoonStart;
             var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
 
-            foreach (var att in attendances)
+            foreach (var date in Enumerable.Range(0, periodEnd.DayNumber - periodStart.DayNumber + 1)
+                         .Select(offset => periodStart.AddDays(offset)))
+            {
+                if (!AttendanceCalendarViewModel.IsWorkingDay(date))
+                    continue;
+
+                var attendance = attendanceByDate.GetValueOrDefault(date);
+                var approvedReqs = requestsByDate.GetValueOrDefault(date)?
+                    .Where(r => r.IsApproved)
+                    .ToList() ?? [];
+                var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, approvedReqs);
+                var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedReqs);
+                var finalPoints = AttendanceCalendarViewModel.GetWorkPoints(
+                    correctedCoverage.HasMorning || requestCoverage.Morning,
+                    correctedCoverage.HasAfternoon || requestCoverage.Afternoon);
+
+                totalCong += finalPoints;
+
+                var lateDuration = AttendanceCalendarViewModel.GetLateDuration(date, attendance, approvedReqs);
+                if (lateDuration > TimeSpan.Zero)
+                {
+                    totalLateMinutes += (int)lateDuration.TotalMinutes;
+                }
+            }
+
+            foreach (var att in Enumerable.Empty<managerCMN.Models.Entities.Attendance>())
             {
                 if (att.CheckIn.HasValue && att.CheckOut.HasValue)
                 {

@@ -158,6 +158,11 @@ public class MeetingRoomService : IMeetingRoomService
             throw new ValidationException("Bạn không có quyền hủy lịch đặt phòng này.");
         }
 
+        if (!isAdmin && booking.StartTime <= DateTimeHelper.VietnamNow)
+        {
+            throw new ValidationException("Lịch họp đã tới giờ bắt đầu. Chỉ admin mới có thể hủy lịch này.");
+        }
+
         var before = new
         {
             booking.MeetingRoomBookingId,

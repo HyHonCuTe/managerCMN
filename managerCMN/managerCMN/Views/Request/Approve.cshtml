@@ -203,7 +203,12 @@
                                 </a>
                             </td>
                             <td class="text-nowrap small">
-                                @if (req.RequestType == RequestType.Absence)
+                                @if (req.RequestType == RequestType.CheckInOut)
+                                {
+                                    @GetApproveTimePrimary(req)<br />
+                                    <span class="text-muted">@GetApproveTimeSecondary(req)</span>
+                                }
+                                else if (req.RequestType == RequestType.Absence)
                                 {
                                     var startClock = req.StartTime.TimeOfDay > TimeSpan.Zero ? req.StartTime.ToString("HH:mm") : "--:--";
                                     var endClock = req.EndTime.TimeOfDay > TimeSpan.Zero ? req.EndTime.ToString("HH:mm") : "--:--";
@@ -216,7 +221,7 @@
                                     <span class="text-muted">~ @req.EndTime.ToString("dd/MM/yyyy")</span>
                                 }
                             </td>
-                            <td class="text-center">@req.TotalDays</td>
+                            <td class="text-center">@GetApproveQuantity(req)</td>
                             <td><small>@(req.Reason ?? "-")</small></td>
                             <td class="text-center">
                                 @{
@@ -337,6 +342,36 @@
         </div>
     </div>
 </div>
+
+@functions {
+    string GetApproveTimePrimary(Request req)
+    {
+        if (req.RequestType == RequestType.CheckInOut)
+        {
+            return $"{req.StartTime:dd/MM/yyyy} | {req.StartTime:HH:mm}";
+        }
+
+        return req.StartTime.ToString("dd/MM/yyyy");
+    }
+
+    string GetApproveTimeSecondary(Request req)
+    {
+        if (req.RequestType == RequestType.CheckInOut)
+        {
+            return req.CheckInOutType switch
+            {
+                CheckInOutType.MissedCheckIn => "Quên check in",
+                CheckInOutType.MissedCheckOut => "Quên check out",
+                _ => "Checkin/out"
+            };
+        }
+
+        return $"~ {req.EndTime:dd/MM/yyyy}";
+    }
+
+    string GetApproveQuantity(Request req)
+        => req.RequestType == RequestType.CheckInOut ? "--" : req.TotalDays.ToString("0.#");
+}
 
 @* Bulk Approve Modal *@
 <div class="modal fade" id="bulkApproveModal" tabindex="-1">

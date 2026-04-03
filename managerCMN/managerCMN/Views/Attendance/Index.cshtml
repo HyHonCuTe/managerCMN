@@ -166,7 +166,8 @@
             var att = hasData ? Model.AttendanceByDate[date] : null;
             var hasRequest = inPeriod && Model.RequestsByDate.ContainsKey(date);
             var requestInfos = hasRequest ? Model.RequestsByDate[date] : null;
-            var hasApprovedCountsAsWorkReq = hasRequest && requestInfos!.Any(r => r.IsApproved && r.CountsAsWork);
+            var approvedRequestInfos = hasRequest ? requestInfos!.Where(r => r.IsApproved).ToList() : new List<RequestDayInfo>();
+            var hasApprovedCountsAsWorkReq = approvedRequestInfos.Any(r => r.CountsAsWork);
 
             if (!inPeriod)
             {
@@ -237,7 +238,24 @@
                 else if (morningReq || afternoonReq) reqPoints = 0.5m;
             }
 
-            var totalPoints = Math.Min(attPoints + reqPoints, 1m);
+            var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att);
+            var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att, approvedRequestInfos);
+            var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedRequestInfos);
+            var scheduleCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(
+                approvedRequestInfos,
+                requireCountsAsWork: false);
+            var lateDuration = AttendanceCalendarViewModel.GetLateDuration(date, att, approvedRequestInfos);
+            attPoints = isFullAttendanceDay ? 1m : rawCoverage.WorkPoints;
+            hasEarlyCheckout = !isFullAttendanceDay && correctedCoverage.HasEarlyCheckout;
+            isLateCheckinNoWork = !isFullAttendanceDay
+                && correctedCoverage.MissedMorningCutoff
+                && !(correctedCoverage.HasMorning || scheduleCoverage.Morning);
+            var totalPoints = isFullAttendanceDay
+                ? 1m
+                : AttendanceCalendarViewModel.GetWorkPoints(
+                    correctedCoverage.HasMorning || requestCoverage.Morning,
+                    correctedCoverage.HasAfternoon || requestCoverage.Afternoon);
+            reqPoints = Math.Max(totalPoints - attPoints, 0m);
 
             @* Determine header color *@
             var hdrClass = "att-cell-hdr ";
@@ -269,7 +287,7 @@
             {
                 hdrClass += "att-cell-hdr-error";
             }
-            else if (att != null && att.IsLate)
+            else if (lateDuration > TimeSpan.Zero)
             {
                 hdrClass += "att-cell-hdr-late";
             }
@@ -296,11 +314,11 @@
             <div class="@cellClass" data-employee-id="@(isClickable ? empId.ToString() : "")" data-date="@(isClickable ? dateStr : "")">
                 <div class="@hdrClass">
                     <span>@date.Day.ToString("00")/@date.Month.ToString("00")</span>
-                    @if (hasData && att!.CheckIn.HasValue)
+                    @if ((hasData && att!.CheckIn.HasValue) || correctedCoverage.HasDisplayTimeRange)
                     {
                         <span class="att-time-badge">
                             <i class="bi bi-clock"></i>
-                            @att.CheckIn.Value.ToString("H\\:mm") - @(att.CheckOut.HasValue ? att.CheckOut.Value.ToString("H\\:mm") : "--:--")
+                            @correctedCoverage.DisplayCheckInText - @correctedCoverage.DisplayCheckOutText
                         </span>
                     }
                     else if (isSat && !isWorkDay)
@@ -330,7 +348,7 @@
                             <div class="att-request-tag">
                                 @foreach (var rInfo in requestInfos!)
                                 {
-                                    var halfLabel = rInfo.IsHalfDayMorning switch
+                                    var halfLabel = rInfo.RequestType == RequestType.CheckInOut ? "" : rInfo.IsHalfDayMorning switch
                                     {
                                         true => " (S)",
                                         false => " (C)",
@@ -344,7 +362,7 @@
                                        class="badge @badgeClass mb-1 d-block text-start text-truncate text-decoration-none"
                                        style="max-width:100%;cursor:pointer"
                                        title="@rInfo.TypeDisplayName@halfLabel@(rInfo.IsApproved ? " - Đã duyệt" : " - Chờ duyệt") - Bấm xem chi tiết">
-                                        <i class="bi @rInfo.TypeIcon"></i> @rInfo.TypeDisplayName@halfLabel@countsLabel
+                                        <i class="bi @rInfo.TypeIcon"></i> @rInfo.DetailDisplayName@halfLabel@countsLabel
                                     </a>
                                 }
                             </div>
@@ -355,21 +373,17 @@
                         {
                             var lateMin = 0;
                             var lateSec = 0;
-                            if (hasData && att!.IsLate && att.CheckIn.HasValue)
+                            if (lateDuration > TimeSpan.Zero)
                             {
-                                var lateSpan = att.CheckIn.Value.ToTimeSpan() - morningStart.ToTimeSpan();
-                                if (lateSpan > TimeSpan.Zero)
-                                {
-                                    lateMin = (int)lateSpan.TotalMinutes;
-                                    lateSec = lateSpan.Seconds;
-                                }
+                                lateMin = (int)lateDuration.TotalMinutes;
+                                lateSec = lateDuration.Seconds;
                             }
 
                             <div class="att-points @(totalPoints >= 1 ? "att-pts-full" : totalPoints > 0 ? "att-pts-half" : "att-pts-zero")">
                                 @totalPoints.ToString("0.#")
                             </div>
 
-                            @if (hasData && att!.IsLate)
+                            @if (lateDuration > TimeSpan.Zero)
                             {
                                 <div class="att-late-row att-late-warn"><i class="bi bi-exclamation-triangle"></i> Muộn @lateMin phút @lateSec giây</div>
                             }
@@ -382,7 +396,7 @@
                                 <div class="att-late-row att-late-warn"><i class="bi bi-clock-history"></i> Checkout sớm (@att!.CheckOut!.Value.ToString("H\\:mm") &lt; @minAfternoonCheckOut.ToString("H\\:mm"))</div>
                             }
 
-                            @if (hasData && att!.CheckOut == null)
+                            @if (hasData && correctedCoverage.EffectiveCheckOut == null)
                             {
                                 <div class="att-late-row att-late-warn"><i class="bi bi-exclamation-circle"></i> Thiếu checkout</div>
                             }

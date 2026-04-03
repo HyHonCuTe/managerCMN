@@ -159,7 +159,7 @@
                                             @GetRequestTimePrimary(req)<br />
                                             <span class="text-muted">@GetRequestTimeSecondary(req)</span>
                                         </td>
-                                        <td class="text-center">@req.TotalDays</td>
+                                        <td class="text-center">@GetRequestQuantityDisplay(req)</td>
                                         <td><small>@(req.Reason ?? "-")</small></td>
                                         <td class="text-center">
                                             @if (req.CountsAsWork)
@@ -236,10 +236,27 @@
     }
 
     string GetRequestTimePrimary(Request req)
-        => req.StartTime.ToString("dd/MM/yyyy");
+    {
+        if (req.RequestType == RequestType.CheckInOut)
+        {
+            return $"{req.StartTime:dd/MM/yyyy} | {req.StartTime:HH:mm}";
+        }
+
+        return req.StartTime.ToString("dd/MM/yyyy");
+    }
 
     string GetRequestTimeSecondary(Request req)
     {
+        if (req.RequestType == RequestType.CheckInOut)
+        {
+            return req.CheckInOutType switch
+            {
+                CheckInOutType.MissedCheckIn => "Quên check in",
+                CheckInOutType.MissedCheckOut => "Quên check out",
+                _ => "Checkin/out"
+            };
+        }
+
         if (req.RequestType == RequestType.Absence)
         {
             var startClock = req.StartTime.TimeOfDay > TimeSpan.Zero ? req.StartTime.ToString("HH:mm") : "--:--";
@@ -249,6 +266,9 @@
 
         return $"~ {req.EndTime:dd/MM/yyyy}";
     }
+
+    string GetRequestQuantityDisplay(Request req)
+        => req.RequestType == RequestType.CheckInOut ? "--" : req.TotalDays.ToString("0.#");
 }
 
 @section Scripts {

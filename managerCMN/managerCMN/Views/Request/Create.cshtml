@@ -666,7 +666,7 @@
             document.getElementById('confirmDescription').textContent = descriptionText || 'Không có mô tả.';
 
             document.getElementById('confirmCheckInOutTypeWrap').style.display = requestType === 1 ? '' : 'none';
-            document.getElementById('confirmTotalDaysWrap').style.display = requestType === 2 ? 'none' : '';
+            document.getElementById('confirmTotalDaysWrap').style.display = (requestType === 1 || requestType === 2) ? 'none' : '';
         }
 
         function canOpenConfirmationModal() {

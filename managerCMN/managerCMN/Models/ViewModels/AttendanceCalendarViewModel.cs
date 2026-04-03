@@ -13,6 +13,8 @@ public class RequestDayInfo
     public bool? IsHalfDayMorning { get; set; }
     /// <summary>true = fully approved, false = pending/partially approved</summary>
     public bool IsApproved { get; set; }
+    public CheckInOutType? CheckInOutType { get; set; }
+    public TimeOnly? RequestedTime { get; set; }
 
     public string TypeDisplayName => RequestType switch
     {
@@ -20,6 +22,7 @@ public class RequestDayInfo
         RequestType.CheckInOut => "Checkin/out",
         RequestType.Absence => "Vắng mặt",
         RequestType.WorkFromHome => "WFH",
+        _ => "Khác"
     };
 
     public string TypeBadgeClass => RequestType switch
@@ -39,6 +42,72 @@ public class RequestDayInfo
         RequestType.WorkFromHome => "bi-house-door",
         _ => "bi-file-earmark"
     };
+
+    public string DetailDisplayName
+        => RequestType == RequestType.CheckInOut
+            ? $"{GetCheckInOutTypeDisplayName()}{(RequestedTime.HasValue ? $" {RequestedTime.Value:HH\\:mm}" : string.Empty)}"
+            : TypeDisplayName;
+
+    public static RequestDayInfo FromRequest(Request request, DateOnly date, bool isApproved)
+    {
+        var reqStart = DateOnly.FromDateTime(request.StartTime);
+        var reqEnd = DateOnly.FromDateTime(request.EndTime);
+
+        bool? isHalfDayMorning = null;
+        if (date == reqStart && request.IsHalfDayStart)
+            isHalfDayMorning = request.IsHalfDayStartMorning;
+        else if (date == reqEnd && request.IsHalfDayEnd)
+            isHalfDayMorning = request.IsHalfDayEndMorning;
+
+        return new RequestDayInfo
+        {
+            RequestId = request.RequestId,
+            RequestType = request.RequestType,
+            CountsAsWork = request.CountsAsWork,
+            IsHalfDayMorning = isHalfDayMorning,
+            IsApproved = isApproved,
+            CheckInOutType = request.CheckInOutType,
+            RequestedTime = request.RequestType == RequestType.CheckInOut
+                ? TimeOnly.FromDateTime(request.StartTime)
+                : null
+        };
+    }
+
+    private string GetCheckInOutTypeDisplayName() => CheckInOutType switch
+    {
+        Models.Enums.CheckInOutType.MissedCheckIn => "Quên check in",
+        Models.Enums.CheckInOutType.MissedCheckOut => "Quên check out",
+        _ => "Checkin/out"
+    };
+}
+
+public class ShiftCoverage
+{
+    public bool Morning { get; set; }
+    public bool Afternoon { get; set; }
+
+    public decimal WorkPoints => AttendanceCalendarViewModel.GetWorkPoints(Morning, Afternoon);
+}
+
+public class AttendanceCoverageResult
+{
+    public TimeOnly? ActualCheckIn { get; set; }
+    public TimeOnly? ActualCheckOut { get; set; }
+    public TimeOnly? EffectiveCheckIn { get; set; }
+    public TimeOnly? EffectiveCheckOut { get; set; }
+    public TimeOnly? RequestedCheckIn { get; set; }
+    public TimeOnly? RequestedCheckOut { get; set; }
+    public bool UsedRequestedCheckIn { get; set; }
+    public bool UsedRequestedCheckOut { get; set; }
+    public bool HasMorning { get; set; }
+    public bool HasAfternoon { get; set; }
+    public bool HasEarlyCheckout { get; set; }
+    public bool MissedMorningCutoff { get; set; }
+    public decimal WorkPoints { get; set; }
+
+    public bool HasDisplayTimeRange => EffectiveCheckIn.HasValue || EffectiveCheckOut.HasValue;
+    public string DisplayCheckInText => EffectiveCheckIn?.ToString("H\\:mm") ?? "--:--";
+    public string DisplayCheckOutText => EffectiveCheckOut?.ToString("H\\:mm") ?? "--:--";
 }
 
 public class AttendanceCalendarViewModel
@@ -106,6 +175,221 @@ public class AttendanceCalendarViewModel
         if (date.DayOfWeek == DayOfWeek.Saturday) return IsWorkSaturday(date);
         if (holidays != null && holidays.Contains(date)) return false;  // NEW: Exclude holidays
         return true;
+    }
+
+    public static decimal GetWorkPoints(bool hasMorning, bool hasAfternoon)
+    {
+        if (hasMorning && hasAfternoon) return 1m;
+        if (hasMorning || hasAfternoon) return 0.5m;
+        return 0m;
+    }
+
+    public static Dictionary<DateOnly, List<RequestDayInfo>> BuildRequestCalendar(
+        IEnumerable<Request> requests,
+        DateOnly periodStart,
+        DateOnly periodEnd)
+    {
+        var result = new Dictionary<DateOnly, List<RequestDayInfo>>();
+
+        foreach (var request in requests)
+        {
+            var reqStart = DateOnly.FromDateTime(request.StartTime);
+            var reqEnd = DateOnly.FromDateTime(request.EndTime);
+            var isApproved = request.Status == RequestStatus.FullyApproved;
+
+            for (var date = reqStart; date <= reqEnd; date = date.AddDays(1))
+            {
+                if (date < periodStart || date > periodEnd)
+                    continue;
+
+                if (!result.ContainsKey(date))
+                    result[date] = [];
+
+                result[date].Add(RequestDayInfo.FromRequest(request, date, isApproved));
+            }
+        }
+
+        return result;
+    }
+
+    public static ShiftCoverage GetApprovedRequestShiftCoverage(
+        IEnumerable<RequestDayInfo>? requestInfos,
+        bool includeCheckInOut = false,
+        bool requireCountsAsWork = true)
+    {
+        var coverage = new ShiftCoverage();
+        if (requestInfos == null)
+            return coverage;
+
+        foreach (var requestInfo in requestInfos.Where(r => r.IsApproved && (!requireCountsAsWork || r.CountsAsWork)))
+        {
+            if (!includeCheckInOut && requestInfo.RequestType == RequestType.CheckInOut)
+                continue;
+
+            if (requestInfo.IsHalfDayMorning == null)
+            {
+                coverage.Morning = true;
+                coverage.Afternoon = true;
+            }
+            else if (requestInfo.IsHalfDayMorning == true)
+            {
+                coverage.Morning = true;
+            }
+            else
+            {
+                coverage.Afternoon = true;
+            }
+        }
+
+        return coverage;
+    }
+
+    public static TimeSpan GetLateDuration(
+        DateOnly date,
+        Attendance? attendance,
+        IEnumerable<RequestDayInfo>? requestInfos = null)
+    {
+        var correctedCoverage = EvaluateAttendanceCoverage(date, attendance, requestInfos);
+        if (!correctedCoverage.EffectiveCheckIn.HasValue)
+            return TimeSpan.Zero;
+
+        var scheduleCoverage = GetApprovedRequestShiftCoverage(
+            requestInfos,
+            includeCheckInOut: false,
+            requireCountsAsWork: false);
+
+        var effectiveCheckIn = correctedCoverage.EffectiveCheckIn.Value;
+
+        if (scheduleCoverage.Morning)
+        {
+            if (correctedCoverage.HasAfternoon && effectiveCheckIn > AfternoonStart)
+            {
+                return effectiveCheckIn.ToTimeSpan() - AfternoonStart.ToTimeSpan();
+            }
+
+            return TimeSpan.Zero;
+        }
+
+        if (effectiveCheckIn > MorningStart)
+        {
+            return effectiveCheckIn.ToTimeSpan() - MorningStart.ToTimeSpan();
+        }
+
+        return TimeSpan.Zero;
+    }
+
+    public static AttendanceCoverageResult EvaluateAttendanceCoverage(
+        DateOnly date,
+        Attendance? attendance,
+        IEnumerable<RequestDayInfo>? requestInfos = null)
+    {
+        var result = new AttendanceCoverageResult
+        {
+            ActualCheckIn = attendance?.CheckIn,
+            ActualCheckOut = attendance?.CheckOut
+        };
+
+        var approvedCheckInOutRequests = requestInfos?
+            .Where(r => r.IsApproved && r.CountsAsWork && r.RequestType == RequestType.CheckInOut)
+            .ToList() ?? [];
+
+        result.RequestedCheckIn = approvedCheckInOutRequests
+            .Where(r => r.CheckInOutType == Models.Enums.CheckInOutType.MissedCheckIn && r.RequestedTime.HasValue)
+            .Select(r => r.RequestedTime)
+            .OrderBy(t => t)
+            .FirstOrDefault();
+
+        result.RequestedCheckOut = approvedCheckInOutRequests
+            .Where(r => r.CheckInOutType == Models.Enums.CheckInOutType.MissedCheckOut && r.RequestedTime.HasValue)
+            .Select(r => r.RequestedTime)
+            .OrderByDescending(t => t)
+            .FirstOrDefault();
+
+        var effectiveCheckIn = result.ActualCheckIn;
+        var effectiveCheckOut = result.ActualCheckOut;
+
+        if (!effectiveCheckIn.HasValue && !effectiveCheckOut.HasValue
+            && result.RequestedCheckIn.HasValue && result.RequestedCheckOut.HasValue
+            && result.RequestedCheckIn.Value < result.RequestedCheckOut.Value)
+        {
+            effectiveCheckIn = result.RequestedCheckIn;
+            effectiveCheckOut = result.RequestedCheckOut;
+            result.UsedRequestedCheckIn = true;
+            result.UsedRequestedCheckOut = true;
+        }
+        else if (attendance?.CheckIn.HasValue == true && attendance.CheckOut == null)
+        {
+            var singlePunch = attendance.CheckIn.Value;
+
+            if (result.RequestedCheckIn.HasValue && result.RequestedCheckOut.HasValue)
+            {
+                if (singlePunch >= AfternoonStart)
+                {
+                    effectiveCheckIn = result.RequestedCheckIn;
+                    effectiveCheckOut = singlePunch;
+                    result.UsedRequestedCheckIn = true;
+                }
+                else
+                {
+                    effectiveCheckIn = singlePunch;
+                    effectiveCheckOut = result.RequestedCheckOut;
+                    result.UsedRequestedCheckOut = true;
+                }
+            }
+            else if (result.RequestedCheckIn.HasValue)
+            {
+                effectiveCheckIn = result.RequestedCheckIn;
+                effectiveCheckOut = singlePunch;
+                result.UsedRequestedCheckIn = true;
+            }
+            else if (result.RequestedCheckOut.HasValue)
+            {
+                effectiveCheckIn = singlePunch;
+                effectiveCheckOut = result.RequestedCheckOut;
+                result.UsedRequestedCheckOut = true;
+            }
+        }
+        else
+        {
+            if (!effectiveCheckIn.HasValue && effectiveCheckOut.HasValue && result.RequestedCheckIn.HasValue)
+            {
+                effectiveCheckIn = result.RequestedCheckIn;
+                result.UsedRequestedCheckIn = true;
+            }
+
+            if (!effectiveCheckOut.HasValue && effectiveCheckIn.HasValue && result.RequestedCheckOut.HasValue)
+            {
+                effectiveCheckOut = result.RequestedCheckOut;
+                result.UsedRequestedCheckOut = true;
+            }
+        }
+
+        result.EffectiveCheckIn = effectiveCheckIn;
+        result.EffectiveCheckOut = effectiveCheckOut;
+
+        if (effectiveCheckIn.HasValue && effectiveCheckOut.HasValue)
+        {
+            var minAfternoonCheckOut = GetMinAfternoonCheckOut(date);
+            result.MissedMorningCutoff = effectiveCheckIn.Value > LateCheckinThreshold;
+            result.HasMorning = effectiveCheckIn.Value <= LateCheckinThreshold
+                && effectiveCheckOut.Value >= MorningStart;
+            result.HasAfternoon = effectiveCheckIn.Value <= AfternoonEnd
+                && effectiveCheckOut.Value >= minAfternoonCheckOut;
+            result.HasEarlyCheckout = effectiveCheckOut.Value >= AfternoonStart
+                && effectiveCheckOut.Value < minAfternoonCheckOut;
+            result.WorkPoints = GetWorkPoints(result.HasMorning, result.HasAfternoon);
+            return result;
+        }
+
+        if (attendance?.CheckIn.HasValue == true || attendance?.CheckOut.HasValue == true)
+        {
+            result.MissedMorningCutoff = attendance?.CheckIn.HasValue == true
+                && attendance.CheckIn.Value > LateCheckinThreshold;
+            result.HasMorning = true;
+            result.WorkPoints = 0.5m;
+        }
+
+        return result;
     }
 
     /// <summary>Period: month N/year = from (month-1)/26 to month/25</summary>

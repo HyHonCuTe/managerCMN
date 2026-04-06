@@ -168,6 +168,7 @@
             var requestInfos = hasRequest ? Model.RequestsByDate[date] : null;
             var approvedRequestInfos = hasRequest ? requestInfos!.Where(r => r.IsApproved).ToList() : new List<RequestDayInfo>();
             var hasApprovedCountsAsWorkReq = approvedRequestInfos.Any(r => r.CountsAsWork);
+            var isWeekendAttendanceEvent = hasData && (isSun || (isSat && !isWorkDay));
 
             if (!inPeriod)
             {
@@ -339,7 +340,7 @@
                     }
                 </div>
 
-                @if (!isSun && (isWorkDay || hasData || hasRequest))
+                @if (!isSun && (isWorkDay || hasData || hasRequest) && !isWeekendAttendanceEvent)
                 {
                     <div class="att-cell-body">
                         @* Show approved request TYPE badges (clickable) *@
@@ -412,6 +413,14 @@
                             <div class="att-points att-pts-zero">0</div>
                             <div class="att-nowork-label"><i class="bi bi-info-circle"></i> Không tính công</div>
                         }
+                    </div>
+                }
+                else if (isWeekendAttendanceEvent)
+                {
+                    <div class="att-cell-body att-cell-rest">
+                        <span class="att-nowork-label text-center px-1">
+                            <i class="bi bi-clock-history me-1"></i>Sự kiện chấm công
+                        </span>
                     </div>
                 }
                 else if (isHoliday)

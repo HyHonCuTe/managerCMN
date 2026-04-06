@@ -133,6 +133,40 @@ public class AssetController : Controller
         return View(myAssets);
     }
 
+    [HttpGet]
+    public async Task<IActionResult> MyAssetDetails(int id)
+    {
+        var empIdClaim = User.FindFirst("EmployeeId");
+        if (empIdClaim == null || !int.TryParse(empIdClaim.Value, out var empId))
+        {
+            return Unauthorized();
+        }
+
+        var asset = await _db.Assets
+            .Include(a => a.AssetCategory)
+            .Include(a => a.Brand)
+            .Include(a => a.Supplier)
+            .Include(a => a.Configuration)
+            .Include(a => a.Assignments)
+                .ThenInclude(aa => aa.Employee)
+            .FirstOrDefaultAsync(a => a.AssetId == id);
+
+        if (asset == null)
+        {
+            return NotFound();
+        }
+
+        var isAssignedToCurrentEmployee = asset.Assignments.Any(aa =>
+            aa.EmployeeId == empId && aa.Status == AssetAssignmentStatus.Assigned);
+
+        if (!isAssignedToCurrentEmployee)
+        {
+            return Forbid();
+        }
+
+        return PartialView("_MyAssetDetailsModal", asset);
+    }
+
     // Lifecycle History
     [Authorize(Policy = "AdminOnly")]
     public async Task<IActionResult> LifecycleHistory(int id)

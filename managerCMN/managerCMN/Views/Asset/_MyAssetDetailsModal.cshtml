@@ -1,0 +1,129 @@
+@model Asset
+@{
+    var currentAssignment = Model.Assignments?
+        .Where(a => a.Status == AssetAssignmentStatus.Assigned)
+        .OrderByDescending(a => a.AssignedDate)
+        .FirstOrDefault();
+}
+
+<div class="modal-header">
+    <h5 class="modal-title"><i class="bi bi-laptop me-2"></i>@Model.AssetName</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+
+<div class="modal-body">
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="card border-0 bg-light h-100">
+                <div class="card-body">
+                    <h6 class="card-title mb-3"><i class="bi bi-info-circle me-1"></i>Thông tin tài sản</h6>
+                    <div class="row g-2 small">
+                        <div class="col-5 text-muted">Mã tài sản</div>
+                        <div class="col-7 fw-semibold">@Model.AssetCode</div>
+
+                        <div class="col-5 text-muted">Danh mục</div>
+                        <div class="col-7">@(Model.AssetCategory?.CategoryName ?? "N/A")</div>
+
+                        <div class="col-5 text-muted">Hãng</div>
+                        <div class="col-7">@(Model.Brand?.BrandName ?? "N/A")</div>
+
+                        <div class="col-5 text-muted">Nhà cung cấp</div>
+                        <div class="col-7">@(Model.Supplier?.SupplierName ?? "N/A")</div>
+
+                        <div class="col-5 text-muted">Ngày mua</div>
+                        <div class="col-7">@(Model.PurchaseDate?.ToString("dd/MM/yyyy") ?? "N/A")</div>
+
+                        <div class="col-5 text-muted">Giá mua</div>
+                        <div class="col-7">@(Model.PurchasePrice.HasValue ? $"{Model.PurchasePrice.Value:N0} đ" : "N/A")</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-0 bg-light h-100">
+                <div class="card-body">
+                    <h6 class="card-title mb-3"><i class="bi bi-calendar-event me-1"></i>Thông tin cấp phát</h6>
+                    @if (currentAssignment != null)
+                    {
+                        <div class="row g-2 small">
+                            <div class="col-5 text-muted">Ngày cấp phát</div>
+                            <div class="col-7 fw-semibold">@currentAssignment.AssignedDate.ToString("dd/MM/yyyy")</div>
+
+                            <div class="col-5 text-muted">Lý do</div>
+                            <div class="col-7">@currentAssignment.AssignmentReason</div>
+
+                            @if (!string.IsNullOrWhiteSpace(currentAssignment.AssignmentCondition))
+                            {
+                                <div class="col-5 text-muted">Tình trạng bàn giao</div>
+                                <div class="col-7">@currentAssignment.AssignmentCondition</div>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(currentAssignment.Note))
+                            {
+                                <div class="col-5 text-muted">Ghi chú</div>
+                                <div class="col-7">@currentAssignment.Note</div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-muted small">Không có dữ liệu cấp phát hiện tại.</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (Model.Configuration != null)
+        {
+            <div class="col-12">
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3"><i class="bi bi-cpu me-1"></i>Cấu hình</h6>
+                        <div class="row g-2 small">
+                            @if (!string.IsNullOrWhiteSpace(Model.Configuration.CPU))
+                            {
+                                <div class="col-md-3 text-muted">CPU</div>
+                                <div class="col-md-9">@Model.Configuration.CPU</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Model.Configuration.Mainboard))
+                            {
+                                <div class="col-md-3 text-muted">Mainboard</div>
+                                <div class="col-md-9">@Model.Configuration.Mainboard</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Model.Configuration.RAM))
+                            {
+                                <div class="col-md-3 text-muted">RAM</div>
+                                <div class="col-md-9">@Model.Configuration.RAM</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Model.Configuration.SSD))
+                            {
+                                <div class="col-md-3 text-muted">SSD</div>
+                                <div class="col-md-9">@Model.Configuration.SSD</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Model.Configuration.HDD))
+                            {
+                                <div class="col-md-3 text-muted">HDD</div>
+                                <div class="col-md-9">@Model.Configuration.HDD</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Model.Configuration.VGA))
+                            {
+                                <div class="col-md-3 text-muted">VGA</div>
+                                <div class="col-md-9">@Model.Configuration.VGA</div>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(Model.Configuration.OS))
+                            {
+                                <div class="col-md-3 text-muted">OS</div>
+                                <div class="col-md-9">@Model.Configuration.OS</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+</div>

@@ -133,22 +133,68 @@ else
 <div class="modal fade" id="assetDetailsModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content" id="assetDetailsContent">
-            <!-- Content loaded via AJAX -->
+            <div class="modal-header">
+                <h5 class="modal-title">Chi tiết tài sản</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-muted">
+                Chọn tài sản để xem chi tiết.
+            </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
     <script>
-        function showAssetDetails(assetId) {
-            // Load asset details via AJAX
-            fetch(`/Asset/Details/${assetId}`)
-                .then(response => response.text())
-                .then(data => {
-                    // Show in modal (simplified version)
-                    $('#assetDetailsModal').modal('show');
-                    // You can enhance this to show detailed asset information
+        function openAssetDetailsModal() {
+            const modalElement = document.getElementById('assetDetailsModal');
+
+            if (window.bootstrap && window.bootstrap.Modal) {
+                const modal = window.bootstrap.Modal.getOrCreateInstance(modalElement);
+                modal.show();
+                return;
+            }
+
+            if (window.$ && typeof window.$.fn.modal === 'function') {
+                window.$('#assetDetailsModal').modal('show');
+            }
+        }
+
+        function setAssetDetailsError(message) {
+            const content = document.getElementById('assetDetailsContent');
+            content.innerHTML = `
+                <div class="modal-header">
+                    <h5 class="modal-title">Chi tiết tài sản</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger mb-0">${message}</div>
+                </div>`;
+        }
+
+        async function showAssetDetails(assetId) {
+            try {
+                const response = await fetch(`/Asset/MyAssetDetails/${assetId}`, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
+
+                if (!response.ok) {
+                    if (response.status === 403) {
+                        throw new Error('Bạn không có quyền xem chi tiết tài sản này.');
+                    }
+                    if (response.status === 404) {
+                        throw new Error('Không tìm thấy thông tin tài sản.');
+                    }
+                    throw new Error('Không thể tải chi tiết tài sản lúc này.');
+                }
+
+                const data = await response.text();
+                document.getElementById('assetDetailsContent').innerHTML = data;
+                openAssetDetailsModal();
+            } catch (error) {
+                setAssetDetailsError(error.message || 'Đã xảy ra lỗi không xác định.');
+                openAssetDetailsModal();
+            }
         }
 
         // Auto-refresh every 5 minutes to show updated assignments

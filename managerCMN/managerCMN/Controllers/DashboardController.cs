@@ -105,6 +105,7 @@ public class DashboardController : Controller
                         DepartmentName          = employee.Department?.DepartmentName,
                         CurrentContract         = currentContract,
                         LeaveSummary            = await _leaveService.GetBalanceSummaryAsync(empId),
+                        RequestedLeaveDaysThisMonth = await GetDashboardLeaveDaysThisMonthAsync(empId),
                         AttendanceDaysWorked    = attendanceSummary.totalWorkDays,
                         AttendanceLateCount     = attendanceSummary.lateDays,
                         AttendanceOvertimeHours = attendanceSummary.overtimeHours,
@@ -210,6 +211,57 @@ public class DashboardController : Controller
         }
 
         return (currentAttendancePeriod.year, currentAttendancePeriod.month, totalWorkDays, lateDays, overtimeHours);
+    }
+
+    private async Task<decimal> GetDashboardLeaveDaysThisMonthAsync(int employeeId)
+    {
+        var today = DateTimeHelper.VietnamToday;
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        var monthEnd = new DateOnly(today.Year, today.Month, DateTime.DaysInMonth(today.Year, today.Month));
+        var monthStartDateTime = monthStart.ToDateTime(TimeOnly.MinValue);
+        var nextMonthStartDateTime = monthStart.AddMonths(1).ToDateTime(TimeOnly.MinValue);
+
+        var leaveRequests = await _db.Set<Models.Entities.Request>()
+            .Where(r => r.EmployeeId == employeeId
+                && r.RequestType == RequestType.Leave
+                && r.Status != RequestStatus.Rejected
+                && r.Status != RequestStatus.Cancelled
+                && r.StartTime < nextMonthStartDateTime
+                && r.EndTime >= monthStartDateTime)
+            .ToListAsync();
+
+        if (leaveRequests.Count == 0)
+            return 0m;
+
+        var holidays = await _db.Holidays
+            .Where(h => h.Date >= monthStart && h.Date <= monthEnd)
+            .Select(h => h.Date)
+            .ToHashSetAsync();
+
+        decimal totalLeaveDays = 0m;
+        foreach (var request in leaveRequests)
+        {
+            var requestStart = DateOnly.FromDateTime(request.StartTime);
+            var requestEnd = DateOnly.FromDateTime(request.EndTime);
+            var overlapStart = requestStart < monthStart ? monthStart : requestStart;
+            var overlapEnd = requestEnd > monthEnd ? monthEnd : requestEnd;
+
+            for (var date = overlapStart; date <= overlapEnd; date = date.AddDays(1))
+            {
+                if (!AttendanceCalendarViewModel.IsWorkingDay(date, holidays))
+                    continue;
+
+                decimal dayUnits = 1m;
+                if (date == requestStart && request.IsHalfDayStart)
+                    dayUnits -= 0.5m;
+                if (date == requestEnd && request.IsHalfDayEnd)
+                    dayUnits -= 0.5m;
+
+                totalLeaveDays += Math.Max(dayUnits, 0m);
+            }
+        }
+
+        return totalLeaveDays;
     }
 
     private async Task<UpcomingBirthdaysDashboardData> GetUpcomingBirthdaysAsync(int reminderWindowDays)

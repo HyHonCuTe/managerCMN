@@ -40,6 +40,7 @@ public class PersonalDashboardData
 
     // Leave
     public LeaveBalanceSummaryViewModel? LeaveSummary { get; set; }
+    public decimal RequestedLeaveDaysThisMonth { get; set; }
 
     // Attendance (current company period: 26 -> 25)
     public decimal AttendanceDaysWorked { get; set; }

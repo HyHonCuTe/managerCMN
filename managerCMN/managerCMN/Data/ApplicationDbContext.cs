@@ -58,6 +58,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<TicketRecipient> TicketRecipients => Set<TicketRecipient>();
     public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
     public DbSet<TicketAttachment> TicketAttachments => Set<TicketAttachment>();
+    public DbSet<TicketStar> TicketStars => Set<TicketStar>();
 
     // System
     public DbSet<SystemLog> SystemLogs => Set<SystemLog>();
@@ -368,6 +369,22 @@ public class ApplicationDbContext : DbContext
 
         modelBuilder.Entity<TicketRecipient>()
             .HasIndex(tr => new { tr.TicketId, tr.EmployeeId })
+            .IsUnique();
+
+        modelBuilder.Entity<TicketStar>()
+            .HasOne(ts => ts.Ticket)
+            .WithMany(t => t.Stars)
+            .HasForeignKey(ts => ts.TicketId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TicketStar>()
+            .HasOne(ts => ts.Employee)
+            .WithMany(e => e.StarredTickets)
+            .HasForeignKey(ts => ts.EmployeeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<TicketStar>()
+            .HasIndex(ts => new { ts.TicketId, ts.EmployeeId })
             .IsUnique();
 
         // TicketMessage configurations

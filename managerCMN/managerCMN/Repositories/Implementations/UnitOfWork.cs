@@ -29,6 +29,7 @@ public class UnitOfWork : IUnitOfWork
         TicketRecipients = new TicketRecipientRepository(context);
         TicketMessages = new TicketMessageRepository(context);
         TicketAttachments = new TicketAttachmentRepository(context);
+        TicketStars = new TicketStarRepository(context);
         Users = new UserRepository(context);
         SystemLogs = new SystemLogRepository(context);
         Notifications = new NotificationRepository(context);
@@ -55,6 +56,7 @@ public class UnitOfWork : IUnitOfWork
     public ITicketRecipientRepository TicketRecipients { get; }
     public ITicketMessageRepository TicketMessages { get; }
     public ITicketAttachmentRepository TicketAttachments { get; }
+    public ITicketStarRepository TicketStars { get; }
     public IUserRepository Users { get; }
     public ISystemLogRepository SystemLogs { get; }
     public INotificationRepository Notifications { get; }

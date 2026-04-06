@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -29,17 +30,55 @@ public class TicketController : Controller
     {
         var employeeId = GetCurrentEmployeeId();
         var isAdmin = User.IsInRole("Admin");
+        HashSet<int> starredTicketIds = [];
+
+        try
+        {
+            starredTicketIds = await _ticketService.GetStarredTicketIdsAsync(employeeId);
+        }
+        catch (SqlException ex) when (IsMissingTicketStarTable(ex))
+        {
+            starredTicketIds = [];
+        }
 
         var model = new TicketIndexViewModel
         {
             ReceivedTickets = await _ticketService.GetReceivedTicketsAsync(employeeId),
             SentTickets = await _ticketService.GetSentTicketsAsync(employeeId),
             AllTickets = isAdmin ? await _ticketService.GetAllTicketsAsync() : Enumerable.Empty<Ticket>(),
+            StarredTicketIds = starredTicketIds,
             IsAdmin = isAdmin,
             ActiveTab = tab ?? "received"
         };
 
         return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleStar(int ticketId)
+    {
+        var employeeId = GetCurrentEmployeeId();
+        if (employeeId == 0)
+            return Unauthorized(new { success = false });
+
+        try
+        {
+            var isStarred = await _ticketService.ToggleStarAsync(ticketId, employeeId, User.IsInRole("Admin"));
+            return Json(new { success = true, isStarred });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound(new { success = false });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { success = false });
+        }
+        catch (SqlException ex) when (IsMissingTicketStarTable(ex))
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new { success = false });
+        }
     }
 
     #endregion
@@ -262,6 +301,9 @@ public class TicketController : Controller
         var claim = User.FindFirst("EmployeeId")?.Value;
         return int.TryParse(claim, out var id) ? id : 0;
     }
+
+    private static bool IsMissingTicketStarTable(SqlException ex)
+        => ex.Message.Contains("TicketStars", StringComparison.OrdinalIgnoreCase);
 
     private async Task<List<SelectListItem>> BuildRecipientSelectListAsync(int? excludeEmployeeId = null)
     {

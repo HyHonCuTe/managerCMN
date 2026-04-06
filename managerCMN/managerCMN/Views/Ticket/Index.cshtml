@@ -1,5 +1,6 @@
 @model TicketIndexViewModel
 @using managerCMN.Helpers
+@using managerCMN.Models.ViewModels
 @{
     ViewData["Title"] = "Ticket";
 }
@@ -17,6 +18,80 @@
 @section Scripts {
     <script>
         $(function () {
+            const antiForgeryToken = document.querySelector('input[name="__RequestVerificationToken"]')?.value;
+            const toggleUrl = '@Url.Action("ToggleStar", "Ticket")';
+
+            function setButtonState(button, isStarred) {
+                const icon = button.querySelector('i');
+                button.classList.toggle('is-starred', isStarred);
+                button.setAttribute('aria-pressed', isStarred ? 'true' : 'false');
+                button.setAttribute('title', isStarred ? 'Bo danh dau sao' : 'Danh dau sao');
+
+                if (icon) {
+                    icon.className = isStarred ? 'bi bi-star-fill' : 'bi bi-star';
+                }
+            }
+
+            function setTicketStarState(ticketId, isStarred) {
+                document.querySelectorAll(`tr[data-ticket-id="${ticketId}"]`).forEach(row => {
+                    row.classList.toggle('ticket-row-starred', isStarred);
+
+                    const button = row.querySelector('.ticket-star-toggle');
+                    if (button) {
+                        setButtonState(button, isStarred);
+                    }
+                });
+            }
+
+            document.addEventListener('click', async function (event) {
+                const starButton = event.target.closest('.ticket-star-toggle');
+                if (!starButton) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                const ticketId = Number.parseInt(starButton.dataset.ticketId, 10);
+                if (!Number.isInteger(ticketId)) {
+                    return;
+                }
+
+                const relatedButtons = document.querySelectorAll(`.ticket-star-toggle[data-ticket-id="${ticketId}"]`);
+                relatedButtons.forEach(button => button.disabled = true);
+
+                try {
+                    const payload = new URLSearchParams();
+                    payload.append('ticketId', ticketId.toString());
+                    if (antiForgeryToken) {
+                        payload.append('__RequestVerificationToken', antiForgeryToken);
+                    }
+
+                    const response = await fetch(toggleUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: payload.toString()
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Toggle star failed with status ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    if (result?.success === true && typeof result.isStarred === 'boolean') {
+                        setTicketStarState(ticketId, result.isStarred);
+                    }
+                } catch (error) {
+                    console.error(error);
+                    window.alert('Khong the cap nhat dau sao luc nay.');
+                } finally {
+                    relatedButtons.forEach(button => button.disabled = false);
+                }
+            });
+
             // DataTables inside hidden tabs need a manual resize after tab activation.
             $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function () {
                 $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
@@ -26,6 +101,8 @@
         });
     </script>
 }
+
+@Html.AntiForgeryToken()
 
 <div class="card">
     <div class="card-header p-0">
@@ -59,15 +136,15 @@
     <div class="card-body">
         <div class="tab-content">
             <div class="tab-pane fade @(Model.ActiveTab == "received" ? "show active" : "")" id="tabReceived" role="tabpanel">
-                @await Html.PartialAsync("_TicketTable", Model.ReceivedTickets)
+                @await Html.PartialAsync("_TicketTable", new TicketTableViewModel { Tickets = Model.ReceivedTickets, StarredTicketIds = Model.StarredTicketIds })
             </div>
             <div class="tab-pane fade @(Model.ActiveTab == "sent" ? "show active" : "")" id="tabSent" role="tabpanel">
-                @await Html.PartialAsync("_TicketTable", Model.SentTickets)
+                @await Html.PartialAsync("_TicketTable", new TicketTableViewModel { Tickets = Model.SentTickets, StarredTicketIds = Model.StarredTicketIds })
             </div>
             @if (Model.IsAdmin)
             {
                 <div class="tab-pane fade @(Model.ActiveTab == "all" ? "show active" : "")" id="tabAll" role="tabpanel">
-                    @await Html.PartialAsync("_TicketTable", Model.AllTickets)
+                    @await Html.PartialAsync("_TicketTable", new TicketTableViewModel { Tickets = Model.AllTickets, StarredTicketIds = Model.StarredTicketIds })
                 </div>
             }
         </div>

@@ -21,6 +21,7 @@ public interface IUnitOfWork : IDisposable
     ITicketRecipientRepository TicketRecipients { get; }
     ITicketMessageRepository TicketMessages { get; }
     ITicketAttachmentRepository TicketAttachments { get; }
+    ITicketStarRepository TicketStars { get; }
     IUserRepository Users { get; }
     ISystemLogRepository SystemLogs { get; }
     INotificationRepository Notifications { get; }

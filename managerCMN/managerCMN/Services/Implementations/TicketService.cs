@@ -5,6 +5,7 @@ using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 
 namespace managerCMN.Services.Implementations;
 
@@ -405,6 +406,65 @@ public class TicketService : ITicketService
             _unitOfWork.TicketRecipients.Update(recipient);
             await _unitOfWork.SaveChangesAsync();
         }
+    }
+
+    public async Task<HashSet<int>> GetStarredTicketIdsAsync(int employeeId)
+        => await _unitOfWork.TicketStars.GetStarredTicketIdsAsync(employeeId);
+
+    public async Task<bool> ToggleStarAsync(int ticketId, int employeeId, bool isAdmin = false)
+    {
+        var ticket = await _unitOfWork.Tickets.Query()
+            .Include(t => t.Recipients)
+            .FirstOrDefaultAsync(t => t.TicketId == ticketId);
+
+        if (ticket == null)
+            throw new KeyNotFoundException($"Ticket {ticketId} was not found.");
+
+        var hasAccess = isAdmin
+            || ticket.CreatedBy == employeeId
+            || ticket.Recipients.Any(r => r.EmployeeId == employeeId);
+
+        if (!hasAccess)
+            throw new UnauthorizedAccessException("Current employee cannot star this ticket.");
+
+        var existingStar = await _unitOfWork.TicketStars.GetByTicketAndEmployeeAsync(ticketId, employeeId);
+        if (existingStar != null)
+        {
+            _unitOfWork.TicketStars.Remove(existingStar);
+            await _unitOfWork.SaveChangesAsync();
+
+            await _logService.LogAsync(
+                GetCurrentUserId(),
+                "Bo danh dau sao Ticket",
+                "TicketStar",
+                new { existingStar.TicketStarId, existingStar.TicketId, existingStar.EmployeeId },
+                null,
+                GetClientIP()
+            );
+
+            return false;
+        }
+
+        var newStar = new TicketStar
+        {
+            TicketId = ticketId,
+            EmployeeId = employeeId,
+            StarredAt = DateTime.UtcNow
+        };
+
+        await _unitOfWork.TicketStars.AddAsync(newStar);
+        await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            GetCurrentUserId(),
+            "Danh dau sao Ticket",
+            "TicketStar",
+            null,
+            new { newStar.TicketStarId, newStar.TicketId, newStar.EmployeeId },
+            GetClientIP()
+        );
+
+        return true;
     }
 
     public async Task<IEnumerable<Employee>> GetAvailableRecipientsAsync(int? excludeEmployeeId = null)

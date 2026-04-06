@@ -40,4 +40,5 @@ public class Ticket
     public ICollection<TicketRecipient> Recipients { get; set; } = new List<TicketRecipient>();
     public ICollection<TicketMessage> Messages { get; set; } = new List<TicketMessage>();
     public ICollection<TicketAttachment> Attachments { get; set; } = new List<TicketAttachment>();
+    public ICollection<TicketStar> Stars { get; set; } = new List<TicketStar>();
 }

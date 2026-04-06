@@ -2061,6 +2061,33 @@ namespace managerCMN.Migrations
                     b.ToTable("TicketRecipients");
                 });
 
+            modelBuilder.Entity("managerCMN.Models.Entities.TicketStar", b =>
+                {
+                    b.Property<int>("TicketStarId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TicketStarId"));
+
+                    b.Property<int>("EmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StarredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("TicketId")
+                        .HasColumnType("int");
+
+                    b.HasKey("TicketStarId");
+
+                    b.HasIndex("EmployeeId");
+
+                    b.HasIndex("TicketId", "EmployeeId")
+                        .IsUnique();
+
+                    b.ToTable("TicketStars");
+                });
+
             modelBuilder.Entity("managerCMN.Models.Entities.User", b =>
                 {
                     b.Property<int>("UserId")
@@ -2521,6 +2548,25 @@ namespace managerCMN.Migrations
                     b.Navigation("Ticket");
                 });
 
+            modelBuilder.Entity("managerCMN.Models.Entities.TicketStar", b =>
+                {
+                    b.HasOne("managerCMN.Models.Entities.Employee", "Employee")
+                        .WithMany("StarredTickets")
+                        .HasForeignKey("EmployeeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("managerCMN.Models.Entities.Ticket", "Ticket")
+                        .WithMany("Stars")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Employee");
+
+                    b.Navigation("Ticket");
+                });
+
             modelBuilder.Entity("managerCMN.Models.Entities.User", b =>
                 {
                     b.HasOne("managerCMN.Models.Entities.Employee", "Employee")
@@ -2594,6 +2640,8 @@ namespace managerCMN.Migrations
 
                     b.Navigation("Requests");
 
+                    b.Navigation("StarredTickets");
+
                     b.Navigation("User");
                 });
 
@@ -2643,6 +2691,8 @@ namespace managerCMN.Migrations
                     b.Navigation("Messages");
 
                     b.Navigation("Recipients");
+
+                    b.Navigation("Stars");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.TicketMessage", b =>

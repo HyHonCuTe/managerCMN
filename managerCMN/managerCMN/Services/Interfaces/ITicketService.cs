@@ -30,6 +30,8 @@ public interface ITicketService
 
     Task UpdateRecipientStatusAsync(int ticketRecipientId, TicketRecipientStatus status);
     Task MarkAsReadAsync(int ticketId, int employeeId);
+    Task<HashSet<int>> GetStarredTicketIdsAsync(int employeeId);
+    Task<bool> ToggleStarAsync(int ticketId, int employeeId, bool isAdmin = false);
 
     Task<IEnumerable<Employee>> GetAvailableRecipientsAsync(int? excludeEmployeeId = null);
     Task<TicketAttachment?> GetAttachmentAsync(int attachmentId);

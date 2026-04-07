@@ -57,8 +57,8 @@ public class LeaveService : ILeaveService
             .FindAsync(r => r.EmployeeId == employeeId && r.StartDate.Year == effectiveDate.Year);
 
         var paidLeaveTaken = requests
-            .Where(r => r.PayType == LeavePayType.Paid && r.Status != RequestStatus.Rejected)
-            .Sum(r => r.TotalDays);
+            .Where(r => r.Status != RequestStatus.Rejected)
+            .Sum(r => r.DeductedFromCurrentYear + r.DeductedFromCarryForward);
 
         var unpaidLeaveTaken = requests
             .Where(r => r.PayType == LeavePayType.Unpaid && r.Status != RequestStatus.Rejected)
@@ -103,15 +103,15 @@ public class LeaveService : ILeaveService
     public async Task<LeaveRequest?> GetRequestByIdAsync(int requestId)
         => await _unitOfWork.LeaveRequests.GetByIdAsync(requestId);
 
-    public async Task CreateRequestAsync(LeaveRequest request)
+    public async Task CreateRequestAsync(LeaveRequest request, bool shouldDeductLeave = true)
     {
         var balance = await EnsureBalanceForYearAsync(request.EmployeeId, request.StartDate.Year, request.StartDate);
         var currentYearRemaining = Math.Max(balance.TotalLeave - balance.UsedLeave, 0m);
         var carryForwardRemaining = IsCarryForwardWindowOpen(request.StartDate) ? balance.CarryForward : 0m;
         var availableLeave = currentYearRemaining + carryForwardRemaining;
 
-        // Only override PayType if not already set to Unpaid (from CountsAsWork=false)
-        if (request.PayType != LeavePayType.Unpaid)
+        // Only convert to unpaid when the request should actually consume leave quota.
+        if (shouldDeductLeave && request.PayType != LeavePayType.Unpaid)
             request.PayType = availableLeave >= request.TotalDays ? LeavePayType.Paid : LeavePayType.Unpaid;
 
         // Initialize deduction tracking - deduction will be handled by caller if needed

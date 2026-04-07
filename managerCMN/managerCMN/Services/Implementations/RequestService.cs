@@ -68,8 +68,12 @@ public class RequestService : IRequestService
         request.Status = RequestStatus.Pending;
         request.CreatedDate = DateTime.UtcNow;
 
-        if (request.LeaveReason.HasValue)
+        if (request.LeaveReason.HasValue && request.CountsAsWork)
             request.CountsAsWork = LeaveReasonHelper.GetCountsAsWork(request.LeaveReason.Value);
+
+        var shouldDeductLeave = request.RequestType == RequestType.Leave
+            && request.CountsAsWork
+            && (!request.LeaveReason.HasValue || LeaveReasonHelper.GetDeductsLeave(request.LeaveReason.Value));
 
         await _unitOfWork.Requests.AddAsync(request);
         await _unitOfWork.SaveChangesAsync();
@@ -102,10 +106,10 @@ public class RequestService : IRequestService
                 Reason = request.Reason,
                 PayType = request.CountsAsWork ? LeavePayType.Paid : LeavePayType.Unpaid
             };
-            await _leaveService.CreateRequestAsync(leaveRequest);
+            await _leaveService.CreateRequestAsync(leaveRequest, shouldDeductLeave);
 
-            // Deduct leave immediately for paid leave requests
-            if (leaveRequest.PayType == LeavePayType.Paid)
+            // Deduct leave immediately only for requests that actually consume leave quota.
+            if (shouldDeductLeave && leaveRequest.PayType == LeavePayType.Paid)
             {
                 var deductionSuccess = await _leaveService.DeductLeaveForApprovedRequestAsync(leaveRequest.RequestId);
                 if (!deductionSuccess)

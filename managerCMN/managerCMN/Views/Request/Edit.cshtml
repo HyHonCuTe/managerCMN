@@ -107,7 +107,7 @@
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label fw-semibold">Lý do <span class="text-danger">*</span></label>
-                    <select class="form-select" id="leaveReasonSelect" name="LeaveReason">
+                    <select asp-for="LeaveReason" class="form-select" id="leaveReasonSelect" required>
                         <option value="">-- Chọn lý do --</option>
                         @if (Model.AvailableReasons != null)
                         {
@@ -140,7 +140,7 @@
 
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-person-plus"></i></span>
-                        <select asp-for="Approver1Id" asp-items="Model.AvailableApprover1s" class="form-select">
+                        <select asp-for="Approver1Id" asp-items="Model.AvailableApprover1s" class="form-select" required>
                             <option value="">-- Chọn người duyệt 1 --</option>
                         </select>
                     </div>
@@ -151,7 +151,7 @@
                     <label asp-for="Approver2Id" class="form-label fw-semibold">Người duyệt 2 <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-person-plus"></i></span>
-                        <select asp-for="Approver2Id" asp-items="Model.AvailableApprovers" class="form-select">
+                        <select asp-for="Approver2Id" asp-items="Model.AvailableApprovers" class="form-select" required>
                             <option value="">-- Chọn người duyệt --</option>
                         </select>
                     </div>
@@ -367,7 +367,10 @@
                     data.forEach(function(r) {
                         var opt = document.createElement('option');
                         opt.value = r.value;
+                        opt.dataset.countsAsWork = r.countsAsWork;
+                        opt.dataset.deductsLeave = r.deductsLeave;
                         opt.textContent = r.text + ' \u2192 ' + (r.countsAsWork ? 'Tính công' : 'Không tính công');
+                        opt.textContent = r.statusText ? (r.text + ' -> ' + r.statusText) : opt.textContent;
                         if (selectedValue !== undefined && r.value == selectedValue) opt.selected = true;
                         leaveReasonSelect.appendChild(opt);
                     });

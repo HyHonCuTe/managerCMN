@@ -43,7 +43,7 @@
                 </div>
                 <div class="col-md-8" id="titleWrap">
                     <label asp-for="Title" class="form-label fw-semibold">Tiêu đề <span class="text-danger">*</span></label>
-                    <input asp-for="Title" class="form-control" placeholder="" />
+                    <input asp-for="Title" class="form-control" placeholder="" required />
                     <span asp-validation-for="Title" class="text-danger small"></span>
                 </div>
             </div>
@@ -114,7 +114,7 @@
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label fw-semibold">Lý do <span class="text-danger">*</span></label>
-                    <select class="form-select" id="leaveReasonSelect" name="LeaveReason">
+                    <select asp-for="LeaveReason" class="form-select" id="leaveReasonSelect" required>
                         <option value="">-- Chọn lý do --</option>
                         @if (Model.AvailableReasons != null)
                         {
@@ -161,7 +161,7 @@
 
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-person-plus"></i></span>
-                        <select asp-for="Approver1Id" asp-items="Model.AvailableApprover1s" class="form-select" id="approver1Select">
+                        <select asp-for="Approver1Id" asp-items="Model.AvailableApprover1s" class="form-select" id="approver1Select" required>
                             <option value="">-- Chọn người duyệt 1 --</option>
                         </select>
                     </div>
@@ -172,7 +172,7 @@
                     <label asp-for="Approver2Id" class="form-label fw-semibold">Người duyệt 2 <span class="text-danger">*</span></label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="bi bi-person-plus"></i></span>
-                        <select asp-for="Approver2Id" asp-items="Model.AvailableApprovers" class="form-select" id="approver2Select">
+                        <select asp-for="Approver2Id" asp-items="Model.AvailableApprovers" class="form-select" id="approver2Select" required>
                             <option value="">-- Chọn người duyệt --</option>
                         </select>
                     </div>
@@ -324,6 +324,7 @@
         });
 
         var requestTypeSelect = document.getElementById('requestType');
+        var titleInput = document.getElementById('Title');
         var startDate = document.getElementById('startDate');
         var endDate = document.getElementById('endDate');
         var startDateLabel = document.getElementById('startDateLabel');
@@ -345,6 +346,8 @@
         var checkInOutTypeWrap = document.getElementById('checkInOutTypeWrap');
         var checkInOutType = document.getElementById('checkInOutType');
         var titleWrap = document.getElementById('titleWrap');
+        var approver1Select = document.getElementById('approver1Select');
+        var approver2Select = document.getElementById('approver2Select');
         var requestCreateForm = document.getElementById('requestCreateForm');
         var attachmentsInput = document.getElementById('attachmentsInput');
         var openConfirmModalButton = document.getElementById('openConfirmModalButton');
@@ -509,6 +512,9 @@
             // Show the balance card for Leave requests
             document.getElementById('leaveBalanceCard').style.display = 'block';
 
+            const selectedReason = leaveReasonSelect.options[leaveReasonSelect.selectedIndex];
+            const skipsLeaveDeduction = selectedReason && selectedReason.value && selectedReason.dataset.deductsLeave === 'false';
+
             const isHalfDayStart = parseInt(halfDayStartOpt.value) > 0;
             const isHalfDayEnd = parseInt(halfDayEndOpt.value) > 0;
 
@@ -522,6 +528,12 @@
                     totalDays.value = '';
                     totalDaysHidden.value = '';
                 }
+
+                if (skipsLeaveDeduction) {
+                    data.hasSufficientBalance = true;
+                    data.message = 'Lý do này vẫn tính công và không trừ phép.';
+                }
+
                 updateBalanceDisplay(data);
             } catch (error) {
                 console.error('Error checking leave balance:', error);
@@ -560,7 +572,10 @@
                     data.forEach(function(r) {
                         var opt = document.createElement('option');
                         opt.value = r.value;
+                        opt.dataset.countsAsWork = r.countsAsWork;
+                        opt.dataset.deductsLeave = r.deductsLeave;
                         opt.textContent = r.text + ' \u2192 ' + (r.countsAsWork ? 'Tính công' : 'Không tính công');
+                        opt.textContent = r.statusText ? (r.text + ' -> ' + r.statusText) : opt.textContent;
                         leaveReasonSelect.appendChild(opt);
                     });
                     if (data.length === 1) {
@@ -647,6 +662,13 @@
                 .join(', ');
         }
 
+        function syncRequiredClientValidation() {
+            titleInput.setCustomValidity(titleInput.value.trim() ? '' : 'Vui lòng nhập tiêu đề.');
+            leaveReasonSelect.setCustomValidity(leaveReasonSelect.value ? '' : 'Vui lòng chọn lý do.');
+            approver1Select.setCustomValidity(approver1Select.value ? '' : 'Vui lòng chọn người duyệt 1.');
+            approver2Select.setCustomValidity(approver2Select.value ? '' : 'Vui lòng chọn người duyệt 2.');
+        }
+
         function populateConfirmationModal() {
             var requestType = parseInt(requestTypeSelect.value);
             var totalDaysText = totalDaysHidden.value || totalDays.value || '0';
@@ -670,6 +692,8 @@
         }
 
         function canOpenConfirmationModal() {
+            syncRequiredClientValidation();
+
             if (typeof $ !== 'undefined' && typeof $(requestCreateForm).valid === 'function' && !$(requestCreateForm).valid()) {
                 return false;
             }
@@ -693,11 +717,20 @@
             updateCheckInOutTimeFields();
         });
 
+        titleInput.addEventListener('input', syncRequiredClientValidation);
+        approver1Select.addEventListener('change', syncRequiredClientValidation);
+        approver2Select.addEventListener('change', syncRequiredClientValidation);
+
         leaveReasonSelect.addEventListener('change', function() {
             if (this.value) {
                 var text = this.options[this.selectedIndex].textContent;
                 updateCountsAsWork(!text.includes('Không tính công'));
             }
+        });
+
+        leaveReasonSelect.addEventListener('change', function() {
+            syncRequiredClientValidation();
+            checkLeaveBalance();
         });
 
         openConfirmModalButton.addEventListener('click', async function() {
@@ -729,6 +762,8 @@
 
         // Initialize form based on default request type
         updateFormByRequestType(parseInt(requestTypeSelect.value));
+        loadReasons(parseInt(requestTypeSelect.value));
+        syncRequiredClientValidation();
         calcDays();
     </script>
 }

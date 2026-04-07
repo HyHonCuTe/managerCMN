@@ -42,6 +42,7 @@ public class RequestCreateViewModel
     /// <summary>0=Cả ngày, 1=Nửa ca sáng, 2=Nửa ca chiều</summary>
     public int HalfDayEndOption { get; set; }
 
+    [Required(ErrorMessage = "Vui lòng chọn lý do")]
     public LeaveReason? LeaveReason { get; set; }
 
     [MaxLength(1000)]
@@ -51,12 +52,13 @@ public class RequestCreateViewModel
 
     public bool CountsAsWork { get; set; } = true;
 
+    [Required(ErrorMessage = "Vui lòng chọn người duyệt 1")]
     public int? Approver1Id { get; set; }
     public string? Approver1Name { get; set; }
     public bool NeedsManualApprover1Selection { get; set; }
 
     [Required(ErrorMessage = "Vui lòng chọn người duyệt 2")]
-    public int Approver2Id { get; set; }
+    public int? Approver2Id { get; set; }
 
     public List<SelectListItem>? AvailableApprover1s { get; set; }
     public List<SelectListItem>? AvailableApprovers { get; set; }

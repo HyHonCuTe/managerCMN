@@ -4,7 +4,7 @@ public enum LeaveReason
 {
     PaidLeave = 0,           // Nghỉ tính phép → Tính công
     UnpaidLeave = 1,         // Nghỉ không phép → Không tính công
-    SickLeaveWithCert = 2,   // Nghỉ ốm có giấy → Tính công
+    SickLeaveWithCert = 2,   // Nghỉ ốm/khám thai có giấy → Tính công
     BereavementLeave = 3,    // Nghỉ tang (tối đa 3 ngày) → Tính công
     MaternityLeave = 4,      // Nghỉ thai sản → Tính công
     MarriageLeave = 5,       // Nghỉ kết hôn (tối đa 3 ngày) → Tính công

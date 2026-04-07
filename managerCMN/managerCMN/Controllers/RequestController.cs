@@ -66,12 +66,15 @@ public class RequestController : Controller
     public async Task<IActionResult> Create(RequestCreateViewModel model)
     {
         var employeeId = GetCurrentEmployeeId();
+        NormalizeRequiredTextFields(model);
+        ValidateRequiredRequestFields(model);
         ApplyRequestDateInputs(model);
         NormalizeSingleDayRequest(model);
         ValidateTimeBasedRequest(model);
 
         // All employees now need to select Approver1 manually
-        if (!model.Approver1Id.HasValue || model.Approver1Id == 0)
+        if (!HasValidationError(nameof(RequestCreateViewModel.Approver1Id))
+            && (!model.Approver1Id.HasValue || model.Approver1Id == 0))
         {
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
@@ -104,7 +107,7 @@ public class RequestController : Controller
         // Validate request date: Cannot create request for past dates older than 5 working days
         var requestStartDate = model.StartTime.Date;
 
-        if (requestStartDate < today)
+        if (!HasValidationError(nameof(RequestCreateViewModel.StartTime)) && requestStartDate < today)
         {
             var workingDaysBetween = DateTimeHelper.CountWorkingDaysBetween(requestStartDate, today);
             // workingDaysBetween includes both start and end dates, so we need to subtract 1
@@ -121,14 +124,19 @@ public class RequestController : Controller
 
         var isHalfDayStart = model.HalfDayStartOption > 0;
         var isHalfDayEnd = model.HalfDayEndOption > 0;
-        var totalDays = await TryCalculateTotalDaysAsync(model.StartTime, model.EndTime, isHalfDayStart, isHalfDayEnd);
+        decimal? totalDays = HasValidationError(nameof(RequestCreateViewModel.StartTime))
+            || HasValidationError(nameof(RequestCreateViewModel.EndTime))
+            || HasValidationError(nameof(RequestCreateViewModel.StartClock))
+            || HasValidationError(nameof(RequestCreateViewModel.EndClock))
+            ? null
+            : await TryCalculateTotalDaysAsync(model.StartTime, model.EndTime, isHalfDayStart, isHalfDayEnd);
 
         // Check leave balance and auto-convert to unpaid if insufficient
         bool autoConvertedToUnpaid = false;
         if (model.RequestType == RequestType.Leave && model.LeaveReason.HasValue && totalDays.HasValue)
         {
-            var isUnpaid = !LeaveReasonHelper.GetCountsAsWork(model.LeaveReason.Value);
-            if (!isUnpaid) // Only check paid leave
+            var shouldDeductLeave = LeaveReasonHelper.GetDeductsLeave(model.LeaveReason.Value);
+            if (shouldDeductLeave)
             {
                 // CRITICAL: Use current date to check leave balance, not request date
                 // This ensures we validate against current available leave, not historical leave
@@ -141,6 +149,11 @@ public class RequestController : Controller
                     TempData["Warning"] = $"Không đủ số dư phép (còn {summary.TotalRemaining} ngày, cần {totalDays.Value} ngày). Đơn được chuyển sang không tính công.";
                 }
             }
+        }
+
+        if (model.RequestType == RequestType.Leave && model.LeaveReason.HasValue && totalDays.HasValue && !autoConvertedToUnpaid)
+        {
+            model.CountsAsWork = LeaveReasonHelper.GetCountsAsWork(model.LeaveReason.Value);
         }
 
         if (!ModelState.IsValid)
@@ -209,7 +222,7 @@ public class RequestController : Controller
             }
         }
 
-        await _requestService.CreateAsync(request, model.Approver1Id!.Value, model.Approver2Id);
+        await _requestService.CreateAsync(request, model.Approver1Id!.Value, model.Approver2Id!.Value);
 
         if (!autoConvertedToUnpaid && string.IsNullOrEmpty(TempData["Warning"]?.ToString()))
         {
@@ -498,6 +511,8 @@ public class RequestController : Controller
         var employeeId = GetCurrentEmployeeId();
         var request = await _requestService.GetWithDetailsAsync(id);
         if (request == null) return NotFound();
+        NormalizeRequiredTextFields(model);
+        ValidateRequiredRequestFields(model);
         ApplyRequestDateInputs(model);
         NormalizeSingleDayRequest(model);
         ValidateTimeBasedRequest(model);
@@ -517,7 +532,8 @@ public class RequestController : Controller
         }
 
         // All employees now need to select Approver1 manually
-        if (!model.Approver1Id.HasValue || model.Approver1Id == 0)
+        if (!HasValidationError(nameof(RequestCreateViewModel.Approver1Id))
+            && (!model.Approver1Id.HasValue || model.Approver1Id == 0))
         {
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
@@ -526,7 +542,7 @@ public class RequestController : Controller
         var today = DateTimeHelper.VietnamToday;
         var requestStartDate = model.StartTime.Date;
 
-        if (requestStartDate < today)
+        if (!HasValidationError(nameof(RequestCreateViewModel.StartTime)) && requestStartDate < today)
         {
             var workingDaysBetween = DateTimeHelper.CountWorkingDaysBetween(requestStartDate, today);
             // workingDaysBetween includes both start and end dates, so we need to subtract 1
@@ -543,7 +559,12 @@ public class RequestController : Controller
 
         var isHalfDayStart = model.HalfDayStartOption > 0;
         var isHalfDayEnd = model.HalfDayEndOption > 0;
-        var totalDays = await TryCalculateTotalDaysAsync(model.StartTime, model.EndTime, isHalfDayStart, isHalfDayEnd);
+        decimal? totalDays = HasValidationError(nameof(RequestCreateViewModel.StartTime))
+            || HasValidationError(nameof(RequestCreateViewModel.EndTime))
+            || HasValidationError(nameof(RequestCreateViewModel.StartClock))
+            || HasValidationError(nameof(RequestCreateViewModel.EndClock))
+            ? null
+            : await TryCalculateTotalDaysAsync(model.StartTime, model.EndTime, isHalfDayStart, isHalfDayEnd);
 
         if (!ModelState.IsValid)
         {
@@ -588,7 +609,9 @@ public class RequestController : Controller
             {
                 value = (int)r.Reason,
                 text = r.DisplayName,
-                countsAsWork = r.CountsAsWork
+                countsAsWork = r.CountsAsWork,
+                deductsLeave = r.DeductsLeave,
+                statusText = LeaveReasonHelper.GetStatusText(r.Reason)
             });
         return Json(reasons);
     }
@@ -747,6 +770,44 @@ public class RequestController : Controller
 
     private void ValidateTimeBasedRequest(RequestCreateViewModel model)
     {
+        if (model.RequestType == RequestType.CheckInOut)
+        {
+            if (!model.CheckInOutType.HasValue)
+            {
+                ModelState.AddModelError(nameof(RequestCreateViewModel.CheckInOutType), "Vui lòng chọn loại checkin/out.");
+                return;
+            }
+
+            if (model.CheckInOutType == CheckInOutType.MissedCheckOut)
+            {
+                if (string.IsNullOrWhiteSpace(model.EndClock))
+                {
+                    ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock), "Vui lòng chọn giờ check out.");
+                    return;
+                }
+
+                if (!TimeSpan.TryParse(model.EndClock, out _))
+                {
+                    ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock), "Giờ check out không hợp lệ.");
+                }
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(model.StartClock))
+                {
+                    ModelState.AddModelError(nameof(RequestCreateViewModel.StartClock), "Vui lòng chọn giờ check in.");
+                    return;
+                }
+
+                if (!TimeSpan.TryParse(model.StartClock, out _))
+                {
+                    ModelState.AddModelError(nameof(RequestCreateViewModel.StartClock), "Giờ check in không hợp lệ.");
+                }
+            }
+
+            return;
+        }
+
         if (model.RequestType != RequestType.Absence)
         {
             return;
@@ -792,6 +853,55 @@ public class RequestController : Controller
             return null;
         }
     }
+
+    private void ValidateRequiredRequestFields(RequestCreateViewModel model)
+    {
+        if (string.IsNullOrWhiteSpace(model.Title))
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.Title), "Vui lòng nhập tiêu đề.");
+        }
+
+        if (!model.LeaveReason.HasValue)
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.LeaveReason), "Vui lòng chọn lý do.");
+        }
+
+        if (!model.Approver1Id.HasValue || model.Approver1Id.Value <= 0)
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.Approver1Id), "Vui lòng chọn người duyệt 1.");
+        }
+
+        if (!model.Approver2Id.HasValue || model.Approver2Id.Value <= 0)
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.Approver2Id), "Vui lòng chọn người duyệt 2.");
+        }
+
+        if (model.StartDate == default)
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.StartTime), "Vui lòng chọn thời gian bắt đầu.");
+        }
+
+        if (model.RequestType == RequestType.Leave && model.EndDate == default)
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.EndTime), "Vui lòng chọn thời gian kết thúc.");
+        }
+    }
+
+    private static void NormalizeRequiredTextFields(RequestCreateViewModel model)
+    {
+        model.Title = model.Title?.Trim() ?? string.Empty;
+    }
+
+    private bool CanCalculateTotalDays(RequestCreateViewModel model)
+        => !HasValidationError(nameof(RequestCreateViewModel.StartTime))
+            && !HasValidationError(nameof(RequestCreateViewModel.EndTime))
+            && !HasValidationError(nameof(RequestCreateViewModel.StartClock))
+            && !HasValidationError(nameof(RequestCreateViewModel.EndClock))
+            && model.StartDate != default
+            && (model.RequestType != RequestType.Leave || model.EndDate != default);
+
+    private bool HasValidationError(string key)
+        => ModelState.TryGetValue(key, out var entry) && entry.Errors.Count > 0;
 
     private int GetCurrentEmployeeId()
     {

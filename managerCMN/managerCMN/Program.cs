@@ -168,7 +168,7 @@ app.Use(async (context, next) =>
             "base-uri 'self'; " +
             "object-src 'none'; " +
             "frame-ancestors 'none'; " +
-            "form-action 'self'; " +
+            "form-action 'self' https://accounts.google.com; " +
             "img-src 'self' data: https:; " +
             "font-src 'self' data: https://cdn.jsdelivr.net; " +
             "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.datatables.net; " +

@@ -23,24 +23,55 @@ public class AttendanceController : Controller
     private readonly IRequestService _requestService;
     private readonly IHolidayService _holidayService;
     private readonly ApplicationDbContext _db;
+    private readonly IWebHostEnvironment _env;
 
     public AttendanceController(
         IAttendanceService attendanceService,
         IEmployeeService employeeService,
         IRequestService requestService,
         IHolidayService holidayService,
-        ApplicationDbContext db)
+        ApplicationDbContext db,
+        IWebHostEnvironment env)
     {
         _attendanceService = attendanceService;
         _employeeService = employeeService;
         _requestService = requestService;
         _holidayService = holidayService;
         _db = db;
+        _env = env;
     }
 
     private static bool IsMissingFullAttendanceTable(SqlException ex)
         => ex.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
         && ex.Message.Contains(FullAttendanceTableName, StringComparison.OrdinalIgnoreCase);
+
+    private int? GetCurrentEmployeeId()
+    {
+        var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+        return int.TryParse(employeeIdClaim, out var id) ? id : null;
+    }
+
+    private async Task<bool> CanAccessAttendanceEmployeeAsync(int targetEmployeeId)
+    {
+        if (User.IsInRole("Admin") || User.IsInRole("Manager"))
+            return true;
+
+        var currentEmployeeId = GetCurrentEmployeeId();
+        if (!currentEmployeeId.HasValue)
+            return false;
+
+        if (currentEmployeeId.Value == targetEmployeeId)
+            return true;
+
+        var employees = (await _employeeService.GetAllAsync()).ToList();
+        var currentEmployee = employees.FirstOrDefault(employee => employee.EmployeeId == currentEmployeeId.Value);
+        if (currentEmployee?.JobTitleId != 2 || !currentEmployee.DepartmentId.HasValue)
+            return false;
+
+        return employees.Any(employee =>
+            employee.EmployeeId == targetEmployeeId
+            && employee.DepartmentId == currentEmployee.DepartmentId);
+    }
 
     private async Task<HashSet<int>> GetFullAttendanceEmployeeIdsAsync()
     {
@@ -579,6 +610,7 @@ public class AttendanceController : Controller
 
     [Authorize(Policy = "AdminOnly")]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> UpdateLateMinutes()
     {
         try
@@ -604,6 +636,7 @@ public class AttendanceController : Controller
 
     [Authorize(Policy = "AdminOnly")]
     [HttpPost]
+    [ValidateAntiForgeryToken]
     public async Task<IActionResult> RecalculateAttendanceTimes()
     {
         try
@@ -633,6 +666,14 @@ public class AttendanceController : Controller
     [HttpGet]
     public async Task<IActionResult> GetPunchRecords(int employeeId, string date)
     {
+        if (!await CanAccessAttendanceEmployeeAsync(employeeId))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                success = false,
+                error = "Bạn không có quyền xem dữ liệu chấm công này."
+            });
+        }
         Console.WriteLine($"🔍 GetPunchRecords called - EmployeeId: {employeeId}, Date: '{date}'");
 
         // Clean up date string (remove quotes if any)
@@ -684,6 +725,9 @@ public class AttendanceController : Controller
     [HttpGet]
     public async Task<IActionResult> TestPunchRecords()
     {
+        if (!_env.IsDevelopment())
+            return NotFound();
+
         // Hardcoded test for Employee 55 on 2026-03-25
         var testEmployeeId = 55;
         var testDate = new DateOnly(2026, 3, 25);

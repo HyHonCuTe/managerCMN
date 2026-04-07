@@ -78,3 +78,8 @@ nginx_config_crm.conf
 .codexbuild/
 
 .sixth/
+
+# biến môi trường
+.env
+.env.*
+!.env.example

@@ -1,6 +1,7 @@
 @{
     ViewData["Title"] = "Đăng nhập";
     Layout = null;
+    var isGoogleLoginAvailable = ViewData["IsGoogleLoginAvailable"] is bool googleLoginAvailable && googleLoginAvailable;
 }
 
 <!DOCTYPE html>
@@ -227,6 +228,8 @@
                 </div>
             }
 
+            @if (isGoogleLoginAvailable)
+            {
             <form asp-controller="Account" asp-action="ExternalLogin" method="post">
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="returnUrl" value="@ViewData["ReturnUrl"]" />
@@ -235,6 +238,14 @@
                     Đăng nhập với Google
                 </button>
             </form>
+            }
+            else
+            {
+                <div class="alert alert-warning text-start" role="alert">
+                    <i class="bi bi-shield-exclamation me-2"></i>
+                    Đăng nhập bằng Google hiện không khả dụng. Vui lòng liên hệ quản trị viên để được hỗ trợ.
+                </div>
+            }
 
             @if ((bool?)ViewData["IsDevelopment"] == true)
             {

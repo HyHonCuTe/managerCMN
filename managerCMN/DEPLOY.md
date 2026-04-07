@@ -148,6 +148,7 @@ User=www-data
 Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=ASPNETCORE_URLS=http://localhost:5000
 Environment=DOTNET_PRINT_TELEMETRY_MESSAGE=false
+EnvironmentFile=/etc/cmnmanager/cmnmanager.env
 
 [Install]
 WantedBy=multi-user.target

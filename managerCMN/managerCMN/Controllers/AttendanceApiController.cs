@@ -9,6 +9,7 @@ namespace managerCMN.Controllers;
 [ApiController]
 [Route("api/attendance")]
 [ApiKeyAuthentication]
+[IgnoreAntiforgeryToken]
 public class AttendanceApiController : ControllerBase
 {
     private readonly IAttendanceService _attendanceService;

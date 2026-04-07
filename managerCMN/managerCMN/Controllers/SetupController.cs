@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
@@ -16,15 +17,18 @@ public class SetupController : Controller
     private const string MasterAdminEmployeeCode = "A00000";
 
     private readonly ApplicationDbContext _db;
+    private readonly IWebHostEnvironment _env;
     private readonly ILogger<SetupController> _logger;
     private readonly ISystemLogService _systemLogService;
 
     public SetupController(
         ApplicationDbContext db,
+        IWebHostEnvironment env,
         ILogger<SetupController> logger,
         ISystemLogService systemLogService)
     {
         _db = db;
+        _env = env;
         _logger = logger;
         _systemLogService = systemLogService;
     }
@@ -34,6 +38,9 @@ public class SetupController : Controller
 
     public async Task<IActionResult> Index()
     {
+        if (!_env.IsDevelopment())
+            return NotFound();
+
         // Check if admin already exists
         var adminRole = await _db.Roles.FirstOrDefaultAsync(r => r.RoleName == "Admin");
         if (adminRole == null)
@@ -73,6 +80,9 @@ public class SetupController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AssignAdmin(int userId)
     {
+        if (!_env.IsDevelopment())
+            return NotFound();
+
         try
         {
             // Check if admin already exists

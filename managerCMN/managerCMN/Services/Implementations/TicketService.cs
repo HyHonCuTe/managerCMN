@@ -32,6 +32,15 @@ public class TicketService : ITicketService
         return int.TryParse(userIdClaim, out var id) ? id : null;
     }
 
+    private int? GetCurrentEmployeeId()
+    {
+        var employeeIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("EmployeeId")?.Value;
+        return int.TryParse(employeeIdClaim, out var id) ? id : null;
+    }
+
+    private bool IsCurrentUserAdmin()
+        => _httpContextAccessor.HttpContext?.User?.IsInRole("Admin") == true;
+
     private string? GetClientIP() => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
 
     #region Existing methods (backward compat)
@@ -110,8 +119,13 @@ public class TicketService : ITicketService
 
     public async Task ResolveAsync(int ticketId, string resolution)
     {
-        var ticket = await _unitOfWork.Tickets.GetByIdAsync(ticketId);
-        if (ticket == null) return;
+        var ticket = await _unitOfWork.Tickets.GetWithFullDetailsAsync(ticketId);
+        if (ticket == null)
+            throw new KeyNotFoundException($"Ticket {ticketId} was not found.");
+
+        var currentEmployeeId = GetCurrentEmployeeId();
+        if (!currentEmployeeId.HasValue || !CanResolveTicket(ticket, currentEmployeeId.Value, IsCurrentUserAdmin()))
+            throw new UnauthorizedAccessException("Current employee cannot resolve this ticket.");
 
         var dataBefore = new { ticket.TicketId, ticket.Title, ticket.Status };
 
@@ -216,7 +230,16 @@ public class TicketService : ITicketService
     public async Task ReplyAsync(int ticketId, int senderId, string content, List<IFormFile>? attachments)
     {
         var ticket = await _unitOfWork.Tickets.GetWithFullDetailsAsync(ticketId);
-        if (ticket == null) return;
+        if (ticket == null)
+            throw new KeyNotFoundException($"Ticket {ticketId} was not found.");
+
+        var currentEmployeeId = GetCurrentEmployeeId();
+        if (!currentEmployeeId.HasValue
+            || currentEmployeeId.Value != senderId
+            || !CanReplyToTicket(ticket, currentEmployeeId.Value, IsCurrentUserAdmin()))
+        {
+            throw new UnauthorizedAccessException("Current employee cannot reply to this ticket.");
+        }
 
         var message = new TicketMessage
         {
@@ -273,7 +296,16 @@ public class TicketService : ITicketService
     public async Task ForwardAsync(int ticketId, int forwarderId, List<int> recipientIds, string content, List<IFormFile>? attachments)
     {
         var ticket = await _unitOfWork.Tickets.GetWithFullDetailsAsync(ticketId);
-        if (ticket == null) return;
+        if (ticket == null)
+            throw new KeyNotFoundException($"Ticket {ticketId} was not found.");
+
+        var currentEmployeeId = GetCurrentEmployeeId();
+        if (!currentEmployeeId.HasValue
+            || currentEmployeeId.Value != forwarderId
+            || !CanForwardTicket(ticket, currentEmployeeId.Value, IsCurrentUserAdmin()))
+        {
+            throw new UnauthorizedAccessException("Current employee cannot forward this ticket.");
+        }
 
         // Get existing recipient IDs
         var existingRecipientIds = ticket.Recipients.Select(r => r.EmployeeId).ToHashSet();
@@ -479,7 +511,9 @@ public class TicketService : ITicketService
     }
 
     public async Task<TicketAttachment?> GetAttachmentAsync(int attachmentId)
-        => await _unitOfWork.TicketAttachments.GetByIdAsync(attachmentId);
+        => await _unitOfWork.TicketAttachments.Query()
+            .Include(attachment => attachment.TicketMessage)
+            .FirstOrDefaultAsync(attachment => attachment.TicketAttachmentId == attachmentId);
 
     #endregion
 
@@ -528,6 +562,18 @@ public class TicketService : ITicketService
             await _notificationService.CreateAsync(user.UserId, title, message);
         }
     }
+
+    private static bool CanReplyToTicket(Ticket ticket, int employeeId, bool isAdmin)
+        => isAdmin
+            || ticket.CreatedBy == employeeId
+            || ticket.Recipients.Any(recipient => recipient.EmployeeId == employeeId);
+
+    private static bool CanForwardTicket(Ticket ticket, int employeeId, bool isAdmin)
+        => isAdmin
+            || ticket.Recipients.Any(recipient => recipient.EmployeeId == employeeId);
+
+    private static bool CanResolveTicket(Ticket ticket, int employeeId, bool isAdmin)
+        => CanReplyToTicket(ticket, employeeId, isAdmin);
 
     #endregion
 }

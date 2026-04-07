@@ -18,17 +18,20 @@ public class AccountController : Controller
     private readonly IWebHostEnvironment _env;
     private readonly managerCMN.Data.ApplicationDbContext _db;
     private readonly ISystemLogService _systemLogService;
+    private readonly IAuthenticationSchemeProvider _authenticationSchemeProvider;
 
     public AccountController(
         IUnitOfWork unitOfWork,
         IWebHostEnvironment env,
         managerCMN.Data.ApplicationDbContext db,
-        ISystemLogService systemLogService)
+        ISystemLogService systemLogService,
+        IAuthenticationSchemeProvider authenticationSchemeProvider)
     {
         _unitOfWork = unitOfWork;
         _env = env;
         _db = db;
         _systemLogService = systemLogService;
+        _authenticationSchemeProvider = authenticationSchemeProvider;
     }
 
     [HttpGet]
@@ -36,6 +39,7 @@ public class AccountController : Controller
     {
         ViewData["ReturnUrl"] = returnUrl;
         ViewData["IsDevelopment"] = _env.IsDevelopment();
+        ViewData["IsGoogleLoginAvailable"] = await IsGoogleLoginAvailableAsync();
 
         if (_env.IsDevelopment())
         {
@@ -50,8 +54,14 @@ public class AccountController : Controller
     }
 
     [HttpPost]
-    public IActionResult ExternalLogin(string? returnUrl = null)
+    public async Task<IActionResult> ExternalLogin(string? returnUrl = null)
     {
+        if (!await IsGoogleLoginAvailableAsync())
+        {
+            TempData["LoginError"] = "Đăng nhập Google chưa được cấu hình trên máy chủ. Hãy cấu hình biến môi trường trước khi sử dụng.";
+            return RedirectToAction(nameof(Login), new { returnUrl });
+        }
+
         var redirectUrl = Url.Action(nameof(ExternalLoginCallback), "Account", new { returnUrl });
         var properties = new AuthenticationProperties { RedirectUri = redirectUrl };
         return Challenge(properties, GoogleDefaults.AuthenticationScheme);
@@ -60,6 +70,12 @@ public class AccountController : Controller
     [HttpGet]
     public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null)
     {
+        if (!await IsGoogleLoginAvailableAsync())
+        {
+            TempData["LoginError"] = "Đăng nhập Google hiện chưa sẵn sàng trên máy chủ.";
+            return RedirectToAction(nameof(Login), new { returnUrl });
+        }
+
         var authenticateResult = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
         if (!authenticateResult.Succeeded)
             return RedirectToAction(nameof(Login));
@@ -372,4 +388,7 @@ public class AccountController : Controller
 
     private string? GetClientIP()
         => HttpContext.Connection.RemoteIpAddress?.ToString();
+
+    private async Task<bool> IsGoogleLoginAvailableAsync()
+        => await _authenticationSchemeProvider.GetSchemeAsync(GoogleDefaults.AuthenticationScheme) != null;
 }

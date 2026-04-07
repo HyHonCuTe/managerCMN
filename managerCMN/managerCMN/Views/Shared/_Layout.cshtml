@@ -392,6 +392,7 @@
                             <li><hr class="dropdown-divider" /></li>
                             <li>
                                 <form asp-controller="Account" asp-action="Logout" method="post">
+                                    @Html.AntiForgeryToken()
                                     <button type="submit" class="dropdown-item"><i class="bi bi-box-arrow-right"></i> Đăng xuất</button>
                                 </form>
                             </li>

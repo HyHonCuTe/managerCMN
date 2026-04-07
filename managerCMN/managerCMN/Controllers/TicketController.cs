@@ -1,8 +1,8 @@
 using System.Security.Claims;
-using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Data.SqlClient;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
@@ -187,7 +187,21 @@ public class TicketController : Controller
             return RedirectToAction(nameof(Details), new { id = ticketId });
         }
 
-        await _ticketService.ReplyAsync(ticketId, employeeId, content, attachments);
+        try
+        {
+            await _ticketService.ReplyAsync(ticketId, employeeId, content, attachments);
+            TempData["Success"] = "Đã gửi phản hồi!";
+        }
+        catch (KeyNotFoundException)
+        {
+            TempData["Error"] = "Ticket không tồn tại hoặc đã bị xóa.";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            TempData["Error"] = "Bạn không có quyền phản hồi ticket này.";
+            return RedirectToAction(nameof(Details), new { id = ticketId });
+        }
         TempData["Success"] = "Đã gửi phản hồi!";
         return RedirectToAction(nameof(Details), new { id = ticketId });
     }
@@ -213,7 +227,21 @@ public class TicketController : Controller
             return RedirectToAction(nameof(Details), new { id = ticketId });
         }
 
-        await _ticketService.ForwardAsync(ticketId, employeeId, recipientIds, content ?? string.Empty, attachments);
+        try
+        {
+            await _ticketService.ForwardAsync(ticketId, employeeId, recipientIds, content ?? string.Empty, attachments);
+            TempData["Success"] = "Đã chuyển tiếp ticket!";
+        }
+        catch (KeyNotFoundException)
+        {
+            TempData["Error"] = "Ticket không tồn tại hoặc đã bị xóa.";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            TempData["Error"] = "Bạn không có quyền chuyển tiếp ticket này.";
+            return RedirectToAction(nameof(Details), new { id = ticketId });
+        }
         TempData["Success"] = "Đã chuyển tiếp ticket!";
         return RedirectToAction(nameof(Details), new { id = ticketId });
     }
@@ -246,7 +274,22 @@ public class TicketController : Controller
         var attachment = await _ticketService.GetAttachmentAsync(attachmentId);
         if (attachment == null) return NotFound();
 
-        var filePath = Path.Combine(_env.WebRootPath, attachment.FilePath.TrimStart('/'));
+        var ticketId = attachment.TicketId ?? attachment.TicketMessage?.TicketId;
+        if (!ticketId.HasValue)
+            return NotFound();
+
+        var ticket = await _ticketService.GetTicketDetailAsync(ticketId.Value);
+        if (ticket == null || !CanAccessTicket(ticket))
+            return Forbid();
+
+        var webRootPath = Path.GetFullPath(_env.WebRootPath);
+        var relativePath = attachment.FilePath
+            .TrimStart('/', '\\')
+            .Replace('/', Path.DirectorySeparatorChar);
+        var filePath = Path.GetFullPath(Path.Combine(webRootPath, relativePath));
+
+        if (!filePath.StartsWith(webRootPath, StringComparison.OrdinalIgnoreCase))
+            return Forbid();
         if (!System.IO.File.Exists(filePath)) return NotFound();
 
         var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
@@ -281,7 +324,21 @@ public class TicketController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Resolve(int id, string resolution)
     {
-        await _ticketService.ResolveAsync(id, resolution);
+        try
+        {
+            await _ticketService.ResolveAsync(id, resolution);
+            TempData["Success"] = "Đã cập nhật ticket thành đã giải quyết.";
+        }
+        catch (KeyNotFoundException)
+        {
+            TempData["Error"] = "Ticket không tồn tại hoặc đã bị xóa.";
+            return RedirectToAction(nameof(Index));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            TempData["Error"] = "Bạn không có quyền giải quyết ticket này.";
+            return RedirectToAction(nameof(Details), new { id });
+        }
         return RedirectToAction(nameof(Details), new { id });
     }
 
@@ -304,6 +361,14 @@ public class TicketController : Controller
 
     private static bool IsMissingTicketStarTable(SqlException ex)
         => ex.Message.Contains("TicketStars", StringComparison.OrdinalIgnoreCase);
+
+    private bool CanAccessTicket(Ticket ticket)
+    {
+        var employeeId = GetCurrentEmployeeId();
+        return User.IsInRole("Admin")
+            || ticket.CreatedBy == employeeId
+            || ticket.Recipients.Any(recipient => recipient.EmployeeId == employeeId);
+    }
 
     private async Task<List<SelectListItem>> BuildRecipientSelectListAsync(int? excludeEmployeeId = null)
     {

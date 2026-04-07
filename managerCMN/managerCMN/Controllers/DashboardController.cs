@@ -143,6 +143,11 @@ public class DashboardController : Controller
             DateOnly.FromDateTime(DateTimeHelper.VietnamNow));
         var (periodStart, periodEnd) = AttendanceCalendarViewModel.GetPeriodDates(
             currentAttendancePeriod.year, currentAttendancePeriod.month);
+        var employeeJobTitleId = await _db.Employees
+            .Where(e => e.EmployeeId == employeeId)
+            .Select(e => e.JobTitleId)
+            .FirstOrDefaultAsync();
+        var attendancePolicy = AttendancePolicyHelper.Resolve(employeeJobTitleId);
 
         var attendances = await _db.Set<Models.Entities.Attendance>()
             .Where(a => a.EmployeeId == employeeId && a.Date >= periodStart && a.Date <= periodEnd)
@@ -171,8 +176,8 @@ public class DashboardController : Controller
                 .Where(r => r.IsApproved)
                 .ToList() ?? [];
 
-            var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance);
-            var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, approvedReqs);
+            var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, policy: attendancePolicy);
+            var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, approvedReqs, attendancePolicy);
             var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedReqs);
             var finalPoints = AttendanceCalendarViewModel.GetWorkPoints(
                 correctedCoverage.HasMorning || requestCoverage.Morning,
@@ -184,7 +189,7 @@ public class DashboardController : Controller
             if (extraFromRequest > 0)
                 requestWorkDays += extraFromRequest;
 
-            if (AttendanceCalendarViewModel.GetLateDuration(date, attendance, approvedReqs) > TimeSpan.Zero)
+            if (AttendanceCalendarViewModel.GetLateDuration(date, attendance, approvedReqs, attendancePolicy) > TimeSpan.Zero)
                 lateDays++;
         }
 

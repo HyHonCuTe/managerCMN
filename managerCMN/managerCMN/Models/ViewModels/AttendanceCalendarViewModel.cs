@@ -1,3 +1,4 @@
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 
@@ -45,7 +46,7 @@ public class RequestDayInfo
 
     public string DetailDisplayName
         => RequestType == RequestType.CheckInOut
-            ? $"{GetCheckInOutTypeDisplayName()}{(RequestedTime.HasValue ? $" {RequestedTime.Value:HH\\:mm}" : string.Empty)}"
+            ? $"{CheckInOutTypeHelper.GetDisplayName(CheckInOutType)}{(RequestedTime.HasValue ? $" {RequestedTime.Value:HH\\:mm}" : string.Empty)}"
             : TypeDisplayName;
 
     public static RequestDayInfo FromRequest(Request request, DateOnly date, bool isApproved)
@@ -103,6 +104,10 @@ public class AttendanceCoverageResult
     public bool HasAfternoon { get; set; }
     public bool HasEarlyCheckout { get; set; }
     public bool MissedMorningCutoff { get; set; }
+    public bool HasApprovedLateArrivalRequest { get; set; }
+    public bool HasApprovedEarlyLeaveRequest { get; set; }
+    public bool LateArrivalNeedsApproval { get; set; }
+    public bool EarlyLeaveNeedsApproval { get; set; }
     public decimal WorkPoints { get; set; }
 
     public bool HasDisplayTimeRange => EffectiveCheckIn.HasValue || EffectiveCheckOut.HasValue;
@@ -117,6 +122,7 @@ public class AttendanceCalendarViewModel
     public int? SelectedEmployeeId { get; set; }
     public string? EmployeeName { get; set; }
     public string? EmployeeCode { get; set; }
+    public int? SelectedEmployeeJobTitleId { get; set; }
 
     /// <summary>Period start: 26th of previous month</summary>
     public DateOnly PeriodStart { get; set; }
@@ -145,9 +151,6 @@ public class AttendanceCalendarViewModel
     public static readonly TimeOnly MinAfternoonCheckOut = new(16, 0);
     /// <summary>Minimum checkout time on working Saturdays to count afternoon session (3:00 PM)</summary>
     public static readonly TimeOnly MinAfternoonCheckOutSaturday = new(15, 0);
-    /// <summary>Late checkin threshold (10:00 AM) - if after this time and no request, don't count</summary>
-    public static readonly TimeOnly LateCheckinThreshold = new(10, 0);
-
     /// <summary>
     /// Get minimum checkout time to count afternoon session.
     /// Working Saturdays allow checkout from 15:00, other days keep 16:00.
@@ -247,9 +250,12 @@ public class AttendanceCalendarViewModel
     public static TimeSpan GetLateDuration(
         DateOnly date,
         Attendance? attendance,
-        IEnumerable<RequestDayInfo>? requestInfos = null)
+        IEnumerable<RequestDayInfo>? requestInfos = null,
+        AttendancePolicy? policy = null)
     {
-        var correctedCoverage = EvaluateAttendanceCoverage(date, attendance, requestInfos);
+        policy ??= AttendancePolicyHelper.Resolve(null);
+
+        var correctedCoverage = EvaluateAttendanceCoverage(date, attendance, requestInfos, policy);
         if (!correctedCoverage.EffectiveCheckIn.HasValue)
             return TimeSpan.Zero;
 
@@ -270,9 +276,9 @@ public class AttendanceCalendarViewModel
             return TimeSpan.Zero;
         }
 
-        if (effectiveCheckIn > MorningStart)
+        if (effectiveCheckIn > policy.LateThreshold)
         {
-            return effectiveCheckIn.ToTimeSpan() - MorningStart.ToTimeSpan();
+            return effectiveCheckIn.ToTimeSpan() - policy.LateThreshold.ToTimeSpan();
         }
 
         return TimeSpan.Zero;
@@ -281,8 +287,11 @@ public class AttendanceCalendarViewModel
     public static AttendanceCoverageResult EvaluateAttendanceCoverage(
         DateOnly date,
         Attendance? attendance,
-        IEnumerable<RequestDayInfo>? requestInfos = null)
+        IEnumerable<RequestDayInfo>? requestInfos = null,
+        AttendancePolicy? policy = null)
     {
+        policy ??= AttendancePolicyHelper.Resolve(null);
+
         var result = new AttendanceCoverageResult
         {
             ActualCheckIn = attendance?.CheckIn,
@@ -304,6 +313,12 @@ public class AttendanceCalendarViewModel
             .Select(r => r.RequestedTime)
             .OrderByDescending(t => t)
             .FirstOrDefault();
+
+        result.HasApprovedLateArrivalRequest = approvedCheckInOutRequests
+            .Any(r => r.CheckInOutType == Models.Enums.CheckInOutType.LateArrival);
+
+        result.HasApprovedEarlyLeaveRequest = approvedCheckInOutRequests
+            .Any(r => r.CheckInOutType == Models.Enums.CheckInOutType.EarlyLeave);
 
         var effectiveCheckIn = result.ActualCheckIn;
         var effectiveCheckOut = result.ActualCheckOut;
@@ -370,23 +385,40 @@ public class AttendanceCalendarViewModel
         if (effectiveCheckIn.HasValue && effectiveCheckOut.HasValue)
         {
             var minAfternoonCheckOut = GetMinAfternoonCheckOut(date);
-            result.MissedMorningCutoff = effectiveCheckIn.Value > LateCheckinThreshold;
-            result.HasMorning = effectiveCheckIn.Value <= LateCheckinThreshold
-                && effectiveCheckOut.Value >= MorningStart;
-            result.HasAfternoon = effectiveCheckIn.Value <= AfternoonEnd
-                && effectiveCheckOut.Value >= minAfternoonCheckOut;
-            result.HasEarlyCheckout = effectiveCheckOut.Value >= AfternoonStart
-                && effectiveCheckOut.Value < minAfternoonCheckOut;
+            var checkIn = effectiveCheckIn.Value;
+            var checkOut = effectiveCheckOut.Value;
+            var baseMorningCoverage = checkOut >= MorningStart;
+            var baseAfternoonCoverage = checkIn <= AfternoonEnd
+                && checkOut >= minAfternoonCheckOut;
+
+            result.MissedMorningCutoff = policy.MissesMorningShift(checkIn);
+            result.LateArrivalNeedsApproval = policy.RequiresLateArrivalRequest(checkIn)
+                && !result.HasApprovedLateArrivalRequest;
+            result.HasMorning = !result.MissedMorningCutoff
+                && baseMorningCoverage
+                && !result.LateArrivalNeedsApproval;
+
+            result.EarlyLeaveNeedsApproval = policy.RequiresEarlyLeaveRequest(checkOut)
+                && !result.HasApprovedEarlyLeaveRequest;
+            result.HasAfternoon = baseAfternoonCoverage
+                && !result.EarlyLeaveNeedsApproval;
+            result.HasEarlyCheckout = result.EarlyLeaveNeedsApproval;
             result.WorkPoints = GetWorkPoints(result.HasMorning, result.HasAfternoon);
             return result;
         }
 
         if (attendance?.CheckIn.HasValue == true || attendance?.CheckOut.HasValue == true)
         {
-            result.MissedMorningCutoff = attendance?.CheckIn.HasValue == true
-                && attendance.CheckIn.Value > LateCheckinThreshold;
-            result.HasMorning = true;
-            result.WorkPoints = 0.5m;
+            var singlePunch = result.EffectiveCheckIn ?? attendance?.CheckIn;
+            if (singlePunch.HasValue)
+            {
+                result.MissedMorningCutoff = policy.MissesMorningShift(singlePunch.Value);
+                result.LateArrivalNeedsApproval = policy.RequiresLateArrivalRequest(singlePunch.Value)
+                    && !result.HasApprovedLateArrivalRequest;
+                result.HasMorning = !result.MissedMorningCutoff
+                    && !result.LateArrivalNeedsApproval;
+                result.WorkPoints = result.HasMorning ? 0.5m : 0m;
+            }
         }
 
         return result;

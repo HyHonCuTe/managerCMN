@@ -1,4 +1,5 @@
 @model AttendanceCalendarViewModel
+@using managerCMN.Helpers
 @using managerCMN.Models.ViewModels
 @{
     ViewData["Title"] = "Bảng chấm công";
@@ -20,6 +21,7 @@
     var holidays = ViewBag.Holidays as HashSet<DateOnly> ?? new HashSet<DateOnly>();
     var holidayNames = ViewBag.HolidayNames as Dictionary<DateOnly, string> ?? new Dictionary<DateOnly, string>();
     var isFullAttendanceEmployee = ViewBag.IsFullAttendanceEmployee as bool? ?? false;
+    var attendancePolicy = AttendancePolicyHelper.Resolve(Model.SelectedEmployeeJobTitleId);
 
     // Build grid: start from Monday of periodStart's week
     var startDow = (int)periodStart.DayOfWeek;
@@ -194,7 +196,7 @@
             }
             else if (hasData && att!.CheckIn.HasValue)
             {
-                isLateCheckinNoWork = att.CheckIn.Value > AttendanceCalendarViewModel.LateCheckinThreshold
+                isLateCheckinNoWork = att.CheckIn.Value > attendancePolicy.MorningCutoff
                     && !hasApprovedCountsAsWorkReq;
 
                 if (isLateCheckinNoWork)
@@ -239,13 +241,13 @@
                 else if (morningReq || afternoonReq) reqPoints = 0.5m;
             }
 
-            var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att);
-            var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att, approvedRequestInfos);
+            var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att, policy: attendancePolicy);
+            var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att, approvedRequestInfos, attendancePolicy);
             var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedRequestInfos);
             var scheduleCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(
                 approvedRequestInfos,
                 requireCountsAsWork: false);
-            var lateDuration = AttendanceCalendarViewModel.GetLateDuration(date, att, approvedRequestInfos);
+            var lateDuration = AttendanceCalendarViewModel.GetLateDuration(date, att, approvedRequestInfos, attendancePolicy);
             attPoints = isFullAttendanceDay ? 1m : rawCoverage.WorkPoints;
             hasEarlyCheckout = !isFullAttendanceDay && correctedCoverage.HasEarlyCheckout;
             isLateCheckinNoWork = !isFullAttendanceDay
@@ -390,11 +392,20 @@
                             }
                             @if (hasData && isLateCheckinNoWork)
                             {
-                                <div class="att-late-row att-late-warn"><i class="bi bi-x-octagon"></i> Checkin sau 10h không tính công</div>
+                                <div class="att-late-row att-late-warn"><i class="bi bi-x-octagon"></i> Checkin sau 10h không tính công ca sáng</div>
+                            }
+                            @if (correctedCoverage.LateArrivalNeedsApproval)
+                            {
+                                <div class="att-late-row att-late-warn"><i class="bi bi-file-earmark-text"></i> Đi trễ cần đơn đã duyệt</div>
                             }
                             @if (hasEarlyCheckout)
                             {
                                 <div class="att-late-row att-late-warn"><i class="bi bi-clock-history"></i> Checkout sớm (@att!.CheckOut!.Value.ToString("H\\:mm") &lt; @minAfternoonCheckOut.ToString("H\\:mm"))</div>
+                            }
+
+                            @if (correctedCoverage.EarlyLeaveNeedsApproval)
+                            {
+                                <div class="att-late-row att-late-warn"><i class="bi bi-file-earmark-text"></i> Về sớm cần đơn đã duyệt</div>
                             }
 
                             @if (hasData && correctedCoverage.EffectiveCheckOut == null)
@@ -679,7 +690,7 @@
                 if (employeeId && date) {
                     openPunchRecordsModal(employeeId, date);
                 } else {
-                    console.error('❌ Missing employeeId or date:', { employeeId, date });
+                    console.error('Missing employeeId or date:', { employeeId, date });
                     alert('Lỗi: Không lấy được thông tin nhân viên hoặc ngày. EmployeeId=' + employeeId + ', Date=' + date);
                 }
             });
@@ -720,17 +731,17 @@
                 document.getElementById('punchRecordsLoading').style.display = 'none';
 
                 if (result.success && result.data && result.data.length > 0) {
-                    console.log('✅ Found punch records:', result.data.length);
+                    console.log('Found punch records:', result.data.length);
                     displayPunchRecords(result.data);
                     document.getElementById('punchRecordsContent').style.display = 'block';
                 } else {
-                    console.log('⚠️ No punch records found or error:', result);
+                    console.log('No punch records found or error:', result);
                     document.getElementById('punchRecordsError').style.display = 'block';
                     document.getElementById('punchRecordsContent').style.display = 'block';
                 }
             })
             .catch(error => {
-                console.error('❌ Error fetching punch records:', error);
+                console.error('Error fetching punch records:', error);
                 document.getElementById('punchRecordsLoading').style.display = 'none';
                 document.getElementById('punchRecordsError').style.display = 'block';
                 document.getElementById('punchRecordsContent').style.display = 'block';

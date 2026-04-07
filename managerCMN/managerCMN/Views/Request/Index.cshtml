@@ -249,12 +249,7 @@
     {
         if (req.RequestType == RequestType.CheckInOut)
         {
-            return req.CheckInOutType switch
-            {
-                CheckInOutType.MissedCheckIn => "Quên check in",
-                CheckInOutType.MissedCheckOut => "Quên check out",
-                _ => "Checkin/out"
-            };
+            return CheckInOutTypeHelper.GetDisplayName(req.CheckInOutType);
         }
 
         if (req.RequestType == RequestType.Absence)

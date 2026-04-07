@@ -567,9 +567,10 @@ public class RequestService : IRequestService
         return requests.Count();
     }
 
-    public async Task<int> CountCheckInOutRequestsInMonthAsync(int employeeId, DateTime date)
+    public async Task<int> CountCheckInOutRequestsInMonthAsync(int employeeId, DateTime date, CheckInOutType? checkInOutType)
     {
-        // Count all CheckInOut requests created in the same calendar month (not rejected/cancelled)
+        // Count CheckInOut requests in the same calendar month (not rejected/cancelled)
+        // using the same quota bucket as the current request type.
         var requests = await _unitOfWork.Requests.FindAsync(r =>
             r.EmployeeId == employeeId
             && r.RequestType == RequestType.CheckInOut
@@ -578,7 +579,9 @@ public class RequestService : IRequestService
             && r.StartTime.Year == date.Year
             && r.StartTime.Month == date.Month);
 
-        return requests.Count();
+        return CheckInOutTypeHelper.IsLateOrEarlyType(checkInOutType)
+            ? requests.Count(r => CheckInOutTypeHelper.IsLateOrEarlyType(r.CheckInOutType))
+            : requests.Count(r => CheckInOutTypeHelper.IsMissedCheckType(r.CheckInOutType));
     }
 
     private static string GetRequestTypeText(RequestType type) => type switch

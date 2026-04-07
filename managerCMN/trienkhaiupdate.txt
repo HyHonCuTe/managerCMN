@@ -19,13 +19,13 @@ chmod +x deploy.sh
 
 
 
+# 1. Stop service
+sudo systemctl stop cmnmanager
+
 # 2. Pull code mới
 cd /var/www/cmnmanager-src/managerCMN/managerCMN
 git fetch origin
 git reset --hard origin/main
-
-# 1. Stop service
-sudo systemctl stop cmnmanager
 
 # 3. Build và publish
 cd managerCMN

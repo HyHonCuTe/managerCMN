@@ -22,7 +22,7 @@ public static class LeaveReasonHelper
         new(LeaveReason.MarriageLeave, "Nghỉ kết hôn (tối đa 3 ngày)", true, RequestType.Leave),
 
         // CheckInOut
-        new(LeaveReason.ForgotCheckInOut, "Quên checkin/out", true, RequestType.CheckInOut),
+        new(LeaveReason.ForgotCheckInOut, "Điều chỉnh checkin/out", true, RequestType.CheckInOut),
 
         // Absence
         new(LeaveReason.CompanyBusiness, "Đi công việc CTY", true, RequestType.Absence),

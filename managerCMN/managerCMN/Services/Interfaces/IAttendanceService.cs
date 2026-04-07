@@ -22,12 +22,12 @@ public interface IAttendanceService
     /// Updates LateMinutes for existing attendance records that have IsLate = true but LateMinutes = 0
     /// </summary>
     /// <returns>Number of records updated</returns>
-    Task<int> UpdateExistingLateMinutesAsync();
+    Task<int> UpdateExistingLateMinutesAsync(DateOnly? startDate = null, DateOnly? endDate = null);
 
     /// <summary>
     /// Recalculates CheckIn/CheckOut times for ALL attendance records based on their PunchRecords.
     /// This fixes any stale or incorrect times in the Attendance table.
     /// </summary>
     /// <returns>Number of records updated</returns>
-    Task<int> RecalculateAllAttendanceTimesAsync();
+    Task<int> RecalculateAllAttendanceTimesAsync(DateOnly? startDate = null, DateOnly? endDate = null);
 }

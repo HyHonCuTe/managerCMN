@@ -3,6 +3,7 @@ using ClosedXML.Excel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.ViewModels;
 using managerCMN.Repositories.Interfaces;
@@ -17,7 +18,6 @@ public class AttendanceService : IAttendanceService
     private readonly IUnitOfWork _unitOfWork;
     private readonly ISystemLogService _logService;
     private readonly IHttpContextAccessor _httpContextAccessor;
-    private static readonly TimeOnly LateThreshold = new(8, 30); // 8:30 AM
 
     public AttendanceService(IUnitOfWork unitOfWork, ISystemLogService logService, IHttpContextAccessor httpContextAccessor)
     {
@@ -33,6 +33,14 @@ public class AttendanceService : IAttendanceService
     }
 
     private string? GetClientIP() => _httpContextAccessor.HttpContext?.Connection?.RemoteIpAddress?.ToString();
+
+    private static AttendancePolicy GetAttendancePolicy(Employee? employee)
+        => AttendancePolicyHelper.Resolve(employee?.JobTitleId);
+
+    private static int GetLateMinutes(TimeOnly checkIn, AttendancePolicy policy)
+        => checkIn > policy.LateThreshold
+            ? (int)(checkIn.ToTimeSpan() - policy.LateThreshold.ToTimeSpan()).TotalMinutes
+            : 0;
 
     private static bool IsMissingFullAttendanceTable(SqlException ex)
         => ex.Message.Contains("Invalid object name", StringComparison.OrdinalIgnoreCase)
@@ -62,7 +70,20 @@ public class AttendanceService : IAttendanceService
         => await _unitOfWork.Attendances.GetByDateRangeAsync(startDate, endDate);
 
     public async Task<IEnumerable<Attendance>> GetLateCheckInsAsync(int year, int month)
-        => await _unitOfWork.Attendances.GetLateCheckInsAsync(year, month, LateThreshold);
+    {
+        var monthAttendances = await _unitOfWork.Attendances.Query()
+            .Include(a => a.Employee)
+            .Where(a => a.Date.Year == year
+                && a.Date.Month == month
+                && a.CheckIn != null)
+            .OrderBy(a => a.Date)
+            .ToListAsync();
+
+        return monthAttendances
+            .Where(a => a.CheckIn.HasValue
+                && GetLateMinutes(a.CheckIn.Value, GetAttendancePolicy(a.Employee)) > 0)
+            .ToList();
+    }
 
     public async Task<Attendance?> GetByIdAsync(int id)
         => await _unitOfWork.Attendances.GetByIdAsync(id);
@@ -192,9 +213,9 @@ public class AttendanceService : IAttendanceService
             if (checkOut.HasValue)
                 workingHours = Math.Round((decimal)(checkOut.Value.ToTimeSpan() - checkIn.ToTimeSpan()).TotalHours, 2);
 
-            // Calculate late minutes
-            var isLate = checkIn > LateThreshold;
-            var lateMinutes = isLate ? (int)(checkIn - LateThreshold).TotalMinutes : 0;
+            var attendancePolicy = GetAttendancePolicy(employee);
+            var lateMinutes = GetLateMinutes(checkIn, attendancePolicy);
+            var isLate = lateMinutes > 0;
 
             // Check if attendance exists for this day
             var existingAttendance = await _unitOfWork.Attendances.Query()
@@ -337,7 +358,7 @@ public class AttendanceService : IAttendanceService
                     empRequests,
                     holidays,
                     morningStart, morningEnd, afternoonStart, afternoonEnd,
-                    emp.EmployeeId, fullAttendanceEmployeeIds,
+                    emp.EmployeeId, emp.JobTitleId, fullAttendanceEmployeeIds,
                     out var dayCong, out var dayP, out var dayK, out var dayHoliday);
 
                 totalCong += dayCong;
@@ -400,10 +421,11 @@ public class AttendanceService : IAttendanceService
 
     private string GetCellValue(DateOnly date, Models.Entities.Attendance? att, List<Models.Entities.Request> requests,
         HashSet<DateOnly> holidays, TimeOnly morningStart, TimeOnly morningEnd, TimeOnly afternoonStart, TimeOnly afternoonEnd,
-        int employeeId, HashSet<int> fullAttendanceEmployeeIds,
+        int employeeId, int? jobTitleId, HashSet<int> fullAttendanceEmployeeIds,
         out decimal dayCong, out decimal dayP, out decimal dayK, out decimal dayHoliday)
     {
         dayCong = 0; dayP = 0; dayK = 0; dayHoliday = 0;
+        var attendancePolicy = AttendancePolicyHelper.Resolve(jobTitleId);
 
         // 0. Check if employee is in full attendance list  
         if (fullAttendanceEmployeeIds.Contains(employeeId) && IsWorkingDayForExport(date))
@@ -456,8 +478,8 @@ public class AttendanceService : IAttendanceService
             return dayK == 0.5m ? "K/2" : "K";
         }
 
-        var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att);
-        var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att, approvedRequestInfos);
+        var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att, policy: attendancePolicy);
+        var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, att, approvedRequestInfos, attendancePolicy);
         var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedRequestInfos);
         var finalPoints = AttendanceCalendarViewModel.GetWorkPoints(
             correctedCoverage.HasMorning || requestCoverage.Morning,
@@ -531,30 +553,45 @@ public class AttendanceService : IAttendanceService
         return (periodStart, periodEnd);
     }
 
-    public async Task<int> UpdateExistingLateMinutesAsync()
+    public async Task<int> UpdateExistingLateMinutesAsync(DateOnly? startDate = null, DateOnly? endDate = null)
     {
-        // Get all attendance records that are late but don't have LateMinutes calculated
-        var attendancesToUpdate = await _unitOfWork.Attendances
-            .FindAsync(a => a.IsLate && a.LateMinutes == 0 && a.CheckIn != null);
+        var query = _unitOfWork.Attendances.Query()
+            .Include(a => a.Employee)
+            .Where(a => a.CheckIn != null);
 
-        int updatedCount = 0;
+        if (startDate.HasValue)
+        {
+            query = query.Where(a => a.Date >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(a => a.Date <= endDate.Value);
+        }
+
+        var attendancesToUpdate = await query.ToListAsync();
+        var updatedCount = 0;
 
         foreach (var attendance in attendancesToUpdate)
         {
-            if (attendance.CheckIn.HasValue)
+            if (!attendance.CheckIn.HasValue)
             {
-                // Calculate late minutes based on CheckIn time vs LateThreshold (8:30 AM)
-                var lateMinutes = 0;
-                if (attendance.CheckIn.Value > LateThreshold)
-                {
-                    lateMinutes = (int)(attendance.CheckIn.Value - LateThreshold).TotalMinutes;
-                }
-
-                // Update the record
-                attendance.LateMinutes = Math.Max(0, lateMinutes);
-                _unitOfWork.Attendances.Update(attendance);
-                updatedCount++;
+                continue;
             }
+
+            var attendancePolicy = GetAttendancePolicy(attendance.Employee);
+            var lateMinutes = GetLateMinutes(attendance.CheckIn.Value, attendancePolicy);
+            var isLate = lateMinutes > 0;
+
+            if (attendance.IsLate == isLate && attendance.LateMinutes == lateMinutes)
+            {
+                continue;
+            }
+
+            attendance.IsLate = isLate;
+            attendance.LateMinutes = lateMinutes;
+            _unitOfWork.Attendances.Update(attendance);
+            updatedCount++;
         }
 
         if (updatedCount > 0)
@@ -574,25 +611,38 @@ public class AttendanceService : IAttendanceService
         return updatedCount;
     }
 
-    public async Task<int> RecalculateAllAttendanceTimesAsync()
+    public async Task<int> RecalculateAllAttendanceTimesAsync(DateOnly? startDate = null, DateOnly? endDate = null)
     {
-        // Get all attendance records
-        var allAttendances = await _unitOfWork.Attendances.GetAllAsync();
-        int updatedCount = 0;
+        var query = _unitOfWork.Attendances.Query()
+            .Include(a => a.Employee)
+            .AsQueryable();
+
+        if (startDate.HasValue)
+        {
+            query = query.Where(a => a.Date >= startDate.Value);
+        }
+
+        if (endDate.HasValue)
+        {
+            query = query.Where(a => a.Date <= endDate.Value);
+        }
+
+        var allAttendances = await query.ToListAsync();
+        var updatedCount = 0;
 
         foreach (var attendance in allAttendances)
         {
-            // Get all punch records for this employee and date
             var punchRecords = await _unitOfWork.PunchRecords.GetByEmployeeAndDateAsync(attendance.EmployeeId, attendance.Date);
             var orderedPunches = punchRecords.OrderBy(pr => pr.PunchTime).ToList();
 
             if (!orderedPunches.Any())
-                continue; // No punch records, skip
+            {
+                continue;
+            }
 
             var newCheckIn = orderedPunches.First().PunchTime;
             TimeOnly? newCheckOut = null;
 
-            // Only set checkOut if there are multiple punches AND last is different from first
             if (orderedPunches.Count > 1)
             {
                 var lastPunchTime = orderedPunches.Last().PunchTime;
@@ -602,27 +652,32 @@ public class AttendanceService : IAttendanceService
                 }
             }
 
-            // Check if times changed
-            bool timesChanged = attendance.CheckIn != newCheckIn || attendance.CheckOut != newCheckOut;
+            var attendancePolicy = GetAttendancePolicy(attendance.Employee);
+            var newLateMinutes = GetLateMinutes(newCheckIn, attendancePolicy);
+            var newIsLate = newLateMinutes > 0;
+            decimal? newWorkingHours = newCheckOut.HasValue
+                ? Math.Round((decimal)(newCheckOut.Value.ToTimeSpan() - newCheckIn.ToTimeSpan()).TotalHours, 2)
+                : null;
 
-            if (timesChanged)
+            var timesChanged = attendance.CheckIn != newCheckIn
+                || attendance.CheckOut != newCheckOut
+                || attendance.WorkingHours != newWorkingHours
+                || attendance.IsLate != newIsLate
+                || attendance.LateMinutes != newLateMinutes;
+
+            if (!timesChanged)
             {
-                attendance.CheckIn = newCheckIn;
-                attendance.CheckOut = newCheckOut;
-
-                // Recalculate working hours
-                if (newCheckOut.HasValue)
-                    attendance.WorkingHours = Math.Round((decimal)(newCheckOut.Value.ToTimeSpan() - newCheckIn.ToTimeSpan()).TotalHours, 2);
-                else
-                    attendance.WorkingHours = null;
-
-                // Recalculate late status
-                attendance.IsLate = newCheckIn > LateThreshold;
-                attendance.LateMinutes = attendance.IsLate ? (int)(newCheckIn - LateThreshold).TotalMinutes : 0;
-
-                _unitOfWork.Attendances.Update(attendance);
-                updatedCount++;
+                continue;
             }
+
+            attendance.CheckIn = newCheckIn;
+            attendance.CheckOut = newCheckOut;
+            attendance.WorkingHours = newWorkingHours;
+            attendance.IsLate = newIsLate;
+            attendance.LateMinutes = newLateMinutes;
+
+            _unitOfWork.Attendances.Update(attendance);
+            updatedCount++;
         }
 
         if (updatedCount > 0)

@@ -1,4 +1,5 @@
 @model RequestCreateViewModel
+@using managerCMN.Helpers
 @using managerCMN.Models.Enums
 @{
     ViewData["Title"] = "Tạo đơn từ mới";
@@ -354,6 +355,27 @@
         var confirmSubmitButton = document.getElementById('confirmSubmitButton');
         var confirmSubmitModalElement = document.getElementById('confirmSubmitModal');
         var confirmSubmitModal = new bootstrap.Modal(confirmSubmitModalElement);
+        var selectedCheckInOutTypeValue = '@(Model.CheckInOutType.HasValue ? ((int)Model.CheckInOutType.Value).ToString() : string.Empty)';
+
+        function ensureCheckInOutOptions() {
+            var requiredOptions = [
+                { value: '2', text: 'Đi trễ' },
+                { value: '3', text: 'Về sớm' }
+            ];
+
+            requiredOptions.forEach(function(optionData) {
+                if (!checkInOutType.querySelector('option[value="' + optionData.value + '"]')) {
+                    var option = document.createElement('option');
+                    option.value = optionData.value;
+                    option.textContent = optionData.text;
+                    checkInOutType.appendChild(option);
+                }
+            });
+
+            if (selectedCheckInOutTypeValue) {
+                checkInOutType.value = selectedCheckInOutTypeValue;
+            }
+        }
 
         function updateFormByRequestType(type) {
             // Reset visibility
@@ -381,6 +403,7 @@
 
                 // Show time input based on CheckInOutType
                 updateCheckInOutTimeFields();
+                startDateLabel.innerHTML = 'Ngày<span class="text-danger">*</span>';
 
                 // Set end date same as start date
                 endDate.value = startDate.value;
@@ -414,12 +437,12 @@
 
         function updateCheckInOutTimeFields() {
             var checkInOutTypeValue = parseInt(checkInOutType.value);
-            if (checkInOutTypeValue === 0) {
-                // Missed Check In: Show start time only
+            if (checkInOutTypeValue === 0 || checkInOutTypeValue === 2) {
+                // Check-in based requests: Show start time only
                 startTimeWrap.style.display = '';
                 endTimeWrap.style.display = 'none';
             } else {
-                // Missed Check Out: Show end time only
+                // Check-out based requests: Show end time only
                 startTimeWrap.style.display = 'none';
                 endTimeWrap.style.display = '';
             }
@@ -439,8 +462,8 @@
 
             if (type === 1) {
                 var checkInOutTypeValue = parseInt(checkInOutType.value);
-                startTimeInput.required = checkInOutTypeValue === 0;
-                endTimeInput.required = checkInOutTypeValue !== 0;
+                startTimeInput.required = checkInOutTypeValue === 0 || checkInOutTypeValue === 2;
+                endTimeInput.required = checkInOutTypeValue === 1 || checkInOutTypeValue === 3;
             }
         }
 
@@ -759,6 +782,8 @@
             confirmSubmitButton.disabled = false;
             confirmSubmitButton.innerHTML = '<i class="bi bi-send-check me-1"></i>Xác nhận gửi';
         });
+
+        ensureCheckInOutOptions();
 
         // Initialize form based on default request type
         updateFormByRequestType(parseInt(requestTypeSelect.value));

@@ -11,12 +11,7 @@
     var isCheckInOutRequest = req.RequestType == RequestType.CheckInOut;
     var absenceStartText = req.StartTime.TimeOfDay > TimeSpan.Zero ? req.StartTime.ToString("HH:mm") : "--:--";
     var absenceEndText = req.EndTime.TimeOfDay > TimeSpan.Zero ? req.EndTime.ToString("HH:mm") : "--:--";
-    var checkInOutTypeText = req.CheckInOutType switch
-    {
-        CheckInOutType.MissedCheckIn => "Quên check in",
-        CheckInOutType.MissedCheckOut => "Quên check out",
-        _ => "Checkin/out"
-    };
+    var checkInOutTypeText = CheckInOutTypeHelper.GetDisplayName(req.CheckInOutType);
 
     var detailLabel = isCheckInOutRequest ? "Loại checkin/out"
         : isAbsenceRequest ? "Khung giờ vắng"

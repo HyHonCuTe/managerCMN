@@ -183,10 +183,12 @@ public class AttendanceController : Controller
         if (employeeId.HasValue)
         {
             var emp = employees.FirstOrDefault(e => e.EmployeeId == employeeId.Value);
+            var attendancePolicy = AttendancePolicyHelper.Resolve(emp?.JobTitleId);
             if (emp != null)
             {
                 model.EmployeeName = emp.FullName;
                 model.EmployeeCode = emp.EmployeeCode;
+                model.SelectedEmployeeJobTitleId = emp.JobTitleId;
             }
 
             // Get attendance for the period (26 prev → 25 current)
@@ -239,10 +241,10 @@ public class AttendanceController : Controller
                     .Where(r => r.IsApproved)
                     .ToList() ?? [];
 
-                var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance);
+                var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, policy: attendancePolicy);
                 model.TotalWorkDays += rawCoverage.WorkPoints;
 
-                var lateDuration = AttendanceCalendarViewModel.GetLateDuration(date, attendance, approvedReqs);
+                var lateDuration = AttendanceCalendarViewModel.GetLateDuration(date, attendance, approvedReqs, attendancePolicy);
                 if (lateDuration > TimeSpan.Zero)
                 {
                     model.LateDays++;
@@ -253,7 +255,7 @@ public class AttendanceController : Controller
             foreach (var att in Enumerable.Empty<managerCMN.Models.Entities.Attendance>())
             {
                 // Check if there's an approved request for this date
-                var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(att.Date, att);
+                var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(att.Date, att, policy: attendancePolicy);
                 model.TotalWorkDays += rawCoverage.WorkPoints;
 
                 // If checkin is after 10:00 AM and no approved request, skip counting this attendance
@@ -304,8 +306,8 @@ public class AttendanceController : Controller
 
                 // Calculate request công for this date (don't double count with attendance)
                 var attendance = model.AttendanceByDate.GetValueOrDefault(date);
-                var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance);
-                var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, approvedReqs);
+                var rawCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, policy: attendancePolicy);
+                var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, approvedReqs, attendancePolicy);
                 var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedReqs);
                 decimal attCong = correctedCoverage.WorkPoints;
 
@@ -352,7 +354,7 @@ public class AttendanceController : Controller
                 var approvedReqs = model.RequestsByDate.GetValueOrDefault(d)?
                     .Where(r => r.IsApproved)
                     .ToList() ?? [];
-                var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(d, attendance, approvedReqs);
+                var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(d, attendance, approvedReqs, attendancePolicy);
                 var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedReqs);
                 var finalPoints = AttendanceCalendarViewModel.GetWorkPoints(
                     correctedCoverage.HasMorning || requestCoverage.Morning,
@@ -432,7 +434,7 @@ public class AttendanceController : Controller
             return View(model);
         }
 
-        using var stream = model.ExcelFile.OpenReadStream();
+        using var stream = model.ExcelFile!.OpenReadStream();
         await _attendanceService.ImportFromExcelAsync(stream);
 
         TempData["Success"] = "Import chấm công thành công!";
@@ -468,6 +470,7 @@ public class AttendanceController : Controller
         
         foreach (var emp in employees.OrderBy(e => e.Department?.DepartmentName).ThenBy(e => e.FullName))
         {
+            var attendancePolicy = AttendancePolicyHelper.Resolve(emp.JobTitleId);
             var attendances = await _attendanceService.GetByEmployeeAndDateRangeAsync(emp.EmployeeId, periodStart, periodEnd);
             var requests = await _requestService.GetByEmployeeAsync(emp.EmployeeId);
             
@@ -508,7 +511,7 @@ public class AttendanceController : Controller
                 var approvedReqs = requestsByDate.GetValueOrDefault(date)?
                     .Where(r => r.IsApproved)
                     .ToList() ?? [];
-                var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, approvedReqs);
+                var correctedCoverage = AttendanceCalendarViewModel.EvaluateAttendanceCoverage(date, attendance, approvedReqs, attendancePolicy);
                 var requestCoverage = AttendanceCalendarViewModel.GetApprovedRequestShiftCoverage(approvedReqs);
                 var finalPoints = AttendanceCalendarViewModel.GetWorkPoints(
                     correctedCoverage.HasMorning || requestCoverage.Morning,
@@ -516,7 +519,7 @@ public class AttendanceController : Controller
 
                 totalCong += finalPoints;
 
-                var lateDuration = AttendanceCalendarViewModel.GetLateDuration(date, attendance, approvedReqs);
+                var lateDuration = AttendanceCalendarViewModel.GetLateDuration(date, attendance, approvedReqs, attendancePolicy);
                 if (lateDuration > TimeSpan.Zero)
                 {
                     totalLateMinutes += (int)lateDuration.TotalMinutes;
@@ -611,11 +614,17 @@ public class AttendanceController : Controller
     [Authorize(Policy = "AdminOnly")]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> UpdateLateMinutes()
+    public async Task<IActionResult> UpdateLateMinutes(int? year, int? month)
     {
         try
         {
-            var updatedCount = await _attendanceService.UpdateExistingLateMinutesAsync();
+            var currentAttendancePeriod = AttendanceCalendarViewModel.GetDisplayPeriod(
+                DateOnly.FromDateTime(DateTimeHelper.VietnamNow));
+            year ??= currentAttendancePeriod.year;
+            month ??= currentAttendancePeriod.month;
+            var (periodStart, periodEnd) = AttendanceCalendarViewModel.GetPeriodDates(year.Value, month.Value);
+
+            var updatedCount = await _attendanceService.UpdateExistingLateMinutesAsync(periodStart, periodEnd);
 
             if (updatedCount > 0)
             {
@@ -631,17 +640,23 @@ public class AttendanceController : Controller
             TempData["Error"] = $"Lỗi khi cập nhật: {ex.Message}";
         }
 
-        return RedirectToAction(nameof(Summary));
+        return RedirectToAction(nameof(Summary), new { year, month });
     }
 
     [Authorize(Policy = "AdminOnly")]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> RecalculateAttendanceTimes()
+    public async Task<IActionResult> RecalculateAttendanceTimes(int? year, int? month)
     {
         try
         {
-            var updatedCount = await _attendanceService.RecalculateAllAttendanceTimesAsync();
+            var currentAttendancePeriod = AttendanceCalendarViewModel.GetDisplayPeriod(
+                DateOnly.FromDateTime(DateTimeHelper.VietnamNow));
+            year ??= currentAttendancePeriod.year;
+            month ??= currentAttendancePeriod.month;
+            var (periodStart, periodEnd) = AttendanceCalendarViewModel.GetPeriodDates(year.Value, month.Value);
+
+            var updatedCount = await _attendanceService.RecalculateAllAttendanceTimesAsync(periodStart, periodEnd);
 
             if (updatedCount > 0)
             {
@@ -657,7 +672,7 @@ public class AttendanceController : Controller
             TempData["Error"] = $"Lỗi khi đồng bộ: {ex.Message}";
         }
 
-        return RedirectToAction(nameof(Summary));
+        return RedirectToAction(nameof(Summary), new { year, month });
     }
 
     /// <summary>

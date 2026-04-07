@@ -33,7 +33,12 @@
                         <option value="2">Vắng mặt</option>
                         <option value="3">Làm ở nhà (WFH)</option>
                     </select>
-                    <input asp-for="CheckInOutType" type="hidden" id="checkInOutType" />
+                    <select asp-for="CheckInOutType" class="form-select mt-2" id="checkInOutType" style="display: none;">
+                        <option value="0">Quên check in</option>
+                        <option value="1">Quên check out</option>
+                        <option value="2">Đi trễ</option>
+                        <option value="3">Về sớm</option>
+                    </select>
                 </div>
                 <div class="col-md-8">
                     <label asp-for="Title" class="form-label fw-semibold">Tiêu đề <span class="text-danger">*</span></label>
@@ -57,7 +62,7 @@
                     <span asp-validation-for="StartTime" class="text-danger small"></span>
                 </div>
                 <div class="col-md-2" id="startTimeWrap" style="display: none;">
-                    <label asp-for="StartClock" class="form-label fw-semibold">Giá» báº¯t Ä‘áº§u</label>
+                    <label asp-for="StartClock" class="form-label fw-semibold">Giờ bắt đầu</label>
                     <input asp-for="StartClock" type="time" class="form-control form-control-sm" id="startTimeInput" />
                     <span asp-validation-for="StartClock" class="text-danger small"></span>
                 </div>
@@ -74,7 +79,7 @@
                     <input asp-for="EndDate" class="form-control" type="date" id="endDate" required />
                 </div>
                 <div class="col-md-2" id="endTimeWrap" style="display: none;">
-                    <label asp-for="EndClock" class="form-label fw-semibold">Giá» káº¿t thÃºc</label>
+                    <label asp-for="EndClock" class="form-label fw-semibold">Giờ kết thúc</label>
                     <input asp-for="EndClock" type="time" class="form-control form-control-sm" id="endTimeInput" />
                     <span asp-validation-for="EndClock" class="text-danger small"></span>
                 </div>
@@ -230,13 +235,15 @@
             startTimeWrap.style.display = 'none';
             endTimeWrap.style.display = 'none';
             totalDaysWrap.style.display = '';
+            checkInOutType.style.display = 'none';
 
             if (type === 1) {
-                startDateLabel.innerHTML = 'Ng\u00e0y qu\u00ean checkin/out <span class="text-danger">*</span>';
+                startDateLabel.innerHTML = 'Ng\u00e0y checkin/out <span class="text-danger">*</span>';
                 endDateWrap.style.display = 'none';
                 halfDayStartWrap.style.display = 'none';
                 halfDayEndWrap.style.display = 'none';
                 totalDaysWrap.style.display = 'none';
+                checkInOutType.style.display = '';
                 updateCheckInOutTimeFields();
                 endDate.value = startDate.value;
             } else if (type === 2) {
@@ -263,7 +270,7 @@
 
         function updateCheckInOutTimeFields() {
             var checkInOutTypeValue = parseInt(checkInOutType.value || '0');
-            if (checkInOutTypeValue === 0) {
+            if (checkInOutTypeValue === 0 || checkInOutTypeValue === 2) {
                 startTimeWrap.style.display = '';
                 endTimeWrap.style.display = 'none';
             } else {
@@ -286,8 +293,8 @@
 
             if (type === 1) {
                 var checkInOutTypeValue = parseInt(checkInOutType.value || '0');
-                startTimeInput.required = checkInOutTypeValue === 0;
-                endTimeInput.required = checkInOutTypeValue !== 0;
+                startTimeInput.required = checkInOutTypeValue === 0 || checkInOutTypeValue === 2;
+                endTimeInput.required = checkInOutTypeValue === 1 || checkInOutTypeValue === 3;
             }
         }
 
@@ -391,6 +398,11 @@
         requestTypeSelect.addEventListener('change', function() {
             updateFormByRequestType(parseInt(this.value));
             loadReasons(parseInt(this.value));
+            calcDays();
+        });
+
+        checkInOutType.addEventListener('change', function() {
+            updateCheckInOutTimeFields();
             calcDays();
         });
 

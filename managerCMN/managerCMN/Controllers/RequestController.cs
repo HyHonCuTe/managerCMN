@@ -15,12 +15,18 @@ public class RequestController : Controller
 {
     private readonly IRequestService _requestService;
     private readonly ILeaveService _leaveService;
+    private readonly IEmployeeService _employeeService;
     private readonly IWebHostEnvironment _env;
 
-    public RequestController(IRequestService requestService, ILeaveService leaveService, IWebHostEnvironment env)
+    public RequestController(
+        IRequestService requestService,
+        ILeaveService leaveService,
+        IEmployeeService employeeService,
+        IWebHostEnvironment env)
     {
         _requestService = requestService;
         _leaveService = leaveService;
+        _employeeService = employeeService;
         _env = env;
     }
 
@@ -66,11 +72,14 @@ public class RequestController : Controller
     public async Task<IActionResult> Create(RequestCreateViewModel model)
     {
         var employeeId = GetCurrentEmployeeId();
+        var currentEmployee = await _employeeService.GetByIdAsync(employeeId);
+        var attendancePolicy = AttendancePolicyHelper.Resolve(currentEmployee?.JobTitleId);
         NormalizeRequiredTextFields(model);
         ValidateRequiredRequestFields(model);
         ApplyRequestDateInputs(model);
         NormalizeSingleDayRequest(model);
         ValidateTimeBasedRequest(model);
+        ValidateCheckInOutPolicy(model, attendancePolicy);
 
         // All employees now need to select Approver1 manually
         if (!HasValidationError(nameof(RequestCreateViewModel.Approver1Id))
@@ -93,14 +102,17 @@ public class RequestController : Controller
             }
         }
 
-        // Check CheckInOut limit: max 5 per month
+        // Check CheckInOut limit by employee policy
         if (model.RequestType == RequestType.CheckInOut)
         {
-            var checkInOutCount = await _requestService.CountCheckInOutRequestsInMonthAsync(employeeId, today);
-            if (checkInOutCount >= 5)
+            var checkInOutLimit = GetCheckInOutMonthlyLimit(attendancePolicy, model.CheckInOutType);
+            var checkInOutCount = await _requestService.CountCheckInOutRequestsInMonthAsync(
+                employeeId,
+                model.StartTime,
+                model.CheckInOutType);
+            if (checkInOutCount >= checkInOutLimit)
             {
-                ModelState.AddModelError("RequestType",
-                    $"Bạn đã đạt giới hạn 5 đơn checkin/out trong tháng này.");
+                ModelState.AddModelError("RequestType", BuildCheckInOutLimitMessage(attendancePolicy, model.CheckInOutType));
             }
         }
 
@@ -162,8 +174,12 @@ public class RequestController : Controller
             return View(model);
         }
 
-        // Build reason text from LeaveReason
-        if (model.LeaveReason.HasValue)
+        // Build user-facing reason text
+        if (model.RequestType == RequestType.CheckInOut)
+        {
+            model.Reason = CheckInOutTypeHelper.GetDisplayName(model.CheckInOutType);
+        }
+        else if (model.LeaveReason.HasValue)
         {
             model.Reason = LeaveReasonHelper.GetDisplayName(model.LeaveReason.Value);
         }
@@ -511,11 +527,14 @@ public class RequestController : Controller
         var employeeId = GetCurrentEmployeeId();
         var request = await _requestService.GetWithDetailsAsync(id);
         if (request == null) return NotFound();
+        var requestEmployee = await _employeeService.GetByIdAsync(request.EmployeeId);
+        var attendancePolicy = AttendancePolicyHelper.Resolve(requestEmployee?.JobTitleId);
         NormalizeRequiredTextFields(model);
         ValidateRequiredRequestFields(model);
         ApplyRequestDateInputs(model);
         NormalizeSingleDayRequest(model);
         ValidateTimeBasedRequest(model);
+        ValidateCheckInOutPolicy(model, attendancePolicy);
 
         var isAdmin = User.IsInRole("Admin");
         if (!isAdmin && request.EmployeeId != employeeId)
@@ -536,6 +555,27 @@ public class RequestController : Controller
             && (!model.Approver1Id.HasValue || model.Approver1Id == 0))
         {
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
+        }
+
+        if (model.RequestType == RequestType.CheckInOut)
+        {
+            var checkInOutLimit = GetCheckInOutMonthlyLimit(attendancePolicy, model.CheckInOutType);
+            var checkInOutCount = await _requestService.CountCheckInOutRequestsInMonthAsync(
+                request.EmployeeId,
+                model.StartTime,
+                model.CheckInOutType);
+            var currentAlreadyCounted = request.RequestType == RequestType.CheckInOut
+                && request.Status != RequestStatus.Rejected
+                && request.Status != RequestStatus.Cancelled
+                && request.StartTime.Year == model.StartTime.Year
+                && request.StartTime.Month == model.StartTime.Month
+                && IsSameCheckInOutLimitBucket(request.CheckInOutType, model.CheckInOutType);
+            var projectedCount = currentAlreadyCounted ? checkInOutCount : checkInOutCount + 1;
+
+            if (projectedCount > checkInOutLimit)
+            {
+                ModelState.AddModelError("RequestType", BuildCheckInOutLimitMessage(attendancePolicy, model.CheckInOutType));
+            }
         }
 
         // Validate request date: Cannot create request for past dates older than 5 working days
@@ -573,7 +613,9 @@ public class RequestController : Controller
             return View(model);
         }
 
-        if (model.LeaveReason.HasValue)
+        if (model.RequestType == RequestType.CheckInOut)
+            model.Reason = CheckInOutTypeHelper.GetDisplayName(model.CheckInOutType);
+        else if (model.LeaveReason.HasValue)
             model.Reason = LeaveReasonHelper.GetDisplayName(model.LeaveReason.Value);
 
         model.IsHalfDayStart = isHalfDayStart;
@@ -608,7 +650,7 @@ public class RequestController : Controller
             .Select(r => new
             {
                 value = (int)r.Reason,
-                text = r.DisplayName,
+                text = type == RequestType.CheckInOut ? "Điều chỉnh checkin/out" : r.DisplayName,
                 countsAsWork = r.CountsAsWork,
                 deductsLeave = r.DeductsLeave,
                 statusText = LeaveReasonHelper.GetStatusText(r.Reason)
@@ -749,7 +791,7 @@ public class RequestController : Controller
         if (model.RequestType == RequestType.CheckInOut)
         {
             model.EndTime = model.StartDate.Date;
-            var selectedClock = model.CheckInOutType == CheckInOutType.MissedCheckOut
+            var selectedClock = CheckInOutTypeHelper.UsesCheckOutClock(model.CheckInOutType)
                 ? model.EndClock
                 : model.StartClock;
 
@@ -778,7 +820,7 @@ public class RequestController : Controller
                 return;
             }
 
-            if (model.CheckInOutType == CheckInOutType.MissedCheckOut)
+            if (CheckInOutTypeHelper.UsesCheckOutClock(model.CheckInOutType))
             {
                 if (string.IsNullOrWhiteSpace(model.EndClock))
                 {
@@ -839,6 +881,62 @@ public class RequestController : Controller
         {
             ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock), "Giờ kết thúc phải sau giờ bắt đầu.");
         }
+    }
+
+    private void ValidateCheckInOutPolicy(RequestCreateViewModel model, AttendancePolicy attendancePolicy)
+    {
+        if (model.RequestType != RequestType.CheckInOut || !model.CheckInOutType.HasValue)
+        {
+            return;
+        }
+
+        TimeOnly? requestedTime = null;
+        if (CheckInOutTypeHelper.UsesCheckOutClock(model.CheckInOutType))
+        {
+            if (TimeSpan.TryParse(model.EndClock, out var endClock))
+            {
+                requestedTime = TimeOnly.FromTimeSpan(endClock);
+            }
+        }
+        else if (TimeSpan.TryParse(model.StartClock, out var startClock))
+        {
+            requestedTime = TimeOnly.FromTimeSpan(startClock);
+        }
+
+        if (!requestedTime.HasValue)
+        {
+            return;
+        }
+
+        if (model.CheckInOutType == CheckInOutType.LateArrival
+            && !attendancePolicy.RequiresLateArrivalRequest(requestedTime.Value))
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.StartClock),
+                $"Giờ đi trễ hợp lệ: {attendancePolicy.LateRequestWindowStart:HH\\:mm} - {attendancePolicy.LateRequestWindowEnd:HH\\:mm}.");
+        }
+
+        if (model.CheckInOutType == CheckInOutType.EarlyLeave
+            && !attendancePolicy.RequiresEarlyLeaveRequest(requestedTime.Value))
+        {
+            ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock),
+                $"Giờ về sớm hợp lệ: từ {attendancePolicy.EarlyLeaveRequestWindowStart:HH\\:mm} đến trước {attendancePolicy.NoRequestCheckoutThreshold:HH\\:mm}.");
+        }
+    }
+
+    private static int GetCheckInOutMonthlyLimit(AttendancePolicy attendancePolicy, CheckInOutType? checkInOutType)
+        => attendancePolicy.GetMonthlyCheckInOutLimit(checkInOutType);
+
+    private static bool IsSameCheckInOutLimitBucket(CheckInOutType? existingType, CheckInOutType? newType)
+        => CheckInOutTypeHelper.IsLateOrEarlyType(existingType) == CheckInOutTypeHelper.IsLateOrEarlyType(newType);
+
+    private static string BuildCheckInOutLimitMessage(AttendancePolicy attendancePolicy, CheckInOutType? checkInOutType)
+    {
+        var monthlyLimit = GetCheckInOutMonthlyLimit(attendancePolicy, checkInOutType);
+        var requestTypeLabel = CheckInOutTypeHelper.IsLateOrEarlyType(checkInOutType)
+            ? "đơn đi trễ/về sớm"
+            : "đơn quên checkin/out";
+
+        return $"Bạn đã đạt giới hạn {monthlyLimit} {requestTypeLabel} trong tháng này.";
     }
 
     private async Task<decimal?> TryCalculateTotalDaysAsync(DateTime startTime, DateTime endTime, bool isHalfDayStart, bool isHalfDayEnd)

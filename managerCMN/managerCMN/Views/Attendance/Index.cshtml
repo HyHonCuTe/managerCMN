@@ -187,6 +187,7 @@
             bool hasMorningAtt = false;
             bool hasAfternoonAtt = false;
             bool hasEarlyCheckout = false;
+            bool checkoutBeforeAfternoonThreshold = false;
             bool isLateCheckinNoWork = false;
             if (isFullAttendanceDay)
             {
@@ -250,6 +251,8 @@
             var lateDuration = AttendanceCalendarViewModel.GetLateDuration(date, att, approvedRequestInfos, attendancePolicy);
             attPoints = isFullAttendanceDay ? 1m : rawCoverage.WorkPoints;
             hasEarlyCheckout = !isFullAttendanceDay && correctedCoverage.HasEarlyCheckout;
+            checkoutBeforeAfternoonThreshold = !isFullAttendanceDay
+                && correctedCoverage.CheckoutBeforeAfternoonThreshold;
             isLateCheckinNoWork = !isFullAttendanceDay
                 && correctedCoverage.MissedMorningCutoff
                 && !(correctedCoverage.HasMorning || scheduleCoverage.Morning);
@@ -398,9 +401,13 @@
                             {
                                 <div class="att-late-row att-late-warn"><i class="bi bi-file-earmark-text"></i> Đi trễ cần đơn đã duyệt</div>
                             }
+                            @if (checkoutBeforeAfternoonThreshold)
+                            {
+                                <div class="att-late-row att-late-warn"><i class="bi bi-exclamation-circle"></i> Checkout trước @minAfternoonCheckOut.ToString("H\\:mm") (@correctedCoverage.DisplayCheckOutText) không tính công ca chiều</div>
+                            }
                             @if (hasEarlyCheckout)
                             {
-                                <div class="att-late-row att-late-warn"><i class="bi bi-clock-history"></i> Checkout sớm (@att!.CheckOut!.Value.ToString("H\\:mm") &lt; @minAfternoonCheckOut.ToString("H\\:mm"))</div>
+                                <div class="att-late-row att-late-warn"><i class="bi bi-clock-history"></i> Checkout sớm (@att!.CheckOut!.Value.ToString("H\\:mm") &lt; @attendancePolicy.NoRequestCheckoutThreshold.ToString("H\\:mm"))</div>
                             }
 
                             @if (correctedCoverage.EarlyLeaveNeedsApproval)

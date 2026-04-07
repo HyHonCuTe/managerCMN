@@ -103,6 +103,7 @@ public class AttendanceCoverageResult
     public bool HasMorning { get; set; }
     public bool HasAfternoon { get; set; }
     public bool HasEarlyCheckout { get; set; }
+    public bool CheckoutBeforeAfternoonThreshold { get; set; }
     public bool MissedMorningCutoff { get; set; }
     public bool HasApprovedLateArrivalRequest { get; set; }
     public bool HasApprovedEarlyLeaveRequest { get; set; }
@@ -390,6 +391,9 @@ public class AttendanceCalendarViewModel
             var baseMorningCoverage = checkOut >= MorningStart;
             var baseAfternoonCoverage = checkIn <= AfternoonEnd
                 && checkOut >= minAfternoonCheckOut;
+            var leftBeforeAfternoonThreshold = checkIn <= AfternoonEnd
+                && checkOut >= AfternoonStart
+                && checkOut < minAfternoonCheckOut;
 
             result.MissedMorningCutoff = policy.MissesMorningShift(checkIn);
             result.LateArrivalNeedsApproval = policy.RequiresLateArrivalRequest(checkIn)
@@ -401,6 +405,8 @@ public class AttendanceCalendarViewModel
             result.EarlyLeaveNeedsApproval = policy.RequiresEarlyLeaveRequest(checkOut)
                 && !result.HasApprovedEarlyLeaveRequest;
             result.HasAfternoon = baseAfternoonCoverage
+                && !result.EarlyLeaveNeedsApproval;
+            result.CheckoutBeforeAfternoonThreshold = leftBeforeAfternoonThreshold
                 && !result.EarlyLeaveNeedsApproval;
             result.HasEarlyCheckout = result.EarlyLeaveNeedsApproval;
             result.WorkPoints = GetWorkPoints(result.HasMorning, result.HasAfternoon);

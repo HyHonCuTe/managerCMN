@@ -163,6 +163,16 @@ public class AttendanceCalendarViewModel
             : MinAfternoonCheckOut;
     }
 
+    public static bool RequiresEarlyLeaveRequest(DateOnly date, TimeOnly checkOut, AttendancePolicy policy)
+    {
+        if (date.DayOfWeek == DayOfWeek.Saturday && IsWorkSaturday(date))
+        {
+            return false;
+        }
+
+        return policy.RequiresEarlyLeaveRequest(checkOut);
+    }
+
     /// <summary>Check if a Saturday is a work Saturday (alternating, anchor: 21/3/2026 = work)</summary>
     public static bool IsWorkSaturday(DateOnly date)
     {
@@ -402,7 +412,7 @@ public class AttendanceCalendarViewModel
                 && baseMorningCoverage
                 && !result.LateArrivalNeedsApproval;
 
-            result.EarlyLeaveNeedsApproval = policy.RequiresEarlyLeaveRequest(checkOut)
+            result.EarlyLeaveNeedsApproval = RequiresEarlyLeaveRequest(date, checkOut, policy)
                 && !result.HasApprovedEarlyLeaveRequest;
             result.HasAfternoon = baseAfternoonCoverage
                 && !result.EarlyLeaveNeedsApproval;

@@ -935,10 +935,23 @@ public class RequestController : Controller
         }
 
         if (model.CheckInOutType == CheckInOutType.EarlyLeave
-            && !attendancePolicy.RequiresEarlyLeaveRequest(requestedTime.Value))
+            && !AttendanceCalendarViewModel.RequiresEarlyLeaveRequest(
+                DateOnly.FromDateTime(model.StartTime),
+                requestedTime.Value,
+                attendancePolicy))
         {
-            ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock),
-                $"Giờ về sớm hợp lệ: từ {attendancePolicy.EarlyLeaveRequestWindowStart:HH\\:mm} đến trước {attendancePolicy.NoRequestCheckoutThreshold:HH\\:mm}.");
+            var requestDate = DateOnly.FromDateTime(model.StartTime);
+            if (requestDate.DayOfWeek == DayOfWeek.Saturday
+                && AttendanceCalendarViewModel.IsWorkSaturday(requestDate))
+            {
+                ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock),
+                    $"Thứ 7 đi làm checkout từ {AttendanceCalendarViewModel.GetMinAfternoonCheckOut(requestDate):HH\\:mm} trở đi vẫn tính đủ công, không áp dụng đơn về sớm.");
+            }
+            else
+            {
+                ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock),
+                    $"Giờ về sớm hợp lệ: từ {attendancePolicy.EarlyLeaveRequestWindowStart:HH\\:mm} đến trước {attendancePolicy.NoRequestCheckoutThreshold:HH\\:mm}.");
+            }
         }
     }
 

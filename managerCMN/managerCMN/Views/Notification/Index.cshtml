@@ -1,4 +1,4 @@
-@model IEnumerable<Notification>
+﻿@model IEnumerable<Notification>
 @{
     ViewData["Title"] = "Thông báo";
 }
@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
     <h4 class="mb-0 d-flex align-items-center flex-wrap gap-2">
         <span><i class="bi bi-bell"></i> Thông báo</span>
-        @if (ViewBag.IsPrivileged == true)
+        @if (ViewBag.CanViewAllNotifications == true)
         {
             <span class="badge bg-warning text-dark"><i class="bi bi-shield-check"></i> Chế độ Admin</span>
         }
@@ -24,52 +24,55 @@
 <div class="list-group">
     @foreach (var n in Model)
     {
-    <div class="list-group-item @(n.IsRead ? "bg-light" : "border-start border-primary border-4 bg-white")">
-        <div class="d-flex justify-content-between align-items-start">
-            <div class="flex-grow-1">
+        <div class="list-group-item @(n.IsRead ? "bg-light" : "border-start border-primary border-4 bg-white")">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    @if (!n.IsRead)
+                    {
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <span class="badge bg-primary rounded-pill"><i class="bi bi-bell-fill"></i> Mới</span>
+                            <h6 class="mb-0 fw-bold">@n.Title</h6>
+                        </div>
+                        <p class="mb-1">@n.Message</p>
+                    }
+                    else
+                    {
+                        <h6 class="mb-1 text-muted">@n.Title</h6>
+                        <p class="mb-1 text-muted small">@n.Message</p>
+                    }
+
+                    @if (ViewBag.CanViewAllNotifications == true)
+                    {
+                        <div class="mb-2">
+                            <small class="text-info">
+                                <i class="bi bi-person"></i>
+                                <strong>Người nhận:</strong> @(n.User?.FullName ?? "N/A")
+                                <span class="text-muted">(ID: @n.UserId)</span>
+                            </small>
+                        </div>
+                    }
+
+                    <small class="text-muted"><i class="bi bi-clock"></i> @n.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</small>
+                </div>
+
                 @if (!n.IsRead)
                 {
-                <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="badge bg-primary rounded-pill"><i class="bi bi-bell-fill"></i> Mới</span>
-                    <h6 class="mb-0 fw-bold">@n.Title</h6>
-                </div>
-                <p class="mb-1">@n.Message</p>
+                    <form asp-action="MarkAsRead" asp-route-id="@n.NotificationId" method="post">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-sm btn-outline-primary" title="Đánh dấu đã đọc">
+                            <i class="bi bi-check"></i>
+                        </button>
+                    </form>
                 }
-                else
-                {
-                <h6 class="mb-1 text-muted">@n.Title</h6>
-                <p class="mb-1 text-muted small">@n.Message</p>
-                }
-                @if (ViewBag.IsPrivileged == true)
-                {
-                <div class="mb-2">
-                    <small class="text-info">
-                        <i class="bi bi-person"></i>
-                        <strong>Người nhận:</strong> @(n.User?.FullName ?? "N/A")
-                        <span class="text-muted">(ID: @n.UserId)</span>
-                    </small>
-                </div>
-                }
-                <small class="text-muted"><i class="bi bi-clock"></i> @n.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</small>
             </div>
-            @if (!n.IsRead)
-            {
-            <form asp-action="MarkAsRead" asp-route-id="@n.NotificationId" method="post">
-                @Html.AntiForgeryToken()
-                <button type="submit" class="btn btn-sm btn-outline-primary" title="Đánh dấu đã đọc">
-                    <i class="bi bi-check"></i>
-                </button>
-            </form>
-            }
         </div>
-    </div>
     }
 </div>
 
 @if (!Model.Any())
 {
-<div class="text-center text-muted py-5">
-    <i class="bi bi-bell-slash fs-1"></i>
-    <p>Không có thông báo nào.</p>
-</div>
+    <div class="text-center text-muted py-5">
+        <i class="bi bi-bell-slash fs-1"></i>
+        <p>Không có thông báo nào.</p>
+    </div>
 }

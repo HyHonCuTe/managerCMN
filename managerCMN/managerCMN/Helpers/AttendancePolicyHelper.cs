@@ -9,6 +9,7 @@ public sealed record AttendancePolicy(
     TimeOnly MorningCutoff,
     TimeOnly EarlyLeaveRequestWindowStart,
     TimeOnly NoRequestCheckoutThreshold,
+    int MonthlyAbsenceRequestLimit,
     int MonthlyMissedCheckInOutRequestLimit,
     int MonthlyLateEarlyRequestLimit)
 {
@@ -20,6 +21,9 @@ public sealed record AttendancePolicy(
 
     public bool RequiresEarlyLeaveRequest(TimeOnly checkOut)
         => checkOut >= EarlyLeaveRequestWindowStart && checkOut < NoRequestCheckoutThreshold;
+
+    public int GetMonthlyAbsenceLimit()
+        => MonthlyAbsenceRequestLimit;
 
     public int GetMonthlyCheckInOutLimit(CheckInOutType? type)
         => CheckInOutTypeHelper.IsLateOrEarlyType(type)
@@ -36,6 +40,7 @@ public static class AttendancePolicyHelper
         MorningCutoff: new TimeOnly(10, 0),
         EarlyLeaveRequestWindowStart: new TimeOnly(16, 0),
         NoRequestCheckoutThreshold: new TimeOnly(17, 0),
+        MonthlyAbsenceRequestLimit: 4,
         MonthlyMissedCheckInOutRequestLimit: 5,
         MonthlyLateEarlyRequestLimit: 10);
 
@@ -46,6 +51,7 @@ public static class AttendancePolicyHelper
         MorningCutoff: new TimeOnly(10, 0),
         EarlyLeaveRequestWindowStart: new TimeOnly(16, 0),
         NoRequestCheckoutThreshold: new TimeOnly(17, 30),
+        MonthlyAbsenceRequestLimit: 2,
         MonthlyMissedCheckInOutRequestLimit: 5,
         MonthlyLateEarlyRequestLimit: 5);
 

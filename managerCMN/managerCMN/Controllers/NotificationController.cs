@@ -17,17 +17,18 @@ public class NotificationController : Controller
     public async Task<IActionResult> Index()
     {
         IEnumerable<Notification> notifications;
+        var canViewAllNotifications = CanViewAllNotifications();
 
-        if (IsPrivileged())
+        if (canViewAllNotifications)
         {
             notifications = await _notificationService.GetAllAsync();
-            ViewBag.IsPrivileged = true;
+            ViewBag.CanViewAllNotifications = true;
         }
         else
         {
             var userId = GetCurrentUserId();
             notifications = await _notificationService.GetByUserAsync(userId);
-            ViewBag.IsPrivileged = false;
+            ViewBag.CanViewAllNotifications = false;
         }
 
         return View(notifications);
@@ -37,7 +38,16 @@ public class NotificationController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MarkAsRead(int id)
     {
-        await _notificationService.MarkAsReadAsync(id);
+        var marked = await _notificationService.TryMarkAsReadAsync(
+            id,
+            GetCurrentUserId(),
+            CanViewAllNotifications());
+
+        if (!marked)
+        {
+            return Forbid();
+        }
+
         return RedirectToAction(nameof(Index));
     }
 
@@ -45,14 +55,12 @@ public class NotificationController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MarkAllRead()
     {
-        if (IsPrivileged())
+        if (CanViewAllNotifications())
         {
-            // Admin/Manager: Mark ALL notifications as read (system-wide)
             await _notificationService.MarkAllAsReadAsync();
         }
         else
         {
-            // Regular user: Mark only their notifications as read
             await _notificationService.MarkAllAsReadAsync(GetCurrentUserId());
         }
         return RedirectToAction(nameof(Index));
@@ -61,7 +69,10 @@ public class NotificationController : Controller
     [HttpGet]
     public async Task<IActionResult> UnreadCount()
     {
-        var count = await _notificationService.GetUnreadCountAsync(GetCurrentUserId());
+        var count = CanViewAllNotifications()
+            ? await _notificationService.GetAllUnreadCountAsync()
+            : await _notificationService.GetUnreadCountAsync(GetCurrentUserId());
+
         return Json(new { count });
     }
 
@@ -71,6 +82,6 @@ public class NotificationController : Controller
         return int.TryParse(claim, out var id) ? id : 0;
     }
 
-    private bool IsPrivileged()
-        => User.IsInRole("Admin") || User.IsInRole("Manager") || User.HasClaim("IsApprover", "true");
+    private bool CanViewAllNotifications()
+        => User.IsInRole("Admin");
 }

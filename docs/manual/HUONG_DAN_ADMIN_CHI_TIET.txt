@@ -1,0 +1,236 @@
+HƯỚNG DẪN VẬN HÀNH CHI TIẾT CHO ADMIN - managerCMN
+Phiên bản: 1.0
+Ngày cập nhật: 08/04/2026
+Phạm vi: Quản trị hệ thống, vận hành dữ liệu và kiểm soát quyền.
+
+============================================================
+1) ĐĂNG NHẬP, PHÂN QUYỀN, KIỂM TRA MENU
+============================================================
+
+1. Đăng nhập bằng Google đúng email đã có trong bảng nhân viên.
+2. Kiểm tra role sau đăng nhập.
+3. Với tài khoản Master Admin (mã nhân viên A00000):
+- Có thêm quyền vào Nhật ký hệ thống.
+- Có thể cấp thêm quyền Admin trong bối cảnh phù hợp.
+
+[ẢNH-ADM-01 - Đăng nhập Admin]
+[ẢNH-ADM-02 - Menu đầy đủ của Admin]
+
+============================================================
+2) QUY TRÌNH THIẾT LẬP BAN ĐẦU (KHI TRIỂN KHAI MỚI)
+============================================================
+
+1. Kiểm tra role mặc định đã có.
+2. Vào Setup (môi trường Development) nếu cần cấp Admin ban đầu.
+3. Tạo danh mục nền tảng theo thứ tự:
+- Phòng ban.
+- Chức vụ.
+- Vị trí.
+- Người duyệt đơn.
+- Danh mục tài sản, hãng, nhà cung cấp.
+- Ngày nghỉ lễ.
+4. Tạo hoặc import nhân viên.
+5. Rà soát phân quyền role và user.
+
+[ẢNH-ADM-03 - Trang Setup]
+[ẢNH-ADM-04 - Danh mục hệ thống]
+
+============================================================
+3) QUẢN LÝ NHÂN VIÊN
+============================================================
+
+3.1 Danh sách nhân viên
+1. Vào Nhân viên.
+2. Kiểm tra dữ liệu bắt buộc: mã NV, email, phòng ban, chức vụ.
+
+3.2 Tạo nhân viên thủ công
+1. Chọn "Thêm nhân viên".
+2. Điền đủ thông tin hồ sơ.
+3. Lưu và kiểm tra hiển thị.
+
+3.3 Import nhân viên
+1. Tải file mẫu.
+2. Chuẩn hóa dữ liệu theo cột mẫu.
+3. Upload file và kiểm tra báo cáo kết quả.
+
+3.4 Điều chỉnh phép
+1. Mở hồ sơ nhân viên.
+2. Điều chỉnh phép năm/bao lưu theo chính sách.
+3. Kiểm tra lại số dư phép trong module Đơn từ.
+
+[ẢNH-ADM-05 - Danh sách nhân viên]
+[ẢNH-ADM-06 - Import nhân viên]
+[ẢNH-ADM-07 - Điều chỉnh phép]
+
+============================================================
+4) QUẢN LÝ HỢP ĐỒNG
+============================================================
+
+1. Vào Hợp đồng.
+2. Theo dõi tab còn hiệu lực/hết hạn.
+3. Thêm mới hoặc import hàng loạt bằng file mẫu.
+4. Kiểm tra dữ liệu trọng yếu: loại hợp đồng, thời hạn, mức lương, ngày ký.
+
+[ẢNH-ADM-08 - Danh sách hợp đồng]
+[ẢNH-ADM-09 - Import hợp đồng]
+
+============================================================
+5) QUẢN LÝ CHẤM CÔNG
+============================================================
+
+5.1 Theo dõi chấm công
+1. Chọn tháng/năm.
+2. Kiểm tra dữ liệu bất thường (đi muộn, thiếu giờ, thiếu bản ghi quẹt).
+
+5.2 Import/Export
+1. Import dữ liệu khi cần hiệu chỉnh từ file chuẩn.
+2. Export báo cáo phục vụ đối soát nội bộ.
+
+5.3 Tác vụ quản trị nâng cao (Admin)
+1. Cập nhật số phút đi muộn.
+2. Recalculate dữ liệu chấm công theo tháng.
+3. Kiểm tra punch records khi cần truy vết.
+
+[ẢNH-ADM-10 - Chấm công theo tháng]
+[ẢNH-ADM-11 - Báo cáo đi muộn]
+[ẢNH-ADM-12 - Recalculate]
+
+============================================================
+6) QUẢN LÝ ĐƠN TỪ VÀ DUYỆT ĐƠN
+============================================================
+
+6.1 Theo dõi đơn toàn hệ thống
+1. Vào Đơn từ.
+2. Kiểm tra đơn theo từng tab loại đơn.
+
+6.2 Duyệt đơn
+1. Vào Duyệt đơn.
+2. Lọc theo trạng thái/loại đơn/khoảng ngày.
+3. Duyệt hoặc từ chối từng đơn.
+4. Duyệt hàng loạt hoặc từ chối hàng loạt khi cần.
+
+6.3 Hoàn tác duyệt (Admin)
+1. Mở đơn đã xử lý.
+2. Chọn hoàn tác và ghi chú rõ lý do.
+
+[ẢNH-ADM-13 - Duyệt đơn]
+[ẢNH-ADM-14 - Duyệt hàng loạt]
+[ẢNH-ADM-15 - Hoàn tác duyệt]
+
+============================================================
+7) QUẢN LÝ PHÒNG HỌP
+============================================================
+
+1. Theo dõi lịch đặt theo ngày.
+2. Tạo phòng họp mới (Admin).
+3. Bật/tắt trạng thái phòng.
+4. Hỗ trợ hủy lịch khi cần điều phối.
+
+[ẢNH-ADM-16 - Quản lý phòng họp]
+
+============================================================
+8) QUẢN LÝ TICKET NỘI BỘ
+============================================================
+
+1. Theo dõi ticket ở tab Received/Sent/All.
+2. Điều phối ticket:
+- Assign người xử lý.
+- Resolve ticket khi hoàn thành.
+- Close ticket khi kết thúc.
+3. Kiểm soát tệp đính kèm và lịch sử trao đổi.
+
+[ẢNH-ADM-17 - Danh sách ticket]
+[ẢNH-ADM-18 - Assign/Resolve/Close]
+
+============================================================
+9) QUẢN LÝ TÀI SẢN
+============================================================
+
+1. Quản lý vòng đời tài sản:
+- Tạo/Sửa/Xóa.
+- Gán tài sản.
+- Thu hồi tài sản.
+- Theo dõi lịch sử vòng đời.
+2. Import tài sản bằng file mẫu.
+3. Kiểm tra dữ liệu danh mục liên quan trước khi import.
+
+[ẢNH-ADM-19 - Danh sách tài sản]
+[ẢNH-ADM-20 - Gán tài sản]
+[ẢNH-ADM-21 - Thu hồi tài sản]
+
+============================================================
+10) DANH MỤC VÀ PHÂN QUYỀN
+============================================================
+
+10.1 Danh mục
+- Phòng ban
+- Chức vụ
+- Vị trí
+- Danh mục tài sản
+- Hãng sản xuất
+- Nhà cung cấp
+- Ngày nghỉ lễ
+- Người duyệt đơn
+- Chấm công đầy đủ
+
+10.2 Phân quyền
+1. Chọn role.
+2. Chọn permission theo nhóm.
+3. Lưu cập nhật role-permission.
+4. Gán role cho user.
+
+[ẢNH-ADM-22 - Các tab danh mục]
+[ẢNH-ADM-23 - Phân quyền theo role]
+[ẢNH-ADM-24 - Gán role cho user]
+
+============================================================
+11) THÔNG BÁO VÀ NHẬT KÝ HỆ THỐNG
+============================================================
+
+1. Theo dõi thông báo toàn hệ thống hoặc theo người dùng.
+2. Đánh dấu đã đọc từng phần hoặc tất cả.
+3. Với Master Admin: vào Nhật ký hệ thống để truy vết thao tác theo module/hành động/thời gian.
+
+[ẢNH-ADM-25 - Thông báo]
+[ẢNH-ADM-26 - Nhật ký hệ thống]
+
+============================================================
+12) CHECKLIST VẬN HÀNH
+============================================================
+
+12.1 Hằng ngày
+- Kiểm tra đơn chờ duyệt.
+- Kiểm tra ticket tồn.
+- Kiểm tra đồng bộ chấm công.
+
+12.2 Hằng tuần
+- Rà soát nhân sự mới/nghỉ.
+- Rà soát hợp đồng sắp hết hạn.
+- Đối soát cấp phát tài sản.
+
+12.3 Hằng tháng
+- Chốt chấm công.
+- Xuất báo cáo phục vụ kế toán/nhân sự.
+- Rà soát quyền truy cập.
+
+[ẢNH-ADM-27 - Checklist vận hành]
+
+============================================================
+13) SỰ CỐ THƯỜNG GẶP
+============================================================
+
+1. Không đăng nhập được Google
+- Kiểm tra email có trong danh sách nhân viên hay chưa.
+
+2. Không thấy menu quản trị
+- Kiểm tra role của user.
+
+3. Không thấy mục Duyệt đơn
+- Kiểm tra cấu hình Người duyệt đơn/claim liên quan.
+
+4. Chấm công không cập nhật
+- Kiểm tra script đồng bộ, API key, endpoint và log lỗi.
+
+[ẢNH-ADM-28 - Ví dụ lỗi phân quyền]
+
+KẾT THÚC TÀI LIỆU ADMIN.

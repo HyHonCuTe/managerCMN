@@ -91,14 +91,14 @@ public class RequestController : Controller
         // Validate monthly request limits
         var today = DateTimeHelper.VietnamToday;
         
-        // Check Absence limit: max 2 per month
+        // Check Absence limit by employee policy
         if (model.RequestType == RequestType.Absence)
         {
+            var absenceLimit = GetAbsenceMonthlyLimit(attendancePolicy);
             var absenceCount = await _requestService.CountAbsenceRequestsInMonthAsync(employeeId, today);
-            if (absenceCount >= 2)
+            if (absenceCount >= absenceLimit)
             {
-                ModelState.AddModelError("RequestType",
-                    $"Bạn đã đạt giới hạn 2 đơn vắng mặt trong tháng này.");
+                ModelState.AddModelError("RequestType", BuildAbsenceLimitMessage(attendancePolicy));
             }
         }
 
@@ -557,6 +557,25 @@ public class RequestController : Controller
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
 
+        if (model.RequestType == RequestType.Absence)
+        {
+            var absenceLimit = GetAbsenceMonthlyLimit(attendancePolicy);
+            var absenceCount = await _requestService.CountAbsenceRequestsInMonthAsync(
+                request.EmployeeId,
+                model.StartTime);
+            var currentAlreadyCounted = request.RequestType == RequestType.Absence
+                && request.Status != RequestStatus.Rejected
+                && request.Status != RequestStatus.Cancelled
+                && request.StartTime.Year == model.StartTime.Year
+                && request.StartTime.Month == model.StartTime.Month;
+            var projectedCount = currentAlreadyCounted ? absenceCount : absenceCount + 1;
+
+            if (projectedCount > absenceLimit)
+            {
+                ModelState.AddModelError("RequestType", BuildAbsenceLimitMessage(attendancePolicy));
+            }
+        }
+
         if (model.RequestType == RequestType.CheckInOut)
         {
             var checkInOutLimit = GetCheckInOutMonthlyLimit(attendancePolicy, model.CheckInOutType);
@@ -926,8 +945,14 @@ public class RequestController : Controller
     private static int GetCheckInOutMonthlyLimit(AttendancePolicy attendancePolicy, CheckInOutType? checkInOutType)
         => attendancePolicy.GetMonthlyCheckInOutLimit(checkInOutType);
 
+    private static int GetAbsenceMonthlyLimit(AttendancePolicy attendancePolicy)
+        => attendancePolicy.GetMonthlyAbsenceLimit();
+
     private static bool IsSameCheckInOutLimitBucket(CheckInOutType? existingType, CheckInOutType? newType)
         => CheckInOutTypeHelper.IsLateOrEarlyType(existingType) == CheckInOutTypeHelper.IsLateOrEarlyType(newType);
+
+    private static string BuildAbsenceLimitMessage(AttendancePolicy attendancePolicy)
+        => $"Bạn đã đạt giới hạn {GetAbsenceMonthlyLimit(attendancePolicy)} đơn vắng mặt trong tháng này.";
 
     private static string BuildCheckInOutLimitMessage(AttendancePolicy attendancePolicy, CheckInOutType? checkInOutType)
     {

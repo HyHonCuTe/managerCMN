@@ -1,0 +1,133 @@
+HƯỚNG DẪN SỬ DỤNG NHANH CHO NHÂN VIÊN - managerCMN
+Phiên bản: 1.0
+Ngày cập nhật: 08/04/2026
+Mục tiêu: Tài liệu rút gọn để nhân viên sử dụng hằng ngày.
+
+============================================================
+1) ĐĂNG NHẬP VÀ ĐĂNG XUẤT
+============================================================
+
+1. Truy cập trang đăng nhập.
+2. Chọn "Đăng nhập bằng Google".
+3. Đăng nhập bằng email công ty đã có trong hệ thống nhân sự.
+4. Đăng xuất tại menu tài khoản góc trên bên phải.
+
+[ẢNH-EMP-01 - Màn hình đăng nhập]
+[ẢNH-EMP-02 - Menu tài khoản và nút đăng xuất]
+
+============================================================
+2) DASHBOARD
+============================================================
+
+1. Vào Dashboard để xem tổng quan.
+2. Sử dụng các nút thao tác nhanh:
+- Tạo đơn mới.
+- Vào chấm công.
+- Vào tài sản của tôi.
+- Vào hồ sơ cá nhân.
+
+[ẢNH-EMP-03 - Dashboard tổng quan]
+
+============================================================
+3) ĐƠN TỪ (XIN NGHỈ, CHECKIN/OUT, VẮNG MẶT, WFH)
+============================================================
+
+3.1 Tạo đơn mới
+1. Vào Đơn từ.
+2. Chọn "Tạo đơn mới".
+3. Chọn loại đơn.
+4. Điền đầy đủ thông tin (thời gian, lý do, ghi chú nếu có).
+5. Gửi đơn.
+
+[ẢNH-EMP-04 - Form tạo đơn]
+
+3.2 Theo dõi trạng thái đơn
+1. Xem danh sách đơn theo tab.
+2. Theo dõi trạng thái: Chờ duyệt, Đã duyệt, Từ chối, Đã hủy.
+3. Mở Chi tiết để xem lịch sử duyệt.
+
+[ẢNH-EMP-05 - Danh sách đơn theo tab]
+
+3.3 Sửa hoặc hủy đơn (khi còn chờ duyệt)
+1. Mở đơn đang ở trạng thái chờ duyệt.
+2. Chọn Sửa hoặc Hủy đơn.
+3. Xác nhận thao tác.
+
+[ẢNH-EMP-06 - Sửa/Hủy đơn]
+
+============================================================
+4) CHẤM CÔNG
+============================================================
+
+1. Vào Chấm công.
+2. Chọn tháng/năm cần xem.
+3. Kiểm tra ngày công, giờ vào/ra, đi muộn, tăng ca.
+4. Nếu phát hiện bất thường, tạo đơn Checkin/Checkout để bổ sung.
+
+[ẢNH-EMP-07 - Bảng chấm công theo tháng]
+
+============================================================
+5) PHÒNG HỌP
+============================================================
+
+1. Vào Phòng họp.
+2. Chọn ngày.
+3. Đặt phòng theo khung giờ trống.
+4. Theo dõi lịch đã đặt và hủy khi không còn nhu cầu.
+
+[ẢNH-EMP-08 - Lịch phòng họp]
+
+============================================================
+6) TICKET NỘI BỘ
+============================================================
+
+1. Vào Yêu cầu (Ticket).
+2. Tạo ticket mới: tiêu đề, nội dung, người nhận, tệp đính kèm.
+3. Theo dõi phản hồi trong chi tiết ticket.
+4. Cập nhật trạng thái ticket theo tiến độ công việc.
+
+[ẢNH-EMP-09 - Tạo ticket]
+[ẢNH-EMP-10 - Chi tiết ticket]
+
+============================================================
+7) TÀI SẢN CỦA TÔI
+============================================================
+
+1. Vào Tài sản của tôi.
+2. Kiểm tra danh sách tài sản đang được cấp phát.
+3. Mở chi tiết để xem thông tin thiết bị.
+
+[ẢNH-EMP-11 - Tài sản của tôi]
+
+============================================================
+8) THÔNG BÁO
+============================================================
+
+1. Chọn biểu tượng chuông hoặc vào mục Thông báo.
+2. Đọc nội dung và đánh dấu đã đọc.
+3. Có thể chọn "Đánh dấu tất cả đã đọc".
+
+[ẢNH-EMP-12 - Danh sách thông báo]
+
+============================================================
+9) HỒ SƠ CÁ NHÂN
+============================================================
+
+1. Vào menu tài khoản -> Hồ sơ cá nhân.
+2. Cập nhật thông tin cá nhân khi cần.
+3. Lưu ý mã số thuế phải đúng định dạng theo quy định công ty.
+
+[ẢNH-EMP-13 - Hồ sơ cá nhân]
+
+============================================================
+10) CÁC LƯU Ý QUAN TRỌNG
+============================================================
+
+- Chỉ email đã tồn tại trong danh sách nhân viên mới đăng nhập được.
+- Không chia sẻ tài khoản cho người khác.
+- Kiểm tra đơn từ và chấm công thường xuyên để tránh sai lệch cuối tháng.
+- Khi có lỗi quyền truy cập, liên hệ Admin hệ thống.
+
+[ẢNH-EMP-14 - Ví dụ thông báo lỗi quyền truy cập]
+
+KẾT THÚC TÀI LIỆU NHÂN VIÊN.

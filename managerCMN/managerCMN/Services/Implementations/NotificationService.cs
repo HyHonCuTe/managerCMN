@@ -19,6 +19,9 @@ public class NotificationService : INotificationService
     public async Task<int> GetUnreadCountAsync(int userId)
         => await _unitOfWork.Notifications.GetUnreadCountAsync(userId);
 
+    public async Task<int> GetAllUnreadCountAsync()
+        => await _unitOfWork.Notifications.CountAsync(n => !n.IsRead);
+
     public async Task<IEnumerable<Notification>> GetAllAsync()
         => await _unitOfWork.Notifications.GetAllAsync();
 
@@ -36,14 +39,23 @@ public class NotificationService : INotificationService
         await _unitOfWork.SaveChangesAsync();
     }
 
-    public async Task MarkAsReadAsync(int notificationId)
+    public async Task<bool> TryMarkAsReadAsync(int notificationId, int currentUserId, bool canViewAll)
     {
         var notification = await _unitOfWork.Notifications.GetByIdAsync(notificationId);
-        if (notification == null) return;
+        if (notification == null)
+        {
+            return false;
+        }
+
+        if (!canViewAll && notification.UserId != currentUserId)
+        {
+            return false;
+        }
 
         notification.IsRead = true;
         _unitOfWork.Notifications.Update(notification);
         await _unitOfWork.SaveChangesAsync();
+        return true;
     }
 
     public async Task MarkAllAsReadAsync(int userId)

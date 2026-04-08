@@ -10,15 +10,20 @@ public class NotificationRepository : Repository<Notification>, INotificationRep
     public NotificationRepository(ApplicationDbContext context) : base(context) { }
 
     public override async Task<IEnumerable<Notification>> GetAllAsync()
-        => await _dbSet.OrderByDescending(n => n.CreatedDate).ToListAsync();
+        => await _dbSet
+            .Include(n => n.User)
+            .OrderByDescending(n => n.CreatedDate)
+            .ToListAsync();
 
     public async Task<IEnumerable<Notification>> GetByUserAsync(int userId)
         => await _dbSet.Where(n => n.UserId == userId)
+            .Include(n => n.User)
             .OrderByDescending(n => n.CreatedDate)
             .ToListAsync();
 
     public async Task<IEnumerable<Notification>> GetUnreadByUserAsync(int userId)
         => await _dbSet.Where(n => n.UserId == userId && !n.IsRead)
+            .Include(n => n.User)
             .OrderByDescending(n => n.CreatedDate)
             .ToListAsync();
 

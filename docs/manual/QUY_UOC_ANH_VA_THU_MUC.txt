@@ -1,0 +1,95 @@
+QUY ƯỚC ĐẶT TÊN ẢNH VÀ THƯ MỤC TÀI LIỆU - managerCMN
+Phiên bản: 1.0
+Ngày cập nhật: 08/04/2026
+
+============================================================
+1) CẤU TRÚC THƯ MỤC CHUẨN
+============================================================
+
+docs/
+  manual/
+    HUONG_DAN_NHAN_VIEN_RUT_GON.txt
+    HUONG_DAN_ADMIN_CHI_TIET.txt
+    QUY_UOC_ANH_VA_THU_MUC.txt
+  images/
+    shared/
+    employee/
+    admin/
+
+Ý nghĩa:
+- shared: ảnh dùng chung cho cả tài liệu nhân viên và admin.
+- employee: ảnh chỉ dùng cho tài liệu rút gọn nhân viên.
+- admin: ảnh chỉ dùng cho tài liệu chi tiết admin.
+
+============================================================
+2) QUY TẮC ĐẶT TÊN FILE ẢNH
+============================================================
+
+2.1 Mẫu chuẩn
+IMG-{NHOM}-{SO_THU_TU_2CHUSO}-{MO_TA_KEBAB}.png
+
+Trong đó:
+- NHOM:
+  - SHD = Shared
+  - EMP = Employee
+  - ADM = Admin
+- SO_THU_TU_2CHUSO: 01, 02, 03...
+- MO_TA_KEBAB: mô tả ngắn, không dấu, dùng dấu gạch nối.
+
+2.2 Ví dụ
+- IMG-EMP-01-dang-nhap-google.png
+- IMG-EMP-07-bang-cham-cong-thang.png
+- IMG-ADM-03-trang-setup-gan-admin.png
+- IMG-ADM-24-gan-role-cho-user.png
+- IMG-SHD-02-sidebar-topbar.png
+
+============================================================
+3) QUY ƯỚC THAM CHIẾU ẢNH TRONG TÀI LIỆU
+============================================================
+
+Trong file .txt, ghi theo mẫu:
+[ẢNH-EMP-01 - Màn hình đăng nhập]
+Tệp ảnh: docs/images/employee/IMG-EMP-01-dang-nhap-google.png
+
+[ẢNH-ADM-24 - Gán role cho user]
+Tệp ảnh: docs/images/admin/IMG-ADM-24-gan-role-cho-user.png
+
+Khuyến nghị:
+- Mỗi mục chức năng nên có ít nhất 1 ảnh.
+- Với luồng quan trọng (duyệt đơn, phân quyền, chốt chấm công), nên có 2-3 ảnh theo thứ tự thao tác.
+
+============================================================
+4) TIÊU CHUẨN CHỤP ẢNH
+============================================================
+
+1. Kích thước khuyến nghị: ngang 1600px hoặc 1920px.
+2. Định dạng khuyến nghị: PNG.
+3. Không cắt mất thanh địa chỉ/trạng thái quan trọng nếu ảnh dùng cho đào tạo.
+4. Làm mờ dữ liệu nhạy cảm trước khi đưa vào tài liệu (email cá nhân, số điện thoại, CCCD, MST...).
+5. Dùng cùng mức zoom trình duyệt khi chụp để tài liệu đồng nhất.
+
+============================================================
+5) QUY TẮC QUẢN LÝ PHIÊN BẢN
+============================================================
+
+1. Không ghi đè ảnh cũ nếu nội dung thay đổi lớn.
+2. Khi cập nhật, tăng số thứ tự và bổ sung mô tả mới.
+3. Nếu thay ảnh nhẹ (chỉ sửa typo), có thể giữ tên cũ nhưng ghi chú trong nhật ký cập nhật.
+
+Mẫu nhật ký cập nhật:
+- 2026-04-08: thêm IMG-ADM-29-phan-quyen-theo-nhom-quyen.png
+- 2026-04-08: thay IMG-EMP-04-form-tao-don-moi.png (sửa lỗi chính tả)
+
+============================================================
+6) CHECKLIST BÀN GIAO TÀI LIỆU NỘI BỘ
+============================================================
+
+- Đã có file hướng dẫn nhân viên.
+- Đã có file hướng dẫn admin.
+- Đã có file quy ước ảnh.
+- Ảnh đặt đúng thư mục.
+- Tên ảnh đúng chuẩn.
+- Không còn thông tin nhạy cảm trên ảnh.
+- Đã rà soát lỗi chính tả.
+
+KẾT THÚC TÀI LIỆU QUY ƯỚC.

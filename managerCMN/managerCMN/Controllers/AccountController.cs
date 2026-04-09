@@ -377,7 +377,12 @@ public class AccountController : Controller
         if (celebration == null)
             return;
 
-        TempData["BirthdayCelebration"] = JsonSerializer.Serialize(celebration);
+        var celebrationJson = JsonSerializer.Serialize(celebration);
+        if (celebrationJson.Length > 1024)
+            return;
+
+        // TempData uses cookies by default, so this payload must stay small enough for login redirect headers.
+        TempData["BirthdayCelebration"] = celebrationJson;
     }
 
     private int? GetCurrentUserId()

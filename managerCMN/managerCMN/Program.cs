@@ -77,7 +77,8 @@ if (HasConfiguredSecret(googleClientId) && HasConfiguredSecret(googleClientSecre
         options.ClientId = googleClientId!;
         options.ClientSecret = googleClientSecret!;
         options.CallbackPath = "/signin-google";
-        options.SaveTokens = true;
+        // The app does not read Google access/refresh tokens later, so keeping them only bloats the callback cookie.
+        options.SaveTokens = false;
         options.Scope.Add("email");
         options.Scope.Add("profile");
         options.ClaimActions.MapJsonKey(ClaimTypes.NameIdentifier, "sub");

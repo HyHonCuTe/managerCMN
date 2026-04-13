@@ -7,6 +7,7 @@ public class TicketIndexViewModel
 {
     public IEnumerable<Ticket> SentTickets { get; set; } = Enumerable.Empty<Ticket>();
     public IEnumerable<Ticket> ReceivedTickets { get; set; } = Enumerable.Empty<Ticket>();
+    public IEnumerable<Ticket> ExpiredTickets { get; set; } = Enumerable.Empty<Ticket>();
     public IEnumerable<Ticket> AllTickets { get; set; } = Enumerable.Empty<Ticket>();
     public HashSet<int> StarredTicketIds { get; set; } = new();
 

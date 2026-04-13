@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
@@ -30,6 +31,28 @@ public class TicketController : Controller
     {
         var employeeId = GetCurrentEmployeeId();
         var isAdmin = User.IsInRole("Admin");
+        var receivedTickets = (await _ticketService.GetReceivedTicketsAsync(employeeId)).ToList();
+        var sentTickets = (await _ticketService.GetSentTicketsAsync(employeeId)).ToList();
+        var expiredTickets = receivedTickets
+            .Concat(sentTickets)
+            .Where(ticket => ticket.IsExpired())
+            .GroupBy(ticket => ticket.TicketId)
+            .Select(group => group.First())
+            .OrderByDescending(ticket => ticket.GetDeadlineDate())
+            .ThenByDescending(ticket => ticket.CreatedDate)
+            .ToList();
+        var availableTabs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "received",
+            "sent",
+            "expired"
+        };
+
+        if (isAdmin)
+        {
+            availableTabs.Add("all");
+        }
+
         HashSet<int> starredTicketIds = [];
 
         try
@@ -43,12 +66,15 @@ public class TicketController : Controller
 
         var model = new TicketIndexViewModel
         {
-            ReceivedTickets = await _ticketService.GetReceivedTicketsAsync(employeeId),
-            SentTickets = await _ticketService.GetSentTicketsAsync(employeeId),
+            ReceivedTickets = receivedTickets.Where(ticket => !ticket.IsExpired()).ToList(),
+            SentTickets = sentTickets.Where(ticket => !ticket.IsExpired()).ToList(),
+            ExpiredTickets = expiredTickets,
             AllTickets = isAdmin ? await _ticketService.GetAllTicketsAsync() : Enumerable.Empty<Ticket>(),
             StarredTicketIds = starredTicketIds,
             IsAdmin = isAdmin,
-            ActiveTab = tab ?? "received"
+            ActiveTab = !string.IsNullOrWhiteSpace(tab) && availableTabs.Contains(tab)
+                ? tab
+                : "received"
         };
 
         return View(model);

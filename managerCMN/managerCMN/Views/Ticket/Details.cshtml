@@ -319,7 +319,13 @@
                 <div class="mb-2">
                     <small class="text-muted">Trạng thái</small>
                     <div>
-                        @switch (Model.Ticket.Status)
+                        @if (Model.Ticket.IsExpired())
+                        {
+                            <span class="badge bg-danger">Hết hạn</span>
+                        }
+                        else
+                        {
+                            @switch (Model.Ticket.Status)
                         {
                             case TicketStatus.Open:
                                 <span class="badge bg-primary">Mở</span>
@@ -342,6 +348,7 @@
                             case TicketStatus.Cancelled:
                                 <span class="badge bg-danger">Đã hủy</span>
                                 break;
+                        }
                         }
                     </div>
                 </div>
@@ -387,7 +394,8 @@
                 </div>
                 @if (Model.Ticket.Deadline.HasValue)
                 {
-                    var isOverdue = Model.Ticket.Deadline.Value < DateTime.UtcNow;
+                    var deadlineDate = Model.Ticket.GetDeadlineDate();
+                    var isOverdue = Model.Ticket.IsExpired();
                     <div class="mb-2">
                         <small class="text-muted">Deadline</small>
                         <div class="@(isOverdue ? "text-danger fw-bold" : "")">
@@ -395,7 +403,7 @@
                             {
                                 <i class="bi bi-exclamation-triangle"></i>
                             }
-                            @Model.Ticket.Deadline.Value.ToVietnamTime().ToString("dd/MM/yyyy")
+                            @deadlineDate?.ToString("dd/MM/yyyy")
                         </div>
                     </div>
                 }

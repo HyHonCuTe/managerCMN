@@ -629,14 +629,13 @@
         }
 
         .meeting-slot-selected {
-            background: color-mix(in srgb, var(--room-color) 24%, white);
-            box-shadow:
-                inset 0 0 0 2px color-mix(in srgb, var(--room-color) 55%, white),
-                inset 0 0 0 999px color-mix(in srgb, var(--room-color) 12%, white);
+            background: transparent;
+            box-shadow: none;
         }
 
         .meeting-slot-selected:hover:not(:disabled) {
-            background: color-mix(in srgb, var(--room-color) 28%, white);
+            background: color-mix(in srgb, var(--room-color) 12%, white);
+            box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--room-color) 35%, white);
         }
 
         .meeting-slot:disabled,

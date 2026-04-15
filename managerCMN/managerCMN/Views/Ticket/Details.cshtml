@@ -55,6 +55,42 @@
         font-size: 0.75rem;
         padding: 0.25rem 0.5rem;
     }
+    .ticket-recipient-list {
+        --ticket-recipient-row-height: 4.4rem;
+        max-height: calc(var(--ticket-recipient-row-height) * 10);
+        overflow-y: auto;
+        padding-right: 0.25rem;
+        scrollbar-gutter: stable;
+    }
+    .ticket-recipient-item {
+        min-height: var(--ticket-recipient-row-height);
+        gap: 0.75rem;
+        align-items: flex-start !important;
+    }
+    .ticket-recipient-item:last-child {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+        border-bottom: 0 !important;
+    }
+    .ticket-recipient-main {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+    .ticket-recipient-main small {
+        display: block;
+        margin-top: 0.2rem;
+    }
+    .ticket-recipient-status {
+        flex: 0 0 auto;
+        margin-left: 0.75rem;
+    }
+    .ticket-recipient-list::-webkit-scrollbar {
+        width: 0.45rem;
+    }
+    .ticket-recipient-list::-webkit-scrollbar-thumb {
+        background: rgba(108, 117, 125, 0.35);
+        border-radius: 999px;
+    }
     /* Forward recipient selector styles */
     .forward-recipient-selector {
         position: relative;
@@ -427,40 +463,42 @@
             <div class="card-body">
                 @if (Model.Ticket.Recipients.Any())
                 {
-                    @foreach (var r in Model.Ticket.Recipients)
-                    {
-                        <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
-                            <div>
-                                <div class="fw-semibold">@r.Employee?.FullName</div>
-                                @if (r.ReadDate.HasValue)
-                                {
-                                    <small class="text-muted">
-                                        Đã đọc: @r.ReadDate.Value.ToVietnamTime().ToString("dd/MM HH:mm")
-                                    </small>
-                                }
+                    <div class="ticket-recipient-list">
+                        @foreach (var r in Model.Ticket.Recipients)
+                        {
+                            <div class="d-flex justify-content-between mb-2 pb-2 border-bottom ticket-recipient-item">
+                                <div class="ticket-recipient-main">
+                                    <div class="fw-semibold">@r.Employee?.FullName</div>
+                                    @if (r.ReadDate.HasValue)
+                                    {
+                                        <small class="text-muted">
+                                            Đã đọc: @r.ReadDate.Value.ToVietnamTime().ToString("dd/MM HH:mm")
+                                        </small>
+                                    }
+                                </div>
+                                <div class="ticket-recipient-status">
+                                    @switch (r.Status)
+                                    {
+                                        case TicketRecipientStatus.Pending:
+                                            <span class="badge bg-secondary recipient-badge">Chờ xử lý</span>
+                                            break;
+                                        case TicketRecipientStatus.Read:
+                                            <span class="badge bg-info recipient-badge">Đã đọc</span>
+                                            break;
+                                        case TicketRecipientStatus.InProgress:
+                                            <span class="badge bg-primary recipient-badge">Đang xử lý</span>
+                                            break;
+                                        case TicketRecipientStatus.Completed:
+                                            <span class="badge bg-success recipient-badge">Hoàn thành</span>
+                                            break;
+                                        case TicketRecipientStatus.Forwarded:
+                                            <span class="badge bg-warning text-dark recipient-badge">Đã chuyển tiếp</span>
+                                            break;
+                                    }
+                                </div>
                             </div>
-                            <div>
-                                @switch (r.Status)
-                                {
-                                    case TicketRecipientStatus.Pending:
-                                        <span class="badge bg-secondary recipient-badge">Chờ xử lý</span>
-                                        break;
-                                    case TicketRecipientStatus.Read:
-                                        <span class="badge bg-info recipient-badge">Đã đọc</span>
-                                        break;
-                                    case TicketRecipientStatus.InProgress:
-                                        <span class="badge bg-primary recipient-badge">Đang xử lý</span>
-                                        break;
-                                    case TicketRecipientStatus.Completed:
-                                        <span class="badge bg-success recipient-badge">Hoàn thành</span>
-                                        break;
-                                    case TicketRecipientStatus.Forwarded:
-                                        <span class="badge bg-warning text-dark recipient-badge">Đã chuyển tiếp</span>
-                                        break;
-                                }
-                            </div>
-                        </div>
-                    }
+                        }
+                    </div>
                 }
                 else
                 {

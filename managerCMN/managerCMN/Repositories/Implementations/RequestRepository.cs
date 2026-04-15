@@ -71,6 +71,7 @@ public class RequestRepository : Repository<Request>, IRequestRepository
     public async Task<IEnumerable<Request>> GetByStatusAndTypeAsync(RequestStatus? status, RequestType? type)
         => await _dbSet
             .Include(r => r.Employee)
+                .ThenInclude(e => e.Department)
             .Include(r => r.Approvals).ThenInclude(a => a.Approver)
             .Where(r => (!status.HasValue || r.Status == status.Value)
                      && (!type.HasValue || r.RequestType == type.Value))

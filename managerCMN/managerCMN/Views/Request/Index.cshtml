@@ -2,10 +2,17 @@
 @using managerCMN.Models.Enums
 @using managerCMN.Helpers
 @using Microsoft.AspNetCore.Html
+@using System.Text.Json
 @{
     ViewData["Title"] = "Đơn từ";
     var leaveSummary = ViewBag.LeaveSummary as LeaveBalanceSummaryViewModel;
     var allRequests = Model.ToList();
+    var departmentOptions = allRequests
+        .Select(r => (r.Employee?.Department?.DepartmentName ?? string.Empty).Trim())
+        .Where(name => !string.IsNullOrWhiteSpace(name))
+        .Distinct(StringComparer.CurrentCultureIgnoreCase)
+        .OrderBy(name => name, StringComparer.CurrentCultureIgnoreCase)
+        .ToList();
 }
 
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -140,7 +147,9 @@
                             <tbody>
                                 @foreach (var req in requests)
                                 {
-                                    <tr>
+                                    <tr data-department="@((req.Employee?.Department?.DepartmentName ?? string.Empty).Trim())"
+                                        data-start-date="@req.StartTime.ToString("yyyy-MM-dd")"
+                                        data-end-date="@req.EndTime.ToString("yyyy-MM-dd")">
                                         @if (ViewBag.IsPrivileged == true)
                                         {
                                             <td>
@@ -269,6 +278,139 @@
 @section Scripts {
 <script>
     $(document).ready(function () {
+        const departmentOptions = @Html.Raw(JsonSerializer.Serialize(departmentOptions));
+        const requestTableSelector = '.request-tab-table';
+        let activeDepartment = '';
+        let activeDate = '';
+
+        $.fn.dataTable.ext.search.push(function (settings, data, dataIndex) {
+            const tableNode = settings.nTable;
+            if (!tableNode || !tableNode.classList.contains('request-tab-table')) {
+                return true;
+            }
+
+            const rowNode = settings.aoData[dataIndex]?.nTr;
+            if (!rowNode) {
+                return true;
+            }
+
+            const rowDepartment = (rowNode.dataset.department || '').trim().toLocaleLowerCase();
+            const rowStartDate = rowNode.dataset.startDate || '';
+            const rowEndDate = rowNode.dataset.endDate || rowStartDate;
+
+            if (activeDepartment && rowDepartment !== activeDepartment.toLocaleLowerCase()) {
+                return false;
+            }
+
+            if (activeDate) {
+                if (!rowStartDate || activeDate < rowStartDate || activeDate > rowEndDate) {
+                    return false;
+                }
+            }
+
+            return true;
+        });
+
+        function drawInitializedTables() {
+            $(requestTableSelector).each(function () {
+                if ($.fn.DataTable.isDataTable(this)) {
+                    $(this).DataTable().draw();
+                }
+            });
+        }
+
+        function syncToolbarValues() {
+            $('.request-department-filter').val(activeDepartment);
+            $('.request-date-filter').val(activeDate);
+        }
+
+        function createFilterLabel(text, control) {
+            return $('<label/>', {
+                class: 'd-flex align-items-center gap-2 mb-0'
+            }).append(
+                $('<span/>', {
+                    class: 'small text-muted fw-semibold',
+                    text: text
+                }),
+                control
+            );
+        }
+
+        function createDepartmentFilter() {
+            const select = $('<select/>', {
+                class: 'form-select form-select-sm request-department-filter',
+                style: 'min-width: 180px;'
+            });
+
+            select.append($('<option/>', {
+                value: '',
+                text: 'Tất cả'
+            }));
+
+            departmentOptions.forEach(function (departmentName) {
+                select.append($('<option/>', {
+                    value: departmentName,
+                    text: departmentName
+                }));
+            });
+
+            select.val(activeDepartment);
+            select.on('change', function () {
+                activeDepartment = $(this).val() || '';
+                syncToolbarValues();
+                drawInitializedTables();
+            });
+
+            return createFilterLabel('Phòng ban', select);
+        }
+
+        function createDateFilter() {
+            const input = $('<input/>', {
+                type: 'date',
+                class: 'form-control form-control-sm request-date-filter',
+                style: 'min-width: 160px;',
+                value: activeDate
+            });
+
+            input.on('change input', function () {
+                activeDate = $(this).val() || '';
+                syncToolbarValues();
+                drawInitializedTables();
+            });
+
+            return createFilterLabel('Ngày', input);
+        }
+
+        function attachCustomFilters(api) {
+            const wrapper = $(api.table().container());
+            const filterBox = wrapper.find('.dataTables_filter');
+
+            if (!filterBox.length || filterBox.data('requestFiltersReady')) {
+                syncToolbarValues();
+                return;
+            }
+
+            filterBox.data('requestFiltersReady', true);
+            filterBox.addClass('d-flex flex-wrap justify-content-end align-items-center gap-2');
+
+            const searchLabel = filterBox.find('label').first();
+            searchLabel.addClass('d-flex align-items-center gap-2 mb-0');
+            searchLabel.find('input[type="search"]').css('min-width', '220px');
+
+            const extraFilters = $('<div/>', {
+                class: 'd-flex flex-wrap align-items-center gap-2 request-extra-filters'
+            });
+
+            if (departmentOptions.length > 0) {
+                extraFilters.append(createDepartmentFilter());
+            }
+
+            extraFilters.append(createDateFilter());
+            filterBox.prepend(extraFilters);
+
+            syncToolbarValues();
+        }
+
         var dtOpts = {
             language: {
                 url: 'https://cdn.datatables.net/plug-ins/1.13.11/i18n/vi.json',
@@ -277,18 +419,23 @@
             paging: false,
             scrollY: '520px',
             scrollCollapse: true,
-            order: []
+            order: [],
+            initComplete: function () {
+                attachCustomFilters(this.api());
+            }
         };
 
         // Init the active (visible) tab's table
-        $('#tabAll .request-tab-table').DataTable(dtOpts);
+        $('#tabAll .request-tab-table').DataTable(dtOpts).draw();
 
         // Init hidden tab tables when they become visible
         $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
             var target = $(e.target).attr('data-bs-target');
             var table = $(target).find('.request-tab-table');
             if (!$.fn.DataTable.isDataTable(table)) {
-                table.DataTable(dtOpts);
+                table.DataTable(dtOpts).draw();
+            } else {
+                table.DataTable().draw();
             }
         });
     });

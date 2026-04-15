@@ -1,4 +1,7 @@
 
+# lấy file data về máy
+scp root@Ip server:/var/opt/mssql/backup/managerCMN_Prod_2026-04-15.bak D:\
+
 
 # Vào thư mục project
 cd /var/www/cmnmanager-src/managerCMN/managerCMN/managerCMN

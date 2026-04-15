@@ -51,13 +51,99 @@
         background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
         border: 1px solid #bbdefb;
     }
+    .ticket-summary-card,
+    .ticket-message-card {
+        border-radius: 0.75rem;
+        overflow: hidden;
+    }
+    .ticket-summary-card .card-header {
+        padding: 0.65rem 0.9rem;
+        font-size: 0.95rem;
+    }
+    .ticket-summary-card .card-body {
+        padding: 0.75rem 0.9rem;
+        overflow-x: auto;
+    }
+    .ticket-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(120px, 1fr));
+        gap: 0.6rem;
+        min-width: 560px;
+    }
+    .ticket-summary-item {
+        padding: 0.55rem 0.75rem;
+        border-radius: 0.7rem;
+        border: 1px solid #e9ecef;
+        background: linear-gradient(135deg, #fffdf9, #f8f9fa);
+        min-height: 0;
+    }
+    .ticket-summary-label {
+        display: block;
+        font-size: 0.72rem;
+        color: #6c757d;
+        margin-bottom: 0.2rem;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    .ticket-summary-value {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        flex-wrap: nowrap;
+        color: #1f2937;
+        font-weight: 600;
+        line-height: 1.2;
+        white-space: nowrap;
+        font-size: 0.92rem;
+    }
+    .ticket-summary-item .badge {
+        font-size: 0.74rem;
+    }
+    .ticket-summary-value.text-danger {
+        color: #dc3545 !important;
+    }
+    .ticket-message-card .card-header {
+        padding: 0.95rem 1rem;
+        background: linear-gradient(135deg, #fff8ef 0%, #f8f9fa 100%);
+    }
+    .ticket-message-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .ticket-message-author {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        min-width: 0;
+    }
+    .ticket-message-author-icon {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff3cd;
+        color: #9a3412;
+        flex: 0 0 auto;
+    }
+    .ticket-message-date {
+        white-space: nowrap;
+        color: #6c757d;
+    }
+    .ticket-message-card .card-body {
+        padding: 1rem;
+    }
     .recipient-badge {
         font-size: 0.75rem;
         padding: 0.25rem 0.5rem;
     }
     .ticket-recipient-list {
         --ticket-recipient-row-height: 4.4rem;
-        max-height: calc(var(--ticket-recipient-row-height) * 10);
+        max-height: calc(var(--ticket-recipient-row-height) * 6);
         overflow-y: auto;
         padding-right: 0.25rem;
         scrollbar-gutter: stable;
@@ -90,6 +176,14 @@
     .ticket-recipient-list::-webkit-scrollbar-thumb {
         background: rgba(108, 117, 125, 0.35);
         border-radius: 999px;
+    }
+    @@media (max-width: 767.98px) {
+        .ticket-message-meta {
+            align-items: flex-start;
+        }
+        .ticket-message-date {
+            white-space: normal;
+        }
     }
     /* Forward recipient selector styles */
     .forward-recipient-selector {
@@ -204,17 +298,130 @@
 <div class="row g-3">
     <!-- Main content: Thread view -->
     <div class="col-lg-8">
-        <!-- Original message -->
-        <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div>
-                    <strong><i class="bi bi-person"></i> @Model.Ticket.Creator?.FullName</strong>
-                    <span class="text-muted ms-2">đã tạo ticket</span>
+        <!-- Ticket summary -->
+        <div class="card mb-3 ticket-summary-card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Thông tin
+            </div>
+            <div class="card-body">
+                <div class="ticket-summary-grid">
+                    <div class="ticket-summary-item">
+                        <span class="ticket-summary-label">Trạng thái</span>
+                        <div class="ticket-summary-value">
+                            @if (Model.Ticket.IsExpired())
+                            {
+                                <span class="badge bg-danger">Hết hạn</span>
+                            }
+                            else
+                            {
+                                @switch (Model.Ticket.Status)
+                                {
+                                    case TicketStatus.Open:
+                                        <span class="badge bg-primary">Mở</span>
+                                        break;
+                                    case TicketStatus.InProgress:
+                                        <span class="badge bg-info">Đang xử lý</span>
+                                        break;
+                                    case TicketStatus.Resolved:
+                                        <span class="badge bg-success">Đã giải quyết</span>
+                                        break;
+                                    case TicketStatus.Closed:
+                                        <span class="badge bg-secondary">Đóng</span>
+                                        break;
+                                    case TicketStatus.Forwarded:
+                                        <span class="badge bg-warning text-dark">Đã chuyển tiếp</span>
+                                        break;
+                                    case TicketStatus.OnHold:
+                                        <span class="badge bg-dark">Tạm dừng</span>
+                                        break;
+                                    case TicketStatus.Cancelled:
+                                        <span class="badge bg-danger">Đã hủy</span>
+                                        break;
+                                }
+                            }
+                        </div>
+                    </div>
+                    <div class="ticket-summary-item">
+                        <span class="ticket-summary-label">Độ ưu tiên</span>
+                        <div class="ticket-summary-value">
+                            @switch (Model.Ticket.Priority)
+                            {
+                                case TicketPriority.Low:
+                                    <span class="badge bg-secondary">Thấp</span>
+                                    break;
+                                case TicketPriority.Medium:
+                                    <span class="badge bg-info">Trung bình</span>
+                                    break;
+                                case TicketPriority.High:
+                                    <span class="badge bg-warning text-dark">Cao</span>
+                                    break;
+                                case TicketPriority.Critical:
+                                    <span class="badge bg-danger">Khẩn cấp</span>
+                                    break;
+                            }
+                        </div>
+                    </div>
+                    <div class="ticket-summary-item">
+                        <span class="ticket-summary-label">Độ khẩn</span>
+                        <div class="ticket-summary-value">
+                            @switch (Model.Ticket.Urgency)
+                            {
+                                case TicketUrgency.Normal:
+                                    <span class="badge bg-light text-dark">Bình thường</span>
+                                    break;
+                                case TicketUrgency.Urgent:
+                                    <span class="badge bg-warning text-dark">Gấp</span>
+                                    break;
+                                case TicketUrgency.VeryUrgent:
+                                    <span class="badge text-white" style="background-color: #fd7e14;">Rất gấp</span>
+                                    break;
+                                case TicketUrgency.Immediate:
+                                    <span class="badge bg-danger">Ngay lập tức</span>
+                                    break;
+                            }
+                        </div>
+                    </div>
+                    <div class="ticket-summary-item">
+                        <span class="ticket-summary-label">Deadline</span>
+                        <div class="ticket-summary-value @(Model.Ticket.IsExpired() ? "text-danger" : "")">
+                            @if (Model.Ticket.Deadline.HasValue)
+                            {
+                                var deadlineDate = Model.Ticket.GetDeadlineDate();
+                                var isOverdue = Model.Ticket.IsExpired();
+                                @if (isOverdue)
+                                {
+                                    <i class="bi bi-exclamation-triangle"></i>
+                                }
+                                <span>@deadlineDate?.ToString("dd/MM/yyyy")</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted fw-normal">Chưa đặt deadline</span>
+                            }
+                        </div>
+                    </div>
                 </div>
-                <small class="text-muted">
-                    <i class="bi bi-calendar"></i>
-                    @Model.Ticket.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")
-                </small>
+            </div>
+        </div>
+
+        <!-- Original message -->
+        <div class="card mb-3 ticket-message-card">
+            <div class="card-header">
+                <div class="ticket-message-meta">
+                    <div class="ticket-message-author">
+                        <span class="ticket-message-author-icon">
+                            <i class="bi bi-person"></i>
+                        </span>
+                        <div>
+                            <strong>@Model.Ticket.Creator?.FullName</strong>
+                            <span class="text-muted ms-2">đã tạo ticket</span>
+                        </div>
+                    </div>
+                    <small class="ticket-message-date">
+                        <i class="bi bi-calendar"></i>
+                        @Model.Ticket.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")
+                    </small>
+                </div>
             </div>
             <div class="card-body original-message">
                 <div class="mb-3">
@@ -346,115 +553,6 @@
 
     <!-- Sidebar -->
     <div class="col-lg-4">
-        <!-- Ticket info card -->
-        <div class="card mb-3">
-            <div class="card-header">
-                <i class="bi bi-info-circle"></i> Thông tin
-            </div>
-            <div class="card-body">
-                <div class="mb-2">
-                    <small class="text-muted">Trạng thái</small>
-                    <div>
-                        @if (Model.Ticket.IsExpired())
-                        {
-                            <span class="badge bg-danger">Hết hạn</span>
-                        }
-                        else
-                        {
-                            @switch (Model.Ticket.Status)
-                        {
-                            case TicketStatus.Open:
-                                <span class="badge bg-primary">Mở</span>
-                                break;
-                            case TicketStatus.InProgress:
-                                <span class="badge bg-info">Đang xử lý</span>
-                                break;
-                            case TicketStatus.Resolved:
-                                <span class="badge bg-success">Đã giải quyết</span>
-                                break;
-                            case TicketStatus.Closed:
-                                <span class="badge bg-secondary">Đóng</span>
-                                break;
-                            case TicketStatus.Forwarded:
-                                <span class="badge bg-warning text-dark">Đã chuyển tiếp</span>
-                                break;
-                            case TicketStatus.OnHold:
-                                <span class="badge bg-dark">Tạm dừng</span>
-                                break;
-                            case TicketStatus.Cancelled:
-                                <span class="badge bg-danger">Đã hủy</span>
-                                break;
-                        }
-                        }
-                    </div>
-                </div>
-                <div class="mb-2">
-                    <small class="text-muted">Độ ưu tiên</small>
-                    <div>
-                        @switch (Model.Ticket.Priority)
-                        {
-                            case TicketPriority.Low:
-                                <span class="badge bg-secondary">Thấp</span>
-                                break;
-                            case TicketPriority.Medium:
-                                <span class="badge bg-info">Trung bình</span>
-                                break;
-                            case TicketPriority.High:
-                                <span class="badge bg-warning text-dark">Cao</span>
-                                break;
-                            case TicketPriority.Critical:
-                                <span class="badge bg-danger">Khẩn cấp</span>
-                                break;
-                        }
-                    </div>
-                </div>
-                <div class="mb-2">
-                    <small class="text-muted">Độ khẩn</small>
-                    <div>
-                        @switch (Model.Ticket.Urgency)
-                        {
-                            case TicketUrgency.Normal:
-                                <span class="badge bg-light text-dark">Bình thường</span>
-                                break;
-                            case TicketUrgency.Urgent:
-                                <span class="badge bg-warning text-dark">Gấp</span>
-                                break;
-                            case TicketUrgency.VeryUrgent:
-                                <span class="badge text-white" style="background-color: #fd7e14;">Rất gấp</span>
-                                break;
-                            case TicketUrgency.Immediate:
-                                <span class="badge bg-danger">Ngay lập tức</span>
-                                break;
-                        }
-                    </div>
-                </div>
-                @if (Model.Ticket.Deadline.HasValue)
-                {
-                    var deadlineDate = Model.Ticket.GetDeadlineDate();
-                    var isOverdue = Model.Ticket.IsExpired();
-                    <div class="mb-2">
-                        <small class="text-muted">Deadline</small>
-                        <div class="@(isOverdue ? "text-danger fw-bold" : "")">
-                            @if (isOverdue)
-                            {
-                                <i class="bi bi-exclamation-triangle"></i>
-                            }
-                            @deadlineDate?.ToString("dd/MM/yyyy")
-                        </div>
-                    </div>
-                }
-                <hr />
-                <div class="mb-2">
-                    <small class="text-muted">Người tạo</small>
-                    <div>@Model.Ticket.Creator?.FullName</div>
-                </div>
-                <div class="mb-0">
-                    <small class="text-muted">Ngày tạo</small>
-                    <div>@Model.Ticket.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</div>
-                </div>
-            </div>
-        </div>
-
         <!-- Recipients card -->
         <div class="card mb-3">
             <div class="card-header">

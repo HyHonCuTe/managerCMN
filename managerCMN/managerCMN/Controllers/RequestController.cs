@@ -77,6 +77,7 @@ public class RequestController : Controller
         NormalizeRequiredTextFields(model);
         ValidateRequiredRequestFields(model);
         ApplyRequestDateInputs(model);
+        NormalizeSingleDayLeave(model);
         NormalizeSingleDayRequest(model);
         ValidateTimeBasedRequest(model);
         ValidateCheckInOutPolicy(model, attendancePolicy);
@@ -532,6 +533,7 @@ public class RequestController : Controller
         NormalizeRequiredTextFields(model);
         ValidateRequiredRequestFields(model);
         ApplyRequestDateInputs(model);
+        NormalizeSingleDayLeave(model);
         NormalizeSingleDayRequest(model);
         ValidateTimeBasedRequest(model);
         ValidateCheckInOutPolicy(model, attendancePolicy);
@@ -683,6 +685,12 @@ public class RequestController : Controller
         try
         {
             var employeeId = GetCurrentEmployeeId();
+
+            if (startDate.Date == endDate.Date)
+            {
+                isHalfDayEnd = false;
+            }
+
             var totalDays = await _requestService.CalculateTotalDaysAsync(startDate, endDate, isHalfDayStart, isHalfDayEnd);
 
             // CRITICAL: Always use current date to calculate available leave balance, not the request date
@@ -952,6 +960,21 @@ public class RequestController : Controller
                 ModelState.AddModelError(nameof(RequestCreateViewModel.EndClock),
                     $"Giờ về sớm hợp lệ: từ {attendancePolicy.EarlyLeaveRequestWindowStart:HH\\:mm} đến trước {attendancePolicy.NoRequestCheckoutThreshold:HH\\:mm}.");
             }
+        }
+    }
+
+    private static void NormalizeSingleDayLeave(RequestCreateViewModel model)
+    {
+        if (model.RequestType != RequestType.Leave)
+        {
+            return;
+        }
+
+        if (model.StartDate != default
+            && model.EndDate != default
+            && model.StartDate.Date == model.EndDate.Date)
+        {
+            model.HalfDayEndOption = 0;
         }
     }
 

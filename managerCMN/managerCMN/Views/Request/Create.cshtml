@@ -467,6 +467,23 @@
             }
         }
 
+        function syncSingleDayLeaveState() {
+            var isSingleDayLeave = parseInt(requestTypeSelect.value) === 0
+                && startDate.value
+                && endDate.value
+                && startDate.value === endDate.value;
+
+            if (isSingleDayLeave) {
+                halfDayEndOpt.value = '0';
+                halfDayEndWrap.style.display = 'none';
+                return;
+            }
+
+            if (parseInt(requestTypeSelect.value) === 0) {
+                halfDayEndWrap.style.display = '';
+            }
+        }
+
         function calcDays() {
             var type = parseInt(requestTypeSelect.value);
             var s = startDate.value, e = endDate.value;
@@ -476,13 +493,14 @@
                 endDate.value = s;
                 e = s;
             }
+
+            syncSingleDayLeaveState();
             
             if (s && e) {
                 // Leave requests use server-side working-day rules so the UI matches the business logic.
                 if (type === 0) {
                     totalDays.value = '';
                     totalDaysHidden.value = '';
-                    halfDayEndWrap.style.display = (s === e) ? 'none' : '';
                     checkLeaveBalance();
                     return;
                 }

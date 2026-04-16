@@ -298,6 +298,23 @@
             }
         }
 
+        function syncSingleDayLeaveState() {
+            var isSingleDayLeave = parseInt(requestTypeSelect.value) === 0
+                && startDate.value
+                && endDate.value
+                && startDate.value === endDate.value;
+
+            if (isSingleDayLeave) {
+                halfDayEndOpt.value = '0';
+                halfDayEndWrap.style.display = 'none';
+                return;
+            }
+
+            if (parseInt(requestTypeSelect.value) === 0) {
+                halfDayEndWrap.style.display = '';
+            }
+        }
+
         async function calcDays() {
             var type = parseInt(requestTypeSelect.value);
             var s = startDate.value, e = endDate.value;
@@ -313,7 +330,7 @@
                 e = s;
             }
 
-            halfDayEndWrap.style.display = (s === e && type === 0) ? 'none' : halfDayEndWrap.style.display;
+            syncSingleDayLeaveState();
 
             if (type === 0) {
                 const isHalfDayStart = parseInt(halfDayStartOpt.value) > 0;

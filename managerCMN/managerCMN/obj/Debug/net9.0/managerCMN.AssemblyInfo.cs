@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("managerCMN")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8f5f72684a3fd49a410ab7174aac2ba3889defcf")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+62f983faf602b749510cece46492ada9e0feb514")]
 [assembly: System.Reflection.AssemblyProductAttribute("managerCMN")]
 [assembly: System.Reflection.AssemblyTitleAttribute("managerCMN")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

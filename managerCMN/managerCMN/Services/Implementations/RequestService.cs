@@ -517,6 +517,11 @@ public class RequestService : IRequestService
         if (endDate < startDate)
             throw new ValidationException("Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.");
 
+        // The UI only allows one half-day selector for same-day leave requests.
+        // Ignore any stale end-half value so we do not subtract twice on one day.
+        if (startDate == endDate)
+            halfDayEnd = false;
+
         var holidays = (await _unitOfWork.Holidays.GetByDateRangeAsync(startDate, endDate))
             .Select(h => h.Date)
             .ToHashSet();

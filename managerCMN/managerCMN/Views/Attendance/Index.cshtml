@@ -327,6 +327,10 @@
                             @correctedCoverage.DisplayCheckInText - @correctedCoverage.DisplayCheckOutText
                         </span>
                     }
+                    else if (isHoliday)
+                    {
+                        <span class="att-time-badge">Nghỉ lễ</span>
+                    }
                     else if (isSat && !isWorkDay)
                     {
                         <span class="att-time-badge">T7 Nghỉ</span>

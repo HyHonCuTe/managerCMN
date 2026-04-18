@@ -160,6 +160,10 @@ public class DashboardController : Controller
                 && r.Status != RequestStatus.Cancelled)
             .ToListAsync();
         var requestsByDate = AttendanceCalendarViewModel.BuildRequestCalendar(activeRequests, periodStart, periodEnd);
+        var holidays = await _db.Holidays
+            .Where(h => h.Date >= periodStart && h.Date <= periodEnd)
+            .Select(h => h.Date)
+            .ToHashSetAsync();
 
         decimal attendanceWorkDays = 0m;
         decimal requestWorkDays = 0m;
@@ -168,7 +172,7 @@ public class DashboardController : Controller
         foreach (var date in Enumerable.Range(0, periodEnd.DayNumber - periodStart.DayNumber + 1)
                      .Select(offset => periodStart.AddDays(offset)))
         {
-            if (!AttendanceCalendarViewModel.IsWorkingDay(date))
+            if (!AttendanceCalendarViewModel.IsWorkingDay(date, holidays))
                 continue;
 
             var attendance = attendanceByDate.GetValueOrDefault(date);
@@ -198,11 +202,6 @@ public class DashboardController : Controller
 
         if (await IsFullAttendanceEmployeeAsync(employeeId))
         {
-            var holidays = await _db.Holidays
-                .Where(h => h.Date >= periodStart && h.Date <= periodEnd)
-                .Select(h => h.Date)
-                .ToHashSetAsync();
-
             decimal autoWorkDays = 0m;
             var todayDate = DateOnly.FromDateTime(DateTimeHelper.VietnamNow);
             for (var d = periodStart; d <= periodEnd && d <= todayDate; d = d.AddDays(1))

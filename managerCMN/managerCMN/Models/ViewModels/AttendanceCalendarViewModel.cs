@@ -185,9 +185,9 @@ public class AttendanceCalendarViewModel
     /// <summary>Check if a date is a working day (Mon-Fri always, Sat alternating, Sun never, excludes holidays)</summary>
     public static bool IsWorkingDay(DateOnly date, HashSet<DateOnly>? holidays = null)
     {
+        if (holidays != null && holidays.Contains(date)) return false;
         if (date.DayOfWeek == DayOfWeek.Sunday) return false;
         if (date.DayOfWeek == DayOfWeek.Saturday) return IsWorkSaturday(date);
-        if (holidays != null && holidays.Contains(date)) return false;  // NEW: Exclude holidays
         return true;
     }
 

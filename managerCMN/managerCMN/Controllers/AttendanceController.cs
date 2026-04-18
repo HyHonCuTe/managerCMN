@@ -213,7 +213,7 @@ public class AttendanceController : Controller
             decimal standardDays = 0;
             for (var d = periodStart; d <= periodEnd; d = d.AddDays(1))
             {
-                if (AttendanceCalendarViewModel.IsWorkingDay(d))
+                if (AttendanceCalendarViewModel.IsWorkingDay(d, holidays))
                     standardDays += 1m;
             }
             model.StandardWorkDays = standardDays;
@@ -298,7 +298,7 @@ public class AttendanceController : Controller
             foreach (var kvp in model.RequestsByDate)
             {
                 var date = kvp.Key;
-                if (!AttendanceCalendarViewModel.IsWorkingDay(date)) continue;
+                if (!AttendanceCalendarViewModel.IsWorkingDay(date, holidays)) continue;
 
                 // Only count approved requests for công calculation
                 var approvedReqs = kvp.Value.Where(r => r.IsApproved).ToList();
@@ -348,7 +348,7 @@ public class AttendanceController : Controller
             // Count absent work days (up to today): no attendance AND no approved CountsAsWork request
             for (var d = periodStart; d <= periodEnd && d <= todayDate; d = d.AddDays(1))
             {
-                if (!AttendanceCalendarViewModel.IsWorkingDay(d)) continue;
+                if (!AttendanceCalendarViewModel.IsWorkingDay(d, holidays)) continue;
 
                 var attendance = model.AttendanceByDate.GetValueOrDefault(d);
                 var approvedReqs = model.RequestsByDate.GetValueOrDefault(d)?
@@ -465,6 +465,9 @@ public class AttendanceController : Controller
 
         var employees = await _employeeService.GetAllAsync();
         var (periodStart, periodEnd) = AttendanceCalendarViewModel.GetPeriodDates(year.Value, month.Value);
+        var holidays = (await _holidayService.GetByDateRangeAsync(periodStart, periodEnd))
+            .Select(h => h.Date)
+            .ToHashSet();
         
         var summaryList = new List<AttendanceSummaryViewModel>();
         
@@ -504,7 +507,7 @@ public class AttendanceController : Controller
             foreach (var date in Enumerable.Range(0, periodEnd.DayNumber - periodStart.DayNumber + 1)
                          .Select(offset => periodStart.AddDays(offset)))
             {
-                if (!AttendanceCalendarViewModel.IsWorkingDay(date))
+                if (!AttendanceCalendarViewModel.IsWorkingDay(date, holidays))
                     continue;
 
                 var attendance = attendanceByDate.GetValueOrDefault(date);

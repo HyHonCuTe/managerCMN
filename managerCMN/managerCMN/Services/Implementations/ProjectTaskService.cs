@@ -502,12 +502,26 @@ public class ProjectTaskService : IProjectTaskService
 
     private async Task NotifyAssigneesForTaskUpdateAsync(ProjectTask task, int senderEmployeeId, string updateContent)
     {
-        var targetUserIds = await _context.ProjectTaskAssignments
+        var assigneeUserIds = await _context.ProjectTaskAssignments
             .AsNoTracking()
             .Where(a => a.ProjectTaskId == task.ProjectTaskId && a.EmployeeId != senderEmployeeId)
             .Join(_context.Users.AsNoTracking(), a => a.EmployeeId, u => u.EmployeeId, (a, u) => u.UserId)
             .Distinct()
             .ToListAsync();
+
+        var managerUserIds = await _context.ProjectMembers
+            .AsNoTracking()
+            .Where(pm => pm.ProjectId == task.ProjectId
+                && (pm.Role == ProjectMemberRole.ProjectOwner || pm.Role == ProjectMemberRole.ProjectManager))
+            .Where(pm => pm.EmployeeId != senderEmployeeId)
+            .Join(_context.Users.AsNoTracking(), pm => pm.EmployeeId, u => u.EmployeeId, (pm, u) => u.UserId)
+            .Distinct()
+            .ToListAsync();
+
+        var targetUserIds = assigneeUserIds
+            .Concat(managerUserIds)
+            .Distinct()
+            .ToList();
 
         if (targetUserIds.Count == 0)
             return;

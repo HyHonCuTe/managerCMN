@@ -550,6 +550,9 @@
     padding: 1.2rem 1.4rem;
     flex: 1;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
 }
 
 .task-panel-notice-area {
@@ -824,22 +827,14 @@
     padding: 0.85rem 0.9rem;
 }
 
-@container (min-width: 820px) {
-    .task-detail-body {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.9rem;
-        align-items: start;
-    }
+.task-detail-tabs,
+.task-detail-tab-content,
+.task-panel-notice-area {
+    width: 100%;
+}
 
-    .task-detail-body > .task-section-card {
-        margin-bottom: 0;
-    }
-
-    .task-detail-body > .task-section-card:first-of-type,
-    .task-detail-body > .task-worklog-card {
-        grid-column: 1 / -1;
-    }
+.task-detail-tab-content > .tab-pane {
+    width: 100%;
 }
 
 .task-update-meta {

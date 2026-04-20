@@ -163,6 +163,14 @@ function bindPanelStatusHandlers(container = document) {
                 this.value = previousValue;
                 showPanelNotice(error.message || 'Không cập nhật được trạng thái.', 'danger');
             } finally {
+                const completeButton = getTaskPanelContent()?.querySelector('.task-complete-btn');
+                if (completeButton && completeButton.dataset.busy === 'true') {
+                    delete completeButton.dataset.busy;
+                    if (this.value !== '3') {
+                        completeButton.disabled = false;
+                    }
+                }
+
                 if (this.dataset.initiallyDisabled !== 'true' && this.value !== '3') {
                     this.disabled = false;
                 }
@@ -210,17 +218,35 @@ async function updateProgress(e, taskId) {
 
 function quickMarkTaskDone(taskId) {
     const content = getTaskPanelContent();
+    const completeButton = content?.querySelector('.task-complete-btn');
+    if (completeButton?.disabled || completeButton?.dataset.busy === 'true') {
+        return;
+    }
+
+    if (completeButton) {
+        completeButton.dataset.busy = 'true';
+        completeButton.disabled = true;
+    }
+
     const statusSelect = content?.querySelector(`.task-status-select[data-task-id="${taskId}"]`)
         || document.querySelector(`.task-status-select[data-task-id="${taskId}"]`);
 
     if (!statusSelect) {
         showPanelNotice('Không tìm thấy trạng thái của task.', 'danger');
+        if (completeButton) {
+            delete completeButton.dataset.busy;
+            completeButton.disabled = false;
+        }
         return;
     }
 
     const doneOption = Array.from(statusSelect.options).find(option => option.value === '3');
     if (doneOption?.disabled) {
         showPanelNotice('Chỉ assignee hoặc Owner được tick hoàn thành.', 'danger');
+        if (completeButton) {
+            delete completeButton.dataset.busy;
+            completeButton.disabled = false;
+        }
         return;
     }
 
@@ -604,6 +630,7 @@ function applyTaskState(task) {
     const progressText = readPayload(task, 'progressText', 'ProgressText') || formatPercentText(progress);
     const progressCss = readPayload(task, 'progressCss', 'ProgressCss') || progressColor(progress);
     const isDone = Boolean(readPayload(task, 'isDone', 'IsDone'));
+    const canCompleteTask = readPayload(task, 'canCompleteTask', 'CanCompleteTask');
 
     const headerStatus = content.querySelector('.task-header-status');
     if (headerStatus) {
@@ -633,6 +660,10 @@ function applyTaskState(task) {
     if (sliderValue) sliderValue.textContent = formatPercentText(progress);
 
     updateChecklistCount(task);
+
+    if (canCompleteTask !== undefined && canCompleteTask !== null) {
+        syncCompletePermission(Boolean(canCompleteTask));
+    }
 
     if (isDone) {
         markPanelDoneLocked(content);

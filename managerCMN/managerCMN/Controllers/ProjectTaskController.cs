@@ -37,9 +37,11 @@ public class ProjectTaskController : Controller
             var project = await _projectService.GetDetailsAsync(task.ProjectId, employeeId);
             if (project == null) return NotFound();
 
-            task.CanManageTask = project.MyRole != ProjectMemberRole.ProjectViewer && !project.IsArchived;
-            task.CanCompleteTask = !project.IsArchived
-                && (project.MyRole == ProjectMemberRole.ProjectOwner || task.AssigneeIds.Contains(employeeId));
+            task.CanManageTask = !project.IsArchived
+                && (project.MyRole == ProjectMemberRole.ProjectOwner
+                    || project.MyRole == ProjectMemberRole.ProjectManager
+                    || task.AssigneeIds.Contains(employeeId));
+            task.CanCompleteTask = CanCurrentUserCompleteTask(task, project.MyRole, project.IsArchived, employeeId);
             task.CanManageMembers = (project.MyRole == ProjectMemberRole.ProjectOwner
                 || project.MyRole == ProjectMemberRole.ProjectManager) && !project.IsArchived;
             task.IsArchived = project.IsArchived;
@@ -232,11 +234,12 @@ public class ProjectTaskController : Controller
         {
             await _taskService.UpdateStatusAsync(vm, employeeId);
             var task = await _taskService.GetTaskDetailsAsync(vm.ProjectTaskId, employeeId);
+            var project = task == null ? null : await _projectService.GetDetailsAsync(task.ProjectId, employeeId);
             return Json(new
             {
                 success = true,
                 message = "Đã cập nhật trạng thái.",
-                task = ToTaskPanelState(task),
+                task = ToTaskPanelState(task, project?.MyRole, project?.IsArchived ?? false, employeeId),
                 update = ToTaskUpdateDto(task?.Updates.OrderByDescending(u => u.CreatedDate).FirstOrDefault())
             });
         }
@@ -256,11 +259,12 @@ public class ProjectTaskController : Controller
         {
             await _taskService.UpdateProgressAsync(vm, employeeId);
             var task = await _taskService.GetTaskDetailsAsync(vm.ProjectTaskId, employeeId);
+            var project = task == null ? null : await _projectService.GetDetailsAsync(task.ProjectId, employeeId);
             return Json(new
             {
                 success = true,
                 message = "Đã cập nhật tiến độ.",
-                task = ToTaskPanelState(task),
+                task = ToTaskPanelState(task, project?.MyRole, project?.IsArchived ?? false, employeeId),
                 update = ToTaskUpdateDto(task?.Updates.OrderByDescending(u => u.CreatedDate).FirstOrDefault())
             });
         }
@@ -292,8 +296,7 @@ public class ProjectTaskController : Controller
                     update = ToTaskUpdateDto(task?.Updates.OrderByDescending(u => u.CreatedDate).FirstOrDefault()),
                     canCompleteTask = task != null
                         && project != null
-                        && !project.IsArchived
-                        && (project.MyRole == ProjectMemberRole.ProjectOwner || task.AssigneeIds.Contains(employeeId))
+                        && CanCurrentUserCompleteTask(task, project.MyRole, project.IsArchived, employeeId)
                 });
             }
 
@@ -456,10 +459,14 @@ public class ProjectTaskController : Controller
     private bool IsAjaxRequest()
         => string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
 
-    private object? ToTaskPanelState(ProjectTaskTreeViewModel? task)
+    private object? ToTaskPanelState(ProjectTaskTreeViewModel? task, ProjectMemberRole? myRole = null,
+        bool isArchived = false, int currentEmployeeId = 0)
     {
         if (task == null)
             return null;
+
+        var canCompleteTask = myRole.HasValue
+            && CanCurrentUserCompleteTask(task, myRole.Value, isArchived, currentEmployeeId);
 
         return new
         {
@@ -471,8 +478,24 @@ public class ProjectTaskController : Controller
             progressCss = ProgressColor(task.Progress),
             checklistDone = task.ChecklistDone,
             checklistTotal = task.ChecklistTotal,
-            isDone = task.Status == ProjectTaskStatus.Done
+            isDone = task.Status == ProjectTaskStatus.Done,
+            canCompleteTask
         };
+    }
+
+    private static bool CanCurrentUserCompleteTask(ProjectTaskTreeViewModel task, ProjectMemberRole myRole,
+        bool isArchived, int currentEmployeeId)
+    {
+        if (isArchived)
+            return false;
+
+        var hasAssignees = task.AssigneeTotalCount > 0;
+        var isAssignee = task.AssigneeIds.Contains(currentEmployeeId);
+
+        if (hasAssignees)
+            return isAssignee && !task.IsCurrentAssigneeCompleted;
+
+        return myRole == ProjectMemberRole.ProjectOwner || myRole == ProjectMemberRole.ProjectManager;
     }
 
     private object? ToTaskUpdateDto(ProjectTaskUpdateViewModel? update)
@@ -524,7 +547,6 @@ public class ProjectTaskController : Controller
         ProjectTaskStatus.InProgress => "task-status-inprogress",
         ProjectTaskStatus.Review => "task-status-review",
         ProjectTaskStatus.Done => "task-status-done",
-        ProjectTaskStatus.Blocked => "task-status-blocked",
         ProjectTaskStatus.Cancelled => "task-status-cancelled",
         _ => string.Empty
     };

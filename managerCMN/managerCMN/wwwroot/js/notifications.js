@@ -17,7 +17,6 @@
         danger:    { bg: '#dc3545', icon: 'bi-x-circle-fill' },
         error:     { bg: '#dc3545', icon: 'bi-x-circle-fill' },
         forbidden: { bg: '#dc3545', icon: 'bi-slash-circle-fill' },
-        blocked:   { bg: '#dc3545', icon: 'bi-slash-circle-fill' }
     };
 
     // Recent message dedup map  {key -> true}

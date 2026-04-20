@@ -595,7 +595,6 @@ else
         ProjectTaskStatus.InProgress => "task-status-inprogress",
         ProjectTaskStatus.Review     => "task-status-review",
         ProjectTaskStatus.Done       => "task-status-done",
-        ProjectTaskStatus.Blocked    => "task-status-blocked",
         ProjectTaskStatus.Cancelled  => "task-status-cancelled",
         _ => ""
     };
@@ -605,7 +604,6 @@ else
         ProjectTaskStatus.Done       => "is-done",
         ProjectTaskStatus.InProgress => "is-inprogress",
         ProjectTaskStatus.Review     => "is-review",
-        ProjectTaskStatus.Blocked    => "is-blocked",
         ProjectTaskStatus.Cancelled  => "is-cancelled",
         _ when row.IsOverdue         => "is-overdue",
         _ when row.IsNearDeadline    => "is-near",

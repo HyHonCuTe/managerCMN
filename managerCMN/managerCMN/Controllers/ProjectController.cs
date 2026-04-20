@@ -301,29 +301,21 @@ public class ProjectController : Controller
     private static List<ProjectTaskTreeViewModel> FilterTasksForEmployee(
         IEnumerable<ProjectTaskTreeViewModel> tasks, int employeeId)
     {
-        var result = FilterTasksRaw(tasks, employeeId);
-        NormalizeTaskDepths(result, 0);
-        return result;
-    }
-
-    private static List<ProjectTaskTreeViewModel> FilterTasksRaw(
-        IEnumerable<ProjectTaskTreeViewModel> tasks, int employeeId)
-    {
         var result = new List<ProjectTaskTreeViewModel>();
         foreach (var task in tasks)
         {
+            var childMatches = FilterTasksForEmployee(task.SubTasks, employeeId);
+
             if (task.AssigneeIds.Contains(employeeId))
             {
-                // Assigned to user — include this task, but filter its children too
-                // (only show sub-tasks the user is also assigned to)
-                task.SubTasks = FilterTasksRaw(task.SubTasks, employeeId);
+                task.SubTasks = childMatches;
+                task.Depth = 0;
                 result.Add(task);
             }
-            else
+
+            else if (childMatches.Count > 0)
             {
-                // Not assigned — promote any assigned descendants to this level
-                var promoted = FilterTasksRaw(task.SubTasks, employeeId);
-                result.AddRange(promoted);
+                result.AddRange(childMatches);
             }
         }
         return result;

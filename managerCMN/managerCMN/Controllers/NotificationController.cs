@@ -51,6 +51,23 @@ public class NotificationController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpGet]
+    public async Task<IActionResult> Open(int id)
+    {
+        var targetUrl = await _notificationService.TryOpenAsync(
+            id,
+            GetCurrentUserId(),
+            CanViewAllNotifications());
+
+        if (targetUrl == null)
+            return RedirectToAction(nameof(Index));
+
+        if (!Url.IsLocalUrl(targetUrl))
+            return RedirectToAction(nameof(Index));
+
+        return Redirect(targetUrl);
+    }
+
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> MarkAllRead()

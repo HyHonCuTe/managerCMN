@@ -27,6 +27,9 @@ public class ProjectTaskTreeViewModel
     public bool IsOverdue => DueDate.HasValue && DueDate.Value < DateTime.Today && Status != ProjectTaskStatus.Done && Status != ProjectTaskStatus.Cancelled;
     public List<string> AssigneeNames { get; set; } = new();
     public List<int> AssigneeIds { get; set; } = new();
+    public int AssigneeTotalCount { get; set; }
+    public int AssigneeCompletedCount { get; set; }
+    public bool IsCurrentAssigneeCompleted { get; set; }
     public int ChecklistTotal { get; set; }
     public int ChecklistDone { get; set; }
     public List<ProjectTaskTreeViewModel> SubTasks { get; set; } = new();

@@ -2,8 +2,10 @@
 @using managerCMN.Helpers
 @using managerCMN.Models.Enums
 @using System.Globalization
+@using System.Security.Claims
 @{
     Layout = null;
+    var currentEmployeeId = int.TryParse(User.FindFirstValue("EmployeeId"), out var employeeIdValue) ? employeeIdValue : 0;
     var canCreateSubtaskInParentRange = Model.StartDate.HasValue && Model.DueDate.HasValue;
     var parentRangeStartLabel = Model.StartDate?.ToString("dd/MM/yyyy") ?? "—";
     var parentRangeEndLabel = Model.DueDate?.ToString("dd/MM/yyyy") ?? "—";
@@ -164,10 +166,10 @@
             {
                 <span class="task-lock-note text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Cần hoàn thành tất cả task con trước.</span>
             }
-            else if (!Model.CanCompleteTask)
+            @* else if (!Model.CanCompleteTask)
             {
                 <span class="task-lock-note">Chỉ assignee hoặc Owner được tick hoàn thành.</span>
-            }
+            } *@
         </div>
     </section>
 
@@ -194,13 +196,25 @@
                     </span>
                 }
             </div>
+
+            @if (Model.AssigneeTotalCount > 0)
+            {
+                <div class="small text-muted mb-3">
+                    Hoàn thành theo người thực hiện: <strong>@Model.AssigneeCompletedCount/@Model.AssigneeTotalCount</strong>
+                    (@(Model.AssigneeTotalCount == 0 ? 0 : Math.Round((decimal)Model.AssigneeCompletedCount * 100 / Model.AssigneeTotalCount, 0))%).
+                    @if (Model.AssigneeIds.Contains(currentEmployeeId) && !Model.IsCurrentAssigneeCompleted)
+                    {
+                        <span class="ms-1">Bạn chưa xác nhận phần việc của mình.</span>
+                    }
+                </div>
+            }
         }
         else
         {
             <div class="task-assignee-empty text-muted small mb-3">Chưa có ai được giao task này.</div>
         }
 
-        @if (Model.CanManageTask && !Model.IsArchived && Model.AvailableMembers.Any())
+        @if (Model.CanManageMembers && !Model.IsArchived && Model.AvailableMembers.Any())
         {
             <form asp-action="AssignMembers" method="post" class="task-assign-members-form">
                 <input type="hidden" name="taskId" value="@Model.ProjectTaskId" />
@@ -240,9 +254,9 @@
                     <div class="task-subtask-card" data-subtask-id="@sub.ProjectTaskId">
                         <div class="d-flex justify-content-between align-items-start gap-2">
                             <div style="min-width:0;">
-                                <button type="button" class="task-subtask-link" onclick="openTaskPanel(@sub.ProjectTaskId)">
+                                <a href="/Project/Details/@sub.ProjectId?openTaskId=@sub.ProjectTaskId" class="task-subtask-link">
                                     @sub.Title
-                                </button>
+                                </a>
                                 <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
                                     <span class="status-badge @TaskStatusCss(sub.Status)" style="font-size:0.68rem;">@TaskStatusLabel(sub.Status)</span>
                                     <span class="text-muted small">@sub.Progress.ToString("0")%</span>
@@ -272,7 +286,7 @@
             <div class="task-subtask-empty text-muted small">Task này chưa có subtask.</div>
         }
 
-        @if (Model.CanManageTask && !Model.IsArchived)
+        @if (Model.CanManageMembers && !Model.IsArchived)
         {
             @if (canCreateSubtaskInParentRange)
             {
@@ -491,7 +505,6 @@
         ProjectTaskStatus.InProgress => "task-status-inprogress",
         ProjectTaskStatus.Review     => "task-status-review",
         ProjectTaskStatus.Done       => "task-status-done",
-        ProjectTaskStatus.Blocked    => "task-status-blocked",
         ProjectTaskStatus.Cancelled  => "task-status-cancelled",
         _ => ""
     };

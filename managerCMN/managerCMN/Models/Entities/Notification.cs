@@ -16,6 +16,9 @@ public class Notification
     [MaxLength(1000)]
     public string? Message { get; set; }
 
+    [MaxLength(500)]
+    public string? TargetUrl { get; set; }
+
     public bool IsRead { get; set; }
 
     public DateTime CreatedDate { get; set; } = DateTime.UtcNow;

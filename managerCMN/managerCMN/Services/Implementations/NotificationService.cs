@@ -25,18 +25,38 @@ public class NotificationService : INotificationService
     public async Task<IEnumerable<Notification>> GetAllAsync()
         => await _unitOfWork.Notifications.GetAllAsync();
 
-    public async Task CreateAsync(int userId, string title, string message)
+    public async Task CreateAsync(int userId, string title, string message, string? targetUrl = null)
     {
         var notification = new Notification
         {
             UserId = userId,
             Title = title,
             Message = message,
+            TargetUrl = targetUrl,
             IsRead = false,
             CreatedDate = DateTime.UtcNow
         };
         await _unitOfWork.Notifications.AddAsync(notification);
         await _unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task<string?> TryOpenAsync(int notificationId, int currentUserId, bool canViewAll)
+    {
+        var notification = await _unitOfWork.Notifications.GetByIdAsync(notificationId);
+        if (notification == null)
+            return null;
+
+        if (!canViewAll && notification.UserId != currentUserId)
+            return null;
+
+        if (!notification.IsRead)
+        {
+            notification.IsRead = true;
+            _unitOfWork.Notifications.Update(notification);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        return notification.TargetUrl;
     }
 
     public async Task<bool> TryMarkAsReadAsync(int notificationId, int currentUserId, bool canViewAll)

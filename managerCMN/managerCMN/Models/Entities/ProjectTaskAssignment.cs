@@ -14,4 +14,7 @@ public class ProjectTaskAssignment
     public Employee AssignedByEmployee { get; set; } = null!;
 
     public DateTime AssignedDate { get; set; } = DateTime.Now;
+
+    public bool IsCompleted { get; set; } = false;
+    public DateTime? CompletedDate { get; set; }
 }

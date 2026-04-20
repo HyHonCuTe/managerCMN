@@ -139,8 +139,16 @@ public class RequestService : IRequestService
         );
     }
 
-    public async Task UpdateAsync(Request request)
+    public async Task UpdateAsync(Request request, RequestEditSnapshot? originalState = null, int? actorEmployeeId = null)
     {
+        if (originalState != null && request.Status == RequestStatus.Pending)
+        {
+            await _leaveService.SyncPendingRequestEditAsync(
+                request,
+                originalState,
+                actorEmployeeId ?? request.EmployeeId);
+        }
+
         _unitOfWork.Requests.Update(request);
         await _unitOfWork.SaveChangesAsync();
     }

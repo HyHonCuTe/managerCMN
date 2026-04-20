@@ -1,5 +1,6 @@
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
+using managerCMN.Models.ViewModels;
 
 namespace managerCMN.Services.Interfaces;
 
@@ -16,7 +17,7 @@ public interface IRequestService
     Task<IEnumerable<Request>> FilterAsync(RequestStatus? status, RequestType? type);
 
     Task CreateAsync(Request request, int approver1Id, int approver2Id);
-    Task UpdateAsync(Request request);
+    Task UpdateAsync(Request request, RequestEditSnapshot? originalState = null, int? actorEmployeeId = null);
     Task ApproveAsync(int requestId, int approverEmployeeId, string? comment = null);
     Task RejectAsync(int requestId, int approverEmployeeId, string? comment = null);
     Task ForceApproveAsync(int requestId, int adminEmployeeId, string? comment = null);

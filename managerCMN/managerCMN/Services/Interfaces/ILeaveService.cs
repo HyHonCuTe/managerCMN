@@ -12,6 +12,7 @@ public interface ILeaveService
     Task<IEnumerable<LeaveRequest>> GetPendingRequestsAsync();
     Task<LeaveRequest?> GetRequestByIdAsync(int requestId);
     Task CreateRequestAsync(LeaveRequest request, bool shouldDeductLeave = true);
+    Task SyncPendingRequestEditAsync(Request request, RequestEditSnapshot originalState, int actorEmployeeId);
     Task ApproveRequestAsync(int requestId, int approverId);
     Task RejectRequestAsync(int requestId, int approverId);
     Task<bool> DeductLeaveForApprovedRequestAsync(int requestId);

@@ -132,6 +132,74 @@ public class LeaveService : ILeaveService
         );
     }
 
+    public async Task SyncPendingRequestEditAsync(Request request, RequestEditSnapshot originalState, int actorEmployeeId)
+    {
+        var leaveRequest = await FindActiveLeaveRequestForEditAsync(request.EmployeeId, originalState);
+
+        if (leaveRequest == null)
+        {
+            if (request.RequestType == RequestType.Leave)
+            {
+                await AddLeaveRequestForEditedRequestAsync(request);
+            }
+
+            return;
+        }
+
+        if (request.RequestType != RequestType.Leave)
+        {
+            await RestoreDeductedLeaveIfNeededAsync(leaveRequest);
+            leaveRequest.Status = RequestStatus.Rejected;
+            leaveRequest.ApprovedBy = actorEmployeeId;
+            leaveRequest.ApprovedDate = DateTime.UtcNow;
+            _unitOfWork.LeaveRequests.Update(leaveRequest);
+            return;
+        }
+
+        NormalizeLeaveWorkFlag(request);
+
+        var shouldDeductLeave = ShouldDeductLeave(request);
+        var desiredPayType = request.CountsAsWork ? LeavePayType.Paid : LeavePayType.Unpaid;
+        var canKeepExistingDeduction = shouldDeductLeave
+            && leaveRequest.IsLeaveDeducted
+            && leaveRequest.PayType == desiredPayType
+            && leaveRequest.StartDate.Date == request.StartTime.Date
+            && leaveRequest.EndDate.Date == request.EndTime.Date
+            && leaveRequest.TotalDays == request.TotalDays;
+
+        if (!canKeepExistingDeduction)
+        {
+            await RestoreDeductedLeaveIfNeededAsync(leaveRequest);
+        }
+
+        leaveRequest.StartDate = request.StartTime.Date;
+        leaveRequest.EndDate = request.EndTime.Date;
+        leaveRequest.TotalDays = request.TotalDays;
+        leaveRequest.Reason = request.Reason;
+        leaveRequest.Status = RequestStatus.Pending;
+        leaveRequest.ApprovedBy = null;
+        leaveRequest.ApprovedDate = null;
+
+        if (!canKeepExistingDeduction)
+        {
+            leaveRequest.PayType = desiredPayType;
+            leaveRequest.IsLeaveDeducted = false;
+            leaveRequest.DeductedFromCurrentYear = 0m;
+            leaveRequest.DeductedFromCarryForward = 0m;
+        }
+
+        if (shouldDeductLeave && !leaveRequest.IsLeaveDeducted && leaveRequest.PayType == LeavePayType.Paid)
+        {
+            var deduction = await TryDeductLeaveAsync(leaveRequest);
+            if (!deduction.Success)
+            {
+                request.CountsAsWork = false;
+            }
+        }
+
+        _unitOfWork.LeaveRequests.Update(leaveRequest);
+    }
+
     public async Task ApproveRequestAsync(int requestId, int approverId)
     {
         var request = await _unitOfWork.LeaveRequests.GetByIdAsync(requestId);
@@ -205,45 +273,22 @@ public class LeaveService : ILeaveService
     public async Task<bool> DeductLeaveForApprovedRequestAsync(int requestId)
     {
         var request = await _unitOfWork.LeaveRequests.GetByIdAsync(requestId);
-        if (request == null || request.IsLeaveDeducted || request.PayType != LeavePayType.Paid)
+        if (request == null)
             return false;
 
-        var balance = await EnsureBalanceForYearAsync(request.EmployeeId, request.StartDate.Year, request.StartDate);
-        var currentYearRemaining = Math.Max(balance.TotalLeave - balance.UsedLeave, 0m);
-        var carryForwardRemaining = IsCarryForwardWindowOpen(request.StartDate) ? balance.CarryForward : 0m;
-        var availableLeave = currentYearRemaining + carryForwardRemaining;
-
-        if (availableLeave < request.TotalDays)
-        {
-            // Insufficient balance at approval time - convert to unpaid
-            request.PayType = LeavePayType.Unpaid;
-            _unitOfWork.LeaveRequests.Update(request);
-            await _unitOfWork.SaveChangesAsync();
-            return false;
-        }
-
-        // Apply actual deduction
-        var carryForwardUsed = Math.Min(carryForwardRemaining, request.TotalDays);
-        var currentYearUsed = request.TotalDays - carryForwardUsed;
-
-        balance.CarryForward -= carryForwardUsed;
-        balance.UsedLeave += currentYearUsed;
-        UpdateRemainingLeave(balance);
-
-        request.IsLeaveDeducted = true;
-        request.DeductedFromCarryForward = carryForwardUsed;
-        request.DeductedFromCurrentYear = currentYearUsed;
-
-        _unitOfWork.LeaveBalances.Update(balance);
+        var deduction = await TryDeductLeaveAsync(request);
         _unitOfWork.LeaveRequests.Update(request);
         await _unitOfWork.SaveChangesAsync();
+
+        if (!deduction.Success)
+            return false;
 
         await _logService.LogAsync(
             GetCurrentUserId(),
             "Trừ phép cho đơn đã duyệt",
             "LeaveRequest",
             null,
-            new { request.RequestId, request.EmployeeId, CarryForwardUsed = carryForwardUsed, CurrentYearUsed = currentYearUsed },
+            new { request.RequestId, request.EmployeeId, CarryForwardUsed = deduction.CarryForwardUsed, CurrentYearUsed = deduction.CurrentYearUsed },
             GetClientIP()
         );
 
@@ -375,6 +420,122 @@ public class LeaveService : ILeaveService
             GetClientIP()
         );
     }
+
+    private async Task<LeaveRequest?> FindActiveLeaveRequestForEditAsync(int employeeId, RequestEditSnapshot originalState)
+    {
+        if (originalState.RequestType != RequestType.Leave)
+            return null;
+
+        var originalStartDate = originalState.StartTime.Date;
+        var originalEndDate = originalState.EndTime.Date;
+        var candidates = await _unitOfWork.LeaveRequests.FindAsync(lr =>
+            lr.EmployeeId == employeeId
+            && lr.StartDate.Date == originalStartDate
+            && lr.EndDate.Date == originalEndDate
+            && lr.TotalDays == originalState.TotalDays
+            && lr.Status != RequestStatus.Rejected
+            && lr.Status != RequestStatus.Cancelled);
+
+        return candidates
+            .OrderBy(lr => Math.Abs((lr.CreatedAt - originalState.CreatedDate).Ticks))
+            .FirstOrDefault();
+    }
+
+    private async Task AddLeaveRequestForEditedRequestAsync(Request request)
+    {
+        NormalizeLeaveWorkFlag(request);
+
+        var leaveRequest = new LeaveRequest
+        {
+            EmployeeId = request.EmployeeId,
+            StartDate = request.StartTime.Date,
+            EndDate = request.EndTime.Date,
+            TotalDays = request.TotalDays,
+            Reason = request.Reason,
+            PayType = request.CountsAsWork ? LeavePayType.Paid : LeavePayType.Unpaid,
+            Status = RequestStatus.Pending,
+            IsLeaveDeducted = false,
+            DeductedFromCurrentYear = 0m,
+            DeductedFromCarryForward = 0m
+        };
+
+        await _unitOfWork.LeaveRequests.AddAsync(leaveRequest);
+
+        if (ShouldDeductLeave(request) && leaveRequest.PayType == LeavePayType.Paid)
+        {
+            var deduction = await TryDeductLeaveAsync(leaveRequest);
+            if (!deduction.Success)
+            {
+                request.CountsAsWork = false;
+            }
+        }
+    }
+
+    private async Task RestoreDeductedLeaveIfNeededAsync(LeaveRequest request)
+    {
+        if (!request.IsLeaveDeducted)
+            return;
+
+        var today = Today();
+        var balance = await EnsureBalanceForYearAsync(request.EmployeeId, request.StartDate.Year, today);
+
+        balance.UsedLeave = Math.Max(balance.UsedLeave - request.DeductedFromCurrentYear, 0m);
+        if (request.StartDate.Year == today.Year && IsCarryForwardWindowOpen(today))
+        {
+            balance.CarryForward += request.DeductedFromCarryForward;
+        }
+
+        UpdateRemainingLeave(balance);
+        _unitOfWork.LeaveBalances.Update(balance);
+
+        request.DeductedFromCurrentYear = 0m;
+        request.DeductedFromCarryForward = 0m;
+        request.IsLeaveDeducted = false;
+    }
+
+    private async Task<LeaveDeductionResult> TryDeductLeaveAsync(LeaveRequest request)
+    {
+        if (request.IsLeaveDeducted || request.PayType != LeavePayType.Paid)
+            return new LeaveDeductionResult(false, 0m, 0m);
+
+        var balance = await EnsureBalanceForYearAsync(request.EmployeeId, request.StartDate.Year, request.StartDate);
+        var currentYearRemaining = Math.Max(balance.TotalLeave - balance.UsedLeave, 0m);
+        var carryForwardRemaining = IsCarryForwardWindowOpen(request.StartDate) ? balance.CarryForward : 0m;
+        var availableLeave = currentYearRemaining + carryForwardRemaining;
+
+        if (availableLeave < request.TotalDays)
+        {
+            request.PayType = LeavePayType.Unpaid;
+            return new LeaveDeductionResult(false, 0m, 0m);
+        }
+
+        var carryForwardUsed = Math.Min(carryForwardRemaining, request.TotalDays);
+        var currentYearUsed = request.TotalDays - carryForwardUsed;
+
+        balance.CarryForward -= carryForwardUsed;
+        balance.UsedLeave += currentYearUsed;
+        UpdateRemainingLeave(balance);
+
+        request.IsLeaveDeducted = true;
+        request.DeductedFromCarryForward = carryForwardUsed;
+        request.DeductedFromCurrentYear = currentYearUsed;
+
+        _unitOfWork.LeaveBalances.Update(balance);
+        return new LeaveDeductionResult(true, carryForwardUsed, currentYearUsed);
+    }
+
+    private static void NormalizeLeaveWorkFlag(Request request)
+    {
+        if (request.RequestType == RequestType.Leave && request.LeaveReason.HasValue && request.CountsAsWork)
+        {
+            request.CountsAsWork = LeaveReasonHelper.GetCountsAsWork(request.LeaveReason.Value);
+        }
+    }
+
+    private static bool ShouldDeductLeave(Request request)
+        => request.RequestType == RequestType.Leave
+            && request.CountsAsWork
+            && (!request.LeaveReason.HasValue || LeaveReasonHelper.GetDeductsLeave(request.LeaveReason.Value));
 
     private async Task<LeaveBalance> EnsureBalanceForYearAsync(int employeeId, int year, DateTime asOfDate)
     {
@@ -617,5 +778,6 @@ public class LeaveService : ILeaveService
     private static DateTime Today()
         => DateTimeHelper.VietnamToday;
 
+    private sealed record LeaveDeductionResult(bool Success, decimal CarryForwardUsed, decimal CurrentYearUsed);
     private sealed record LeaveGrantEvent(string Key, string Label, decimal Days, DateTime GrantDate);
 }

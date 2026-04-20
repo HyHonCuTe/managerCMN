@@ -552,6 +552,8 @@ public class RequestController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        var originalState = RequestEditSnapshot.From(request);
+
         // All employees now need to select Approver1 manually
         if (!HasValidationError(nameof(RequestCreateViewModel.Approver1Id))
             && (!model.Approver1Id.HasValue || model.Approver1Id == 0))
@@ -659,7 +661,7 @@ public class RequestController : Controller
         if (model.LeaveReason.HasValue)
             request.CountsAsWork = LeaveReasonHelper.GetCountsAsWork(model.LeaveReason.Value);
 
-        await _requestService.UpdateAsync(request);
+        await _requestService.UpdateAsync(request, originalState, employeeId);
         TempData["Success"] = "Đã cập nhật đơn thành công!";
         return RedirectToAction(nameof(Index));
     }

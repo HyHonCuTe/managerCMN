@@ -484,7 +484,7 @@
             document.getElementById('ticketForm').addEventListener('submit', function(e) {
                 if (selectedRecipients.size === 0) {
                     e.preventDefault();
-                    alert('Vui lòng chọn ít nhất một người nhận!');
+                    showNotification('Vui lòng chọn ít nhất một người nhận!', 'warning');
                     dropdown.classList.add('show');
                     searchInput.focus();
                 }

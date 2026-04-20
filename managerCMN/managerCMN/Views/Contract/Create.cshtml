@@ -8,36 +8,6 @@
     <div class="card-header"><i class="bi bi-plus-lg"></i> Thêm hợp đồng mới</div>
     <div class="card-body">
 
-        @* Error/Success Messages *@
-        @if (TempData["ImportSuccess"] != null)
-        {
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                <i class="bi bi-check-circle"></i> @TempData["ImportSuccess"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        }
-        @if (TempData["ImportError"] != null)
-        {
-            <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                <i class="bi bi-x-circle"></i> @TempData["ImportError"]
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        }
-        @if (TempData["ImportErrors"] != null)
-        {
-            var errors = TempData["ImportErrors"]?.ToString()?.Split('|') ?? Array.Empty<string>();
-            <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                <i class="bi bi-exclamation-triangle"></i> <strong>Một số lỗi xảy ra khi import:</strong>
-                <ul class="mb-0 mt-2">
-                    @foreach (var err in errors)
-                    {
-                        <li>@err</li>
-                    }
-                </ul>
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        }
-
         @* Tab navigation *@
         <ul class="nav nav-tabs mb-3" id="contractTabs" role="tablist">
             <li class="nav-item" role="presentation">
@@ -213,7 +183,7 @@
             window.setDuration = function(years) {
                 var startVal = startDateInput.value;
                 if (!startVal) {
-                    alert('Vui lòng chọn ngày bắt đầu trước.');
+                    showNotification('Vui lòng chọn ngày bắt đầu trước.', 'warning');
                     focusDateInput(startDateInput);
                     return;
                 }

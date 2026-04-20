@@ -36,21 +36,6 @@
     @Html.AntiForgeryToken()
 </div>
 
-@if (TempData["Success"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
-        <i class="bi bi-check-circle me-1"></i>@TempData["Success"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-@if (TempData["Error"] != null)
-{
-    <div class="alert alert-danger alert-dismissible fade show py-2" role="alert">
-        <i class="bi bi-exclamation-triangle me-1"></i>@TempData["Error"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-
 @if (Model.IsArchived)
 {
     <div class="alert alert-warning py-2 mb-3 d-flex align-items-center gap-2" role="alert">
@@ -106,6 +91,8 @@
     <p class="text-muted mb-3" style="font-size:0.9rem;">@Model.Description</p>
 }
 
+@if (Model.IsFullView)
+{
 <!-- KPI Row -->
 <div class="project-kpi-grid mb-3">
     <div class="kpi-card">
@@ -548,6 +535,12 @@
             </div>
         </div>
     </div>
+}
+
+}
+else
+{
+    @await Html.PartialAsync("_StaffView", Model)
 }
 
 <!-- Task Detail Side Panel -->

@@ -1,0 +1,77 @@
+@model managerCMN.Models.ViewModels.ProjectDetailsViewModel
+@using managerCMN.Models.Enums
+@using System.Globalization
+
+@{
+    var myTasks = FlattenAssignedTasks(Model.RootTasks, Model.CurrentEmployeeId).ToList();
+    int myTaskCount  = myTasks.Count;
+    int myDoneCount  = myTasks.Count(t => t.Status == ProjectTaskStatus.Done);
+    int myOverdueCount = myTasks.Count(t => t.IsOverdue);
+}
+
+<!-- Staff KPI -->
+<div class="project-kpi-grid mb-3" style="grid-template-columns:repeat(3,1fr);max-width:480px;">
+    <div class="kpi-card">
+        <div class="kpi-value text-primary">@myTaskCount</div>
+        <div class="kpi-label">Task của tôi</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value text-success">@myDoneCount</div>
+        <div class="kpi-label">Đã xong</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value @(myOverdueCount > 0 ? "text-danger" : "text-muted")">@myOverdueCount</div>
+        <div class="kpi-label">Quá hạn</div>
+    </div>
+</div>
+
+<div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+    <h6 class="mb-0 fw-semibold"><i class="bi bi-person-check me-1"></i>Công việc của tôi</h6>
+    <div class="filter-bar" style="margin-bottom:0;">
+        <span class="text-muted small">Lọc:</span>
+        <select id="filterStatus" class="form-select form-select-sm" style="width:auto;">
+            <option value="">Tất cả trạng thái</option>
+            @foreach (var s in Enum.GetValues<ProjectTaskStatus>())
+            {
+                <option value="@((int)s)">@TaskStatusLabel(s)</option>
+            }
+        </select>
+    </div>
+</div>
+
+@if (!Model.RootTasks.Any())
+{
+    <div class="empty-state">
+        <i class="bi bi-inbox"></i>
+        <p>Bạn chưa được giao công việc nào trong dự án này.</p>
+    </div>
+}
+else
+{
+    <div class="task-tree-container" id="taskTree">
+        @await Html.PartialAsync("_TaskTree", Model.RootTasks)
+    </div>
+}
+
+@functions {
+    IEnumerable<ProjectTaskTreeViewModel> FlattenAssignedTasks(
+        IEnumerable<ProjectTaskTreeViewModel> tasks, int employeeId)
+    {
+        foreach (var task in tasks)
+        {
+            if (task.AssigneeIds.Contains(employeeId))
+                yield return task;
+            foreach (var sub in FlattenAssignedTasks(task.SubTasks, employeeId))
+                yield return sub;
+        }
+    }
+
+    string TaskStatusLabel(ProjectTaskStatus s) => s switch {
+        ProjectTaskStatus.Todo       => "Chưa bắt đầu",
+        ProjectTaskStatus.InProgress => "Đang thực hiện",
+        ProjectTaskStatus.Review     => "Đang review",
+        ProjectTaskStatus.Done       => "Hoàn thành",
+        ProjectTaskStatus.Cancelled  => "Đã huỷ",
+        _ => s.ToString()
+    };
+}

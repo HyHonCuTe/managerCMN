@@ -616,7 +616,7 @@
                 const requestTitles = Array.from(selectedCheckboxes).map(cb => cb.dataset.requestTitle);
 
                 if (requestIds.length === 0) {
-                    alert('Vui lòng chọn ít nhất một đơn để duyệt.');
+                    showNotification('Vui lòng chọn ít nhất một đơn để duyệt.', 'warning');
                     return;
                 }
 
@@ -640,7 +640,7 @@
                 const requestTitles = Array.from(selectedCheckboxes).map(cb => cb.dataset.requestTitle);
 
                 if (requestIds.length === 0) {
-                    alert('Vui lòng chọn ít nhất một đơn để từ chối.');
+                    showNotification('Vui lòng chọn ít nhất một đơn để từ chối.', 'warning');
                     return;
                 }
 
@@ -667,7 +667,7 @@
                 const comment = document.getElementById('bulkRejectComment').value;
                 if (!comment || comment.trim() === '') {
                     e.preventDefault();
-                    alert('Vui lòng nhập lý do từ chối.');
+                    showNotification('Vui lòng nhập lý do từ chối.', 'warning');
                     document.getElementById('bulkRejectComment').focus();
                     return false;
                 }
@@ -713,13 +713,13 @@
 
                 if (!requestId || requestId === '0' || requestId === '') {
                     e.preventDefault();
-                    alert('Lỗi: Không tìm thấy mã đơn. Vui lòng thử lại.');
+                    showNotification('Lỗi: Không tìm thấy mã đơn. Vui lòng thử lại.', 'danger');
                     return false;
                 }
 
                 if (!comment || comment.trim() === '') {
                     e.preventDefault();
-                    alert('Vui lòng nhập lý do từ chối.');
+                    showNotification('Vui lòng nhập lý do từ chối.', 'warning');
                     document.getElementById('rejectComment').focus();
                     return false;
                 }
@@ -755,13 +755,13 @@
 
                 if (!requestId || requestId === '0' || requestId === '') {
                     e.preventDefault();
-                    alert('Lỗi: Không tìm thấy mã đơn. Vui lòng thử lại.');
+                    showNotification('Lỗi: Không tìm thấy mã đơn. Vui lòng thử lại.', 'danger');
                     return false;
                 }
 
                 if (!comment || comment.trim() === '') {
                     e.preventDefault();
-                    alert('Vui lòng nhập lý do hoàn duyệt.');
+                    showNotification('Vui lòng nhập lý do hoàn duyệt.', 'warning');
                     document.getElementById('revertComment').focus();
                     return false;
                 }
@@ -784,7 +784,7 @@
 
                 if (!requestId || requestId === '0' || requestId === '') {
                     e.preventDefault();
-                    alert('Lỗi: Không tìm thấy mã đơn. Vui lòng thử lại.');
+                    showNotification('Lỗi: Không tìm thấy mã đơn. Vui lòng thử lại.', 'danger');
                     return false;
                 }
 

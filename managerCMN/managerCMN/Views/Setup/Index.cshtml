@@ -11,15 +11,6 @@
                     <h4 class="mb-0"><i class="bi bi-gear-fill"></i> Thiết lập hệ thống</h4>
                 </div>
                 <div class="card-body">
-                    @if (TempData["Success"] != null)
-                    {
-                        <div class="alert alert-success">@TempData["Success"]</div>
-                    }
-                    @if (TempData["Error"] != null)
-                    {
-                        <div class="alert alert-danger">@TempData["Error"]</div>
-                    }
-
                     <div class="alert alert-info">
                         <strong>Trạng thái hệ thống:</strong><br>
                         @ViewBag.Message

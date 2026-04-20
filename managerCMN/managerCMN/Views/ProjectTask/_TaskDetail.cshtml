@@ -8,6 +8,8 @@
     var parentRangeStartLabel = Model.StartDate?.ToString("dd/MM/yyyy") ?? "—";
     var parentRangeEndLabel = Model.DueDate?.ToString("dd/MM/yyyy") ?? "—";
     var isDone = Model.Status == ProjectTaskStatus.Done;
+    var hasUnfinishedChildren = !isDone && Model.SubTasks.Any(s =>
+        s.Status != ProjectTaskStatus.Done && s.Status != ProjectTaskStatus.Cancelled);
     var orderedUpdates = Model.Updates
         .OrderByDescending(update => update.CreatedDate)
         .ToList();
@@ -73,10 +75,20 @@
                 <span class="fw-bold task-progress-value">@Model.Progress.ToString("0")%</span>
                 @if (!isDone && !Model.IsArchived && Model.CanCompleteTask)
                 {
-                    <button type="button" class="btn btn-sm btn-success task-complete-btn"
-                            onclick="quickMarkTaskDone(@Model.ProjectTaskId)">
-                        <i class="bi bi-check2-circle me-1"></i>Đánh dấu hoàn thành
-                    </button>
+                    if (hasUnfinishedChildren)
+                    {
+                        <button type="button" class="btn btn-sm btn-success task-complete-btn"
+                                disabled title="Cần hoàn thành tất cả task con trước">
+                            <i class="bi bi-check2-circle me-1"></i>Đánh dấu hoàn thành
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-sm btn-success task-complete-btn"
+                                onclick="quickMarkTaskDone(@Model.ProjectTaskId)">
+                            <i class="bi bi-check2-circle me-1"></i>Đánh dấu hoàn thành
+                        </button>
+                    }
                 }
             </div>
         </div>
@@ -131,7 +143,9 @@
                     disabled="@(Model.IsArchived || isDone)">
                 @foreach (var s in Enum.GetValues<ProjectTaskStatus>())
                 {
-                    var disableDoneOption = s == ProjectTaskStatus.Done && !Model.CanCompleteTask && Model.Status != ProjectTaskStatus.Done;
+                    var disableDoneOption = s == ProjectTaskStatus.Done
+                        && Model.Status != ProjectTaskStatus.Done
+                        && (!Model.CanCompleteTask || hasUnfinishedChildren);
                     if (Model.Status == s)
                     {
                         <option value="@((int)s)" selected>@TaskStatusLabel(s)</option>
@@ -145,6 +159,10 @@
             @if (isDone)
             {
                 <span class="task-lock-note">Đã hoàn thành, không thể hoàn tác.</span>
+            }
+            else if (hasUnfinishedChildren)
+            {
+                <span class="task-lock-note text-warning"><i class="bi bi-exclamation-triangle me-1"></i>Cần hoàn thành tất cả task con trước.</span>
             }
             else if (!Model.CanCompleteTask)
             {

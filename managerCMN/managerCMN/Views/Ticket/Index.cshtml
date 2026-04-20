@@ -86,7 +86,7 @@
                     }
                 } catch (error) {
                     console.error(error);
-                    window.alert('Khong the cap nhat dau sao luc nay.');
+                    showNotification('Không thể cập nhật đánh dấu lúc này.', 'danger');
                 } finally {
                     relatedButtons.forEach(button => button.disabled = false);
                 }

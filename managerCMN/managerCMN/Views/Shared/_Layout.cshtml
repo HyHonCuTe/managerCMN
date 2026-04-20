@@ -250,6 +250,51 @@
             .content-wrapper { margin-left: 0; }
             .birthday-countdown-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
+        /* ── Unified notification container ── */
+        #app-notification-container {
+            position: fixed;
+            top: 68px;
+            right: 1rem;
+            z-index: 1090;
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+            max-width: 360px;
+            width: calc(100vw - 2rem);
+            pointer-events: none;
+        }
+        .app-notif {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.55rem;
+            padding: 0.7rem 0.9rem;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            box-shadow: 0 4px 18px rgba(0,0,0,0.22);
+            pointer-events: all;
+            opacity: 0;
+            transform: translateX(16px);
+            transition: opacity 0.22s ease, transform 0.22s ease;
+        }
+        .app-notif.app-notif-visible { opacity: 1; transform: translateX(0); }
+        .app-notif.app-notif-hiding  { opacity: 0; transform: translateX(16px); }
+        .app-notif-icon  { flex-shrink: 0; margin-top: 2px; font-size: 0.95rem; }
+        .app-notif-text  { flex: 1; word-break: break-word; }
+        .app-notif-close {
+            background: none; border: none; padding: 0;
+            color: rgba(255,255,255,0.72); cursor: pointer;
+            flex-shrink: 0; line-height: 1; font-size: 0.72rem; margin-top: 2px;
+        }
+        .app-notif-close:hover { color: #fff; }
+        @@media (max-width: 767px) {
+            #app-notification-container {
+                top: auto; bottom: 1rem;
+                right: 0.5rem; left: 0.5rem;
+                max-width: 100%; width: auto;
+            }
+        }
     </style>
 </head>
 <body>
@@ -411,20 +456,6 @@
 
         <!-- Main Content -->
         <div class="main-content">
-            @if (TempData["Success"] != null)
-            {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="bi bi-check-circle"></i> @TempData["Success"]
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            }
-            @if (TempData["Error"] != null)
-            {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="bi bi-exclamation-circle"></i> @TempData["Error"]
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-            }
             @RenderBody()
         </div>
     </div>
@@ -509,6 +540,46 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/vn.js"></script>
+    <!-- Unified notification renderer (must load before inline scripts) -->
+    <script src="~/js/notifications.js"></script>
+    @{
+        var _tdSuccess        = TempData["Success"]?.ToString();
+        var _tdError          = TempData["Error"]?.ToString();
+        var _tdWarning        = TempData["Warning"]?.ToString();
+        var _tdInfo           = TempData["Info"]?.ToString();
+        var _tdSuccessMessage = TempData["SuccessMessage"]?.ToString();
+        var _tdImportSuccess  = TempData["ImportSuccess"]?.ToString();
+        var _tdImportError    = TempData["ImportError"]?.ToString();
+        var _tdImportErrors   = TempData["ImportErrors"]?.ToString();
+        var _tdLoginError     = TempData["LoginError"]?.ToString();
+        var _tdImportErrList  = _tdImportErrors?.Split('|').Where(e => !string.IsNullOrWhiteSpace(e)).ToArray() ?? Array.Empty<string>();
+        bool _hasAnyTd = _tdSuccess != null || _tdError != null || _tdWarning != null || _tdInfo != null
+                      || _tdSuccessMessage != null || _tdImportSuccess != null || _tdImportError != null
+                      || _tdImportErrList.Length > 0 || _tdLoginError != null;
+    }
+    @if (_hasAnyTd)
+    {
+        <script>
+            (function () {
+                @if (_tdSuccess        != null) { <text>showNotification(@Html.Raw(JsonSerializer.Serialize(_tdSuccess)),        'success');</text> }
+                @if (_tdSuccessMessage != null) { <text>showNotification(@Html.Raw(JsonSerializer.Serialize(_tdSuccessMessage)), 'success');</text> }
+                @if (_tdImportSuccess  != null) { <text>showNotification(@Html.Raw(JsonSerializer.Serialize(_tdImportSuccess)),  'success');</text> }
+                @if (_tdInfo           != null) { <text>showNotification(@Html.Raw(JsonSerializer.Serialize(_tdInfo)),           'info');</text> }
+                @if (_tdWarning        != null) { <text>showNotification(@Html.Raw(JsonSerializer.Serialize(_tdWarning)),        'warning');</text> }
+                @if (_tdError          != null) { <text>showNotification(@Html.Raw(JsonSerializer.Serialize(_tdError)),          'danger');</text> }
+                @if (_tdImportError    != null) { <text>showNotification(@Html.Raw(JsonSerializer.Serialize(_tdImportError)),    'danger');</text> }
+                @if (_tdLoginError     != null) { <text>showNotification(@Html.Raw(JsonSerializer.Serialize(_tdLoginError)),     'danger');</text> }
+                @foreach (var _err in _tdImportErrList.Take(5))
+                {
+                    <text>showNotification(@Html.Raw(JsonSerializer.Serialize(_err)), 'danger');</text>
+                }
+                @if (_tdImportErrList.Length > 5)
+                {
+                    <text>showNotification(@Html.Raw(JsonSerializer.Serialize($"...và {_tdImportErrList.Length - 5} lỗi khác")), 'warning');</text>
+                }
+            })();
+        </script>
+    }
     <script>
         $(document).ready(function () {
             const birthdayTodayWish = @Html.Raw(JsonSerializer.Serialize(birthdayCelebration?.TodaySpecialWish ?? string.Empty));

@@ -33,19 +33,35 @@ public class ProjectController : Controller
     public async Task<IActionResult> Details(int id)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        bool isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
-            var details = await _projectService.GetDetailsAsync(id, employeeId);
+            var details = await _projectService.GetDetailsAsync(id, employeeId, ignoreAccessCheck: isSysAdmin);
             if (details == null) return NotFound();
 
-            var taskTree = await _taskService.GetTaskTreeAsync(id, employeeId);
-            details.RootTasks = taskTree.ToList();
-            PopulateTimeline(details);
+            bool isFullView = isSysAdmin
+                || details.MyRole == ProjectMemberRole.ProjectOwner
+                || details.MyRole == ProjectMemberRole.ProjectManager;
 
-            ViewBag.AllMembers = await GetMemberSelectListAsync(id, employeeId);
-            ViewBag.AllEmployees = await GetNonMemberSelectListAsync(id);
+            details.IsFullView = isFullView;
+            details.CurrentEmployeeId = employeeId;
+
+            var taskTree = await _taskService.GetTaskTreeAsync(id, employeeId, ignoreAccessCheck: isSysAdmin);
+
+            if (isFullView)
+            {
+                details.RootTasks = taskTree.ToList();
+                PopulateTimeline(details);
+                ViewBag.AllMembers = await GetMemberSelectListAsync(id, employeeId);
+                ViewBag.AllEmployees = await GetNonMemberSelectListAsync(id);
+            }
+            else
+            {
+                details.RootTasks = FilterTasksForEmployee(taskTree, employeeId);
+            }
+
             return View(details);
         }
         catch (UnauthorizedAccessException)
@@ -281,4 +297,44 @@ public class ProjectController : Controller
             .ThenBy(task => task.DueDate ?? DateTime.MaxValue)
             .ThenByDescending(task => task.Priority)
             .ThenBy(task => task.Title);
+
+    private static List<ProjectTaskTreeViewModel> FilterTasksForEmployee(
+        IEnumerable<ProjectTaskTreeViewModel> tasks, int employeeId)
+    {
+        var result = FilterTasksRaw(tasks, employeeId);
+        NormalizeTaskDepths(result, 0);
+        return result;
+    }
+
+    private static List<ProjectTaskTreeViewModel> FilterTasksRaw(
+        IEnumerable<ProjectTaskTreeViewModel> tasks, int employeeId)
+    {
+        var result = new List<ProjectTaskTreeViewModel>();
+        foreach (var task in tasks)
+        {
+            if (task.AssigneeIds.Contains(employeeId))
+            {
+                // Assigned to user — include this task, but filter its children too
+                // (only show sub-tasks the user is also assigned to)
+                task.SubTasks = FilterTasksRaw(task.SubTasks, employeeId);
+                result.Add(task);
+            }
+            else
+            {
+                // Not assigned — promote any assigned descendants to this level
+                var promoted = FilterTasksRaw(task.SubTasks, employeeId);
+                result.AddRange(promoted);
+            }
+        }
+        return result;
+    }
+
+    private static void NormalizeTaskDepths(IEnumerable<ProjectTaskTreeViewModel> tasks, int depth)
+    {
+        foreach (var task in tasks)
+        {
+            task.Depth = depth;
+            NormalizeTaskDepths(task.SubTasks, depth + 1);
+        }
+    }
 }

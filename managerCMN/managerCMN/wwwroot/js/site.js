@@ -209,7 +209,7 @@
 
             if (hasErrors) {
                 e.preventDefault();
-                alert('Vui lòng khắc phục các lỗi file upload trước khi gửi form.');
+                showNotification('Vui lòng khắc phục các lỗi file upload trước khi gửi form.', 'warning');
                 return false;
             }
         });

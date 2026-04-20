@@ -33,9 +33,10 @@ public class ProjectTaskService : IProjectTaskService
         _env = env;
     }
 
-    public async Task<IEnumerable<ProjectTaskTreeViewModel>> GetTaskTreeAsync(int projectId, int employeeId)
+    public async Task<IEnumerable<ProjectTaskTreeViewModel>> GetTaskTreeAsync(int projectId, int employeeId, bool ignoreAccessCheck = false)
     {
-        await _accessService.EnsureIsMemberAsync(projectId, employeeId);
+        if (!ignoreAccessCheck)
+            await _accessService.EnsureIsMemberAsync(projectId, employeeId);
         var tasks = await _context.ProjectTasks
             .AsNoTracking()
             .Where(t => t.ProjectId == projectId)
@@ -114,7 +115,10 @@ public class ProjectTaskService : IProjectTaskService
             throw new InvalidOperationException("Task đã hoàn thành nên không thể hoàn tác trạng thái.");
 
         if (!wasDone && vm.Status == ProjectTaskStatus.Done)
+        {
             await EnsureCanCompleteTaskAsync(task, employeeId);
+            await EnsureAllChildrenDoneAsync(task.ProjectTaskId);
+        }
 
         task.Title = vm.Title;
         task.Description = vm.Description;
@@ -203,7 +207,10 @@ public class ProjectTaskService : IProjectTaskService
         }
 
         if (vm.Status == ProjectTaskStatus.Done)
+        {
             await EnsureCanCompleteTaskAsync(task, employeeId);
+            await EnsureAllChildrenDoneAsync(task.ProjectTaskId);
+        }
 
         task.Status = vm.Status;
         task.ModifiedDate = DateTime.Now;
@@ -253,6 +260,7 @@ public class ProjectTaskService : IProjectTaskService
         if (vm.Progress >= 100)
         {
             await EnsureCanCompleteTaskAsync(task, employeeId);
+            await EnsureAllChildrenDoneAsync(task.ProjectTaskId);
             task.Progress = 100;
             task.Status = ProjectTaskStatus.Done;
             task.CompletedDate = DateTime.Now;
@@ -450,6 +458,17 @@ public class ProjectTaskService : IProjectTaskService
 
         await _accessService.EnsureIsMemberAsync(attachment.ProjectTaskUpdate.ProjectTask.ProjectId, employeeId);
         return attachment;
+    }
+
+    private async Task EnsureAllChildrenDoneAsync(int taskId)
+    {
+        var hasActiveChildren = await _context.ProjectTasks
+            .AnyAsync(t => t.ParentTaskId == taskId
+                && t.Status != ProjectTaskStatus.Done
+                && t.Status != ProjectTaskStatus.Cancelled);
+
+        if (hasActiveChildren)
+            throw new InvalidOperationException("Cần hoàn thành hoặc huỷ tất cả task con trước khi đánh dấu task cha là hoàn thành.");
     }
 
     private async Task EnsureCanCompleteTaskAsync(ProjectTask task, int employeeId)

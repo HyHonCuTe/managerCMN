@@ -2,7 +2,24 @@
   "permissions": {
     "allow": [
       "Bash(dotnet build *)",
-      "Bash(dotnet ef *)"
+      "Bash(dotnet ef *)",
+      "Bash(grep -E \"\\\\.cshtml$\")",
+      "Bash(grep -v \"^$\")",
+      "Bash(xargs grep *)",
+      "Bash(awk -F: '{print $1\":\"$2}')",
+      "Bash(cat)",
+      "Read(//tmp/**)",
+      "Bash(taskkill /PID 9836 /F)",
+      "Bash(cmd /c \"taskkill /PID 9836 /F\")",
+      "Bash(cmd /c \"wmic process where \\\\\"name='managerCMN.exe'\\\\\" get ProcessId,CommandLine 2>&1\")",
+      "Bash(cmd /c \"for /f \\\\\"tokens=1\\\\\" %p in \\('wmic process where \\\\\"name='managerCMN.exe'\\\\\" get ProcessId ^| findstr /r \\\\\"[0-9]\\\\\"'\\) do taskkill /F /PID %p\")",
+      "Bash(cmd /c \"handle64 \\\\\"e:\\\\\\\\Study\\\\\\\\C#\\\\\\\\managerCMN\\\\\\\\managerCMN\\\\\\\\managerCMN\\\\\\\\bin\\\\\\\\Debug\\\\\\\\net9.0\\\\\\\\managerCMN.exe\\\\\" 2>&1 | head -10\")",
+      "Bash(cmd /c \"tasklist | findstr managerCMN\")",
+      "Bash(cmd /c taskkill /F /PID 9836)",
+      "Bash(cmd /c \"tasklist /FI \\\\\"PID eq 9836\\\\\" 2>&1\")",
+      "Bash(cmd /c \"wmic process where ProcessId=9836 get Name,CommandLine /format:csv 2>&1\")",
+      "Bash(cmd /c \"powershell -Command \\\\\"Get-Process -Id 9836 -ErrorAction SilentlyContinue | Select-Object Name, Id, Path\\\\\" 2>&1\")",
+      "Bash(cmd /c \"powershell -NoProfile -Command \\\\\"Stop-Process -Name 'managerCMN' -Force -ErrorAction SilentlyContinue; Stop-Process -Id 9836 -Force -ErrorAction SilentlyContinue; Write-Output 'done'\\\\\"\")"
     ]
   }
 }

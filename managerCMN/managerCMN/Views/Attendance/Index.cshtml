@@ -702,7 +702,7 @@
                     openPunchRecordsModal(employeeId, date);
                 } else {
                     console.error('Missing employeeId or date:', { employeeId, date });
-                    alert('Lỗi: Không lấy được thông tin nhân viên hoặc ngày. EmployeeId=' + employeeId + ', Date=' + date);
+                    showNotification('Lỗi: Không lấy được thông tin nhân viên hoặc ngày.', 'danger');
                 }
             });
         });

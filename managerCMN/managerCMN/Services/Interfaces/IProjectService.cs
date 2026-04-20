@@ -7,7 +7,7 @@ namespace managerCMN.Services.Interfaces;
 public interface IProjectService
 {
     Task<IEnumerable<ProjectListViewModel>> GetMyProjectsAsync(int employeeId);
-    Task<ProjectDetailsViewModel?> GetDetailsAsync(int projectId, int employeeId);
+    Task<ProjectDetailsViewModel?> GetDetailsAsync(int projectId, int employeeId, bool ignoreAccessCheck = false);
     Task<Project?> GetByIdAsync(int projectId);
     Task<int> CreateAsync(ProjectCreateViewModel vm, int creatorEmployeeId);
     Task UpdateAsync(ProjectEditViewModel vm, int employeeId);

@@ -3,39 +3,7 @@
     ViewData["Title"] = "Cập nhật thông tin cá nhân";
 }
 
-@if (TempData["Success"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show">
-        <i class="bi bi-check-circle me-1"></i>
-        @TempData["Success"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-
-@if (TempData["Error"] != null)
-{
-    <div class="alert alert-danger alert-dismissible fade show">
-        <i class="bi bi-exclamation-triangle me-1"></i>
-        @TempData["Error"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-
-@* Show validation errors *@
-@if (!ViewData.ModelState.IsValid)
-{
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <h6 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Có lỗi trong thông tin nhập vào</h6>
-        <hr>
-        <ul class="mb-0">
-            @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-            {
-                <li>@error.ErrorMessage</li>
-            }
-        </ul>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
+<div asp-validation-summary="ModelOnly" class="text-danger small mb-2"></div>
 
 <div class="mb-3">
     <h4><i class="bi bi-pencil-square"></i> Cập nhật thông tin cá nhân</h4>
@@ -390,7 +358,7 @@
                     const fullName = document.querySelector('input[name="FullName"]');
                     if (fullName && fullName.value.trim().length < 2) {
                         e.preventDefault();
-                        alert('Họ tên phải có ít nhất 2 ký tự');
+                        showNotification('Họ tên phải có ít nhất 2 ký tự', 'warning');
                         fullName.focus();
                         return false;
                     }

@@ -584,39 +584,11 @@ function getTaskPanelContent() {
 }
 
 function showPanelNotice(message, type = 'info') {
-    const area = document.getElementById('taskPanelNotice');
-    if (!area) {
-        showToast(message, type);
-        return;
-    }
-
-    window.clearTimeout(taskPanelNoticeTimer);
-    area.innerHTML = '';
-    area.classList.add('has-message');
-
-    const notice = document.createElement('div');
-    notice.className = `task-panel-notice ${type}`;
-
-    const text = document.createElement('span');
-    text.textContent = message;
-
-    const close = document.createElement('button');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Đóng thông báo');
-    close.innerHTML = '<i class="bi bi-x-lg"></i>';
-    close.addEventListener('click', () => clearPanelNotice());
-
-    notice.append(text, close);
-    area.appendChild(notice);
-
-    taskPanelNoticeTimer = window.setTimeout(clearPanelNotice, type === 'danger' ? 8000 : 5000);
+    showNotification(message, type);
 }
 
 function clearPanelNotice() {
-    const area = document.getElementById('taskPanelNotice');
-    if (!area) return;
-    area.innerHTML = '';
-    area.classList.remove('has-message');
+    // no-op — notifications are now handled by the unified top-right renderer
 }
 
 function applyTaskState(task) {
@@ -1104,24 +1076,5 @@ function clearOpenTaskQueryParam() {
 }
 
 function showToast(message, type = 'info') {
-    const container = document.getElementById('toastContainer') || createToastContainer();
-    const id = 'toast_' + Date.now();
-    const html = `
-    <div id="${id}" class="toast align-items-center text-bg-${type} border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
-        <div class="d-flex">
-            <div class="toast-body">${message}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
-        </div>
-    </div>`;
-    container.insertAdjacentHTML('beforeend', html);
-    setTimeout(() => { document.getElementById(id)?.remove(); }, 4000);
-}
-
-function createToastContainer() {
-    const div = document.createElement('div');
-    div.id = 'toastContainer';
-    div.className = 'toast-container position-fixed bottom-0 end-0 p-3';
-    div.style.zIndex = '9999';
-    document.body.appendChild(div);
-    return div;
+    showNotification(message, type);
 }

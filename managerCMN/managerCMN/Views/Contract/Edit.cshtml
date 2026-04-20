@@ -197,7 +197,7 @@ else if (isNearExpiry)
 
     function renewCustom() {
         var val = document.getElementById('customEndDate').value;
-        if (!val) { alert('Vui lòng chọn ngày kết thúc mới.'); return; }
+        if (!val) { showNotification('Vui lòng chọn ngày kết thúc mới.', 'warning'); return; }
         applyRenewal(val);
     }
 </script>

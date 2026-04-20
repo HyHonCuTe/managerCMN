@@ -377,7 +377,7 @@
 
             if (!comment || comment.trim() === '') {
                 e.preventDefault();
-                alert('Vui lòng nhập lý do hoàn duyệt.');
+                showNotification('Vui lòng nhập lý do hoàn duyệt.', 'warning');
                 document.getElementById('revertReasonText').focus();
                 return false;
             }

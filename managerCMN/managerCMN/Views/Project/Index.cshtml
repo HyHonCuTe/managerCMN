@@ -18,21 +18,6 @@
     </a>
 </div>
 
-@if (TempData["Success"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
-        <i class="bi bi-check-circle me-1"></i>@TempData["Success"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-@if (TempData["Error"] != null)
-{
-    <div class="alert alert-danger alert-dismissible fade show py-2" role="alert">
-        <i class="bi bi-exclamation-triangle me-1"></i>@TempData["Error"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-
 @{
     // Filter — dùng int value để tránh vấn đề culture/locale với tên enum
     var statusFilter = Context.Request.Query["status"].ToString();

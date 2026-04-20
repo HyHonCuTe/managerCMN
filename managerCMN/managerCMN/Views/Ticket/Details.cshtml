@@ -818,7 +818,7 @@
             document.getElementById('forwardForm')?.addEventListener('submit', function(e) {
                 if (forwardSelected.size === 0) {
                     e.preventDefault();
-                    alert('Vui lòng chọn ít nhất một người nhận!');
+                    showNotification('Vui lòng chọn ít nhất một người nhận!', 'warning');
                     forwardDropdown.classList.add('show');
                     forwardSearch.focus();
                 }

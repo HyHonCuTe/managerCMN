@@ -31,28 +31,6 @@
     <a asp-action="Create" class="btn btn-primary"><i class="bi bi-person-plus"></i> Thêm nhân viên</a>
 </div>
 
-@if (TempData["ImportSuccess"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show">
-        @TempData["ImportSuccess"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-@if (TempData["ImportErrors"] != null)
-{
-    var importErrors = (TempData["ImportErrors"] as string ?? "").Split('|');
-    <div class="alert alert-warning alert-dismissible fade show">
-        <strong>Một số dòng bị lỗi:</strong>
-        <ul class="mb-0 mt-1">
-            @foreach (var err in importErrors)
-            {
-                <li>@err</li>
-            }
-        </ul>
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-
 <!-- Filter bar -->
 <div class="card mb-3">
     <div class="card-body py-2">

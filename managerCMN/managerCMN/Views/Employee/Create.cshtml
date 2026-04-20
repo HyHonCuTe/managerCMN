@@ -3,24 +3,6 @@
     ViewData["Title"] = "Thêm Nhân viên";
 }
 
-@if (TempData["SuccessMessage"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show">
-        <i class="bi bi-check-circle me-1"></i>
-        @TempData["SuccessMessage"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-
-@if (TempData["ImportError"] != null)
-{
-    <div class="alert alert-danger alert-dismissible fade show">
-        <i class="bi bi-exclamation-triangle me-1"></i>
-        @TempData["ImportError"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-
 <ul class="nav nav-tabs mb-3" id="createTabs" role="tablist">
     <li class="nav-item">
         <button class="nav-link active" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button">
@@ -43,20 +25,6 @@
             <div class="card-body">
                 <form asp-action="Create" method="post" id="createForm" novalidate>
                     @Html.AntiForgeryToken()
-
-                    @if (!ViewData.ModelState.IsValid)
-                    {
-                        <div class="alert alert-danger alert-dismissible fade show">
-                            <h6 class="alert-heading"><i class="bi bi-exclamation-triangle me-1"></i> Vui lòng kiểm tra lại thông tin</h6>
-                            <ul class="mb-0">
-                                @foreach (var error in ViewData.ModelState.Values.SelectMany(v => v.Errors))
-                                {
-                                    <li>@error.ErrorMessage</li>
-                                }
-                            </ul>
-                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                        </div>
-                    }
 
                     <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
 

@@ -66,9 +66,10 @@ public class ProjectService : IProjectService
         return result;
     }
 
-    public async Task<ProjectDetailsViewModel?> GetDetailsAsync(int projectId, int employeeId)
+    public async Task<ProjectDetailsViewModel?> GetDetailsAsync(int projectId, int employeeId, bool ignoreAccessCheck = false)
     {
-        await _accessService.EnsureIsMemberAsync(projectId, employeeId);
+        if (!ignoreAccessCheck)
+            await _accessService.EnsureIsMemberAsync(projectId, employeeId);
 
         var project = await _unitOfWork.Projects.GetWithDetailsAsync(projectId);
         if (project == null) return null;

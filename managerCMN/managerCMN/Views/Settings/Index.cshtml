@@ -26,21 +26,6 @@
     <small class="text-muted">Quản lý phòng ban, chức vụ và các danh mục hệ thống</small>
 </div>
 
-@if (TempData["Success"] != null)
-{
-    <div class="alert alert-success alert-dismissible fade show">
-        <i class="bi bi-check-circle"></i> @TempData["Success"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-@if (TempData["Error"] != null)
-{
-    <div class="alert alert-danger alert-dismissible fade show">
-        <i class="bi bi-exclamation-circle"></i> @TempData["Error"]
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-}
-
 <ul class="nav nav-tabs mb-3" role="tablist">
     <li class="nav-item">
         <a class="nav-link @(activeTab == "departments" ? "active" : "")" href="?tab=departments">
@@ -1382,7 +1367,7 @@ $(document).ready(function() {
     $('#savePermissions').click(function() {
         const roleId = $('#roleSelector').val();
         if (!roleId) {
-            alert('Vui lòng chọn vai trò');
+            showNotification('Vui lòng chọn vai trò', 'warning');
             return;
         }
 
@@ -1400,13 +1385,13 @@ $(document).ready(function() {
             },
             success: function(response) {
                 if (response.success) {
-                    alert(response.message);
+                    showNotification(response.message, 'success');
                 } else {
-                    alert(response.message || 'Có lỗi xảy ra!');
+                    showNotification(response.message || 'Có lỗi xảy ra!', 'danger');
                 }
             },
             error: function() {
-                alert('Có lỗi xảy ra khi lưu phân quyền!');
+                showNotification('Có lỗi xảy ra khi lưu phân quyền!', 'danger');
             }
         });
     });

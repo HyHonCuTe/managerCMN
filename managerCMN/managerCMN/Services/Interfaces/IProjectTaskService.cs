@@ -5,7 +5,7 @@ namespace managerCMN.Services.Interfaces;
 
 public interface IProjectTaskService
 {
-    Task<IEnumerable<ProjectTaskTreeViewModel>> GetTaskTreeAsync(int projectId, int employeeId);
+    Task<IEnumerable<ProjectTaskTreeViewModel>> GetTaskTreeAsync(int projectId, int employeeId, bool ignoreAccessCheck = false);
     Task<ProjectTaskTreeViewModel?> GetTaskDetailsAsync(int taskId, int employeeId);
     Task<int> CreateTaskAsync(ProjectTaskCreateViewModel vm, int creatorEmployeeId);
     Task UpdateTaskAsync(ProjectTaskEditViewModel vm, int employeeId);

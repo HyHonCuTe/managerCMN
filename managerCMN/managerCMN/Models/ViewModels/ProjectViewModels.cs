@@ -70,6 +70,9 @@ public class ProjectDetailsViewModel
     public int DoneTasks { get; set; }
     public int OverdueTasks { get; set; }
     public bool IsArchived { get; set; }
+
+    public bool IsFullView { get; set; }
+    public int CurrentEmployeeId { get; set; }
 }
 
 public class ProjectTimelineRowViewModel

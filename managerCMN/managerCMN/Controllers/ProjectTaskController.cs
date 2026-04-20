@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using managerCMN.Helpers;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
@@ -69,6 +70,9 @@ public class ProjectTaskController : Controller
 
         if (!ModelState.IsValid)
         {
+            if (IsAjaxRequest())
+                return Json(new { success = false, message = "Dữ liệu không hợp lệ." });
+
             TempData["Error"] = "Dữ liệu không hợp lệ.";
             return RedirectToAction("Details", "Project", new { id = vm.ProjectId });
         }
@@ -76,11 +80,34 @@ public class ProjectTaskController : Controller
         try
         {
             var taskId = await _taskService.CreateTaskAsync(vm, employeeId);
+            if (IsAjaxRequest())
+            {
+                var task = await _taskService.GetTaskDetailsAsync(taskId, employeeId);
+                return Json(new
+                {
+                    success = true,
+                    message = "Tạo subtask thành công.",
+                    task = task == null ? null : new
+                    {
+                        task.ProjectTaskId,
+                        task.Title,
+                        status = (int)task.Status,
+                        statusLabel = TaskStatusLabel(task.Status),
+                        statusCss = TaskStatusCss(task.Status),
+                        progress = task.Progress,
+                        dueDate = task.DueDate?.ToString("dd/MM")
+                    }
+                });
+            }
+
             TempData["Success"] = "Tạo công việc thành công.";
             return RedirectToAction("Details", "Project", new { id = vm.ProjectId, openTaskId = taskId });
         }
         catch (Exception ex)
         {
+            if (IsAjaxRequest())
+                return Json(new { success = false, message = ex.Message });
+
             TempData["Error"] = ex.Message;
         }
         return RedirectToAction("Details", "Project", new { id = vm.ProjectId });
@@ -204,7 +231,14 @@ public class ProjectTaskController : Controller
         try
         {
             await _taskService.UpdateStatusAsync(vm, employeeId);
-            return Json(new { success = true });
+            var task = await _taskService.GetTaskDetailsAsync(vm.ProjectTaskId, employeeId);
+            return Json(new
+            {
+                success = true,
+                message = "Đã cập nhật trạng thái.",
+                task = ToTaskPanelState(task),
+                update = ToTaskUpdateDto(task?.Updates.OrderByDescending(u => u.CreatedDate).FirstOrDefault())
+            });
         }
         catch (Exception ex)
         {
@@ -221,7 +255,14 @@ public class ProjectTaskController : Controller
         try
         {
             await _taskService.UpdateProgressAsync(vm, employeeId);
-            return Json(new { success = true });
+            var task = await _taskService.GetTaskDetailsAsync(vm.ProjectTaskId, employeeId);
+            return Json(new
+            {
+                success = true,
+                message = "Đã cập nhật tiến độ.",
+                task = ToTaskPanelState(task),
+                update = ToTaskUpdateDto(task?.Updates.OrderByDescending(u => u.CreatedDate).FirstOrDefault())
+            });
         }
         catch (Exception ex)
         {
@@ -238,10 +279,31 @@ public class ProjectTaskController : Controller
         try
         {
             await _taskService.AssignMembersAsync(taskId, employeeIds, employeeId);
+            if (IsAjaxRequest())
+            {
+                var task = await _taskService.GetTaskDetailsAsync(taskId, employeeId);
+                var project = task == null ? null : await _projectService.GetDetailsAsync(task.ProjectId, employeeId);
+                return Json(new
+                {
+                    success = true,
+                    message = "Đã lưu phân công.",
+                    assignees = task?.AssigneeNames ?? new List<string>(),
+                    updateCount = task?.Updates.Count ?? 0,
+                    update = ToTaskUpdateDto(task?.Updates.OrderByDescending(u => u.CreatedDate).FirstOrDefault()),
+                    canCompleteTask = task != null
+                        && project != null
+                        && !project.IsArchived
+                        && (project.MyRole == ProjectMemberRole.ProjectOwner || task.AssigneeIds.Contains(employeeId))
+                });
+            }
+
             TempData["Success"] = "Cập nhật phân công thành công.";
         }
         catch (Exception ex)
         {
+            if (IsAjaxRequest())
+                return Json(new { success = false, message = ex.Message });
+
             TempData["Error"] = ex.Message;
         }
         return RedirectToAction("Details", "Project", new { id = projectId, openTaskId = taskId });
@@ -256,10 +318,25 @@ public class ProjectTaskController : Controller
         try
         {
             await _taskService.AddTaskUpdateAsync(vm, employeeId);
+            if (IsAjaxRequest())
+            {
+                var task = await _taskService.GetTaskDetailsAsync(vm.ProjectTaskId, employeeId);
+                return Json(new
+                {
+                    success = true,
+                    message = "Đã gửi cập nhật công việc.",
+                    updateCount = task?.Updates.Count ?? 0,
+                    update = ToTaskUpdateDto(task?.Updates.OrderByDescending(u => u.CreatedDate).FirstOrDefault())
+                });
+            }
+
             TempData["Success"] = "Đã gửi cập nhật công việc.";
         }
         catch (Exception ex)
         {
+            if (IsAjaxRequest())
+                return Json(new { success = false, message = ex.Message });
+
             TempData["Error"] = ex.Message;
         }
 
@@ -274,8 +351,15 @@ public class ProjectTaskController : Controller
 
         try
         {
-            await _taskService.AddChecklistItemAsync(vm, employeeId);
-            return Json(new { success = true });
+            var item = await _taskService.AddChecklistItemAsync(vm, employeeId);
+            var task = await _taskService.GetTaskDetailsAsync(vm.ProjectTaskId, employeeId);
+            return Json(new
+            {
+                success = true,
+                message = "Đã thêm checklist.",
+                item,
+                task = ToTaskPanelState(task)
+            });
         }
         catch (Exception ex)
         {
@@ -291,8 +375,14 @@ public class ProjectTaskController : Controller
 
         try
         {
-            await _taskService.ToggleChecklistItemAsync(id, employeeId);
-            return Json(new { success = true });
+            var taskId = await _taskService.ToggleChecklistItemAsync(id, employeeId);
+            var task = await _taskService.GetTaskDetailsAsync(taskId, employeeId);
+            return Json(new
+            {
+                success = true,
+                message = "Đã cập nhật checklist.",
+                task = ToTaskPanelState(task)
+            });
         }
         catch (Exception ex)
         {
@@ -308,8 +398,14 @@ public class ProjectTaskController : Controller
 
         try
         {
-            await _taskService.DeleteChecklistItemAsync(id, employeeId);
-            return Json(new { success = true });
+            var updatedTaskId = await _taskService.DeleteChecklistItemAsync(id, employeeId);
+            var task = await _taskService.GetTaskDetailsAsync(updatedTaskId, employeeId);
+            return Json(new
+            {
+                success = true,
+                message = "Đã xoá checklist.",
+                task = ToTaskPanelState(task)
+            });
         }
         catch (Exception ex)
         {
@@ -357,6 +453,52 @@ public class ProjectTaskController : Controller
         return int.TryParse(claim, out var id) ? id : 0;
     }
 
+    private bool IsAjaxRequest()
+        => string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
+
+    private object? ToTaskPanelState(ProjectTaskTreeViewModel? task)
+    {
+        if (task == null)
+            return null;
+
+        return new
+        {
+            status = (int)task.Status,
+            statusLabel = TaskStatusLabel(task.Status),
+            statusCss = TaskStatusCss(task.Status),
+            progress = task.Progress,
+            progressText = $"{task.Progress:0}%",
+            progressCss = ProgressColor(task.Progress),
+            checklistDone = task.ChecklistDone,
+            checklistTotal = task.ChecklistTotal,
+            isDone = task.Status == ProjectTaskStatus.Done
+        };
+    }
+
+    private object? ToTaskUpdateDto(ProjectTaskUpdateViewModel? update)
+    {
+        if (update == null)
+            return null;
+
+        return new
+        {
+            update.ProjectTaskUpdateId,
+            senderName = string.IsNullOrWhiteSpace(update.SenderName) ? "Hệ thống" : update.SenderName,
+            avatar = string.IsNullOrWhiteSpace(update.SenderName) ? "?" : update.SenderName[0].ToString().ToUpper(),
+            content = update.Content,
+            createdDate = update.CreatedDate.ToString("dd/MM/yyyy HH:mm"),
+            statusLabel = update.StatusSnapshot.HasValue ? TaskStatusLabel(update.StatusSnapshot.Value) : null,
+            statusCss = update.StatusSnapshot.HasValue ? TaskStatusCss(update.StatusSnapshot.Value) : null,
+            progressText = update.ProgressSnapshot.HasValue ? $"{update.ProgressSnapshot.Value:0}%" : null,
+            attachments = update.Attachments.Select(a => new
+            {
+                a.FileName,
+                size = FileUploadHelper.FormatFileSize(a.FileSize),
+                url = Url.Action(nameof(DownloadAttachment), new { attachmentId = a.ProjectTaskAttachmentId })
+            }).ToList()
+        };
+    }
+
     private static string RoleLabel(ProjectMemberRole role) => role switch
     {
         ProjectMemberRole.ProjectOwner => "Owner",
@@ -365,4 +507,28 @@ public class ProjectTaskController : Controller
         ProjectMemberRole.ProjectViewer => "Viewer",
         _ => role.ToString()
     };
+
+    private static string TaskStatusLabel(ProjectTaskStatus status) => status switch
+    {
+        ProjectTaskStatus.Todo => "Chưa bắt đầu",
+        ProjectTaskStatus.InProgress => "Đang làm",
+        ProjectTaskStatus.Review => "Review",
+        ProjectTaskStatus.Done => "Hoàn thành",
+        ProjectTaskStatus.Cancelled => "Đã huỷ",
+        _ => status.ToString()
+    };
+
+    private static string TaskStatusCss(ProjectTaskStatus status) => status switch
+    {
+        ProjectTaskStatus.Todo => "task-status-todo",
+        ProjectTaskStatus.InProgress => "task-status-inprogress",
+        ProjectTaskStatus.Review => "task-status-review",
+        ProjectTaskStatus.Done => "task-status-done",
+        ProjectTaskStatus.Blocked => "task-status-blocked",
+        ProjectTaskStatus.Cancelled => "task-status-cancelled",
+        _ => string.Empty
+    };
+
+    private static string ProgressColor(decimal progress)
+        => progress >= 100 ? "bg-success" : progress >= 60 ? "bg-info" : progress >= 30 ? "bg-warning" : "bg-danger";
 }

@@ -1,6 +1,7 @@
 @model managerCMN.Models.ViewModels.ProjectDetailsViewModel
 @using managerCMN.Models.Enums
 @using managerCMN.Models.ViewModels
+@using System.Globalization
 @{
     ViewData["Title"] = Model.Name;
     bool isOwner = Model.MyRole == ProjectMemberRole.ProjectOwner;
@@ -111,7 +112,7 @@
         <div class="kpi-value text-primary">@Model.Progress.ToString("0")<span style="font-size:1rem;">%</span></div>
         <div class="kpi-label">Hoàn thành</div>
         <div class="progress mt-2" style="height:5px;">
-            <div class="progress-bar @ProgressColor(Model.Progress)" style="width:@Model.Progress%"></div>
+            <div class="progress-bar @ProgressColor(Model.Progress)" style="width:@PercentCss(Model.Progress)"></div>
         </div>
     </div>
     <div class="kpi-card">
@@ -593,7 +594,6 @@
         ProjectTaskStatus.InProgress => "Đang thực hiện",
         ProjectTaskStatus.Review     => "Đang review",
         ProjectTaskStatus.Done       => "Hoàn thành",
-        ProjectTaskStatus.Blocked    => "Bị chặn",
         ProjectTaskStatus.Cancelled  => "Đã huỷ",
         _ => s.ToString()
     };
@@ -607,6 +607,7 @@
         _ => ""
     };
     string ProgressColor(decimal p) => p >= 100 ? "bg-success" : p >= 60 ? "bg-info" : p >= 30 ? "bg-warning" : "bg-danger";
+    string PercentCss(decimal p) => $"{Math.Clamp(p, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%";
     string GanttBarCss(ProjectTimelineRowViewModel row) => row.Status switch {
         ProjectTaskStatus.Done       => "is-done",
         ProjectTaskStatus.InProgress => "is-inprogress",

@@ -1,18 +1,22 @@
 @model managerCMN.Models.ViewModels.ProjectTaskTreeViewModel
 @using managerCMN.Helpers
 @using managerCMN.Models.Enums
+@using System.Globalization
 @{
     Layout = null;
     var canCreateSubtaskInParentRange = Model.StartDate.HasValue && Model.DueDate.HasValue;
     var parentRangeStartLabel = Model.StartDate?.ToString("dd/MM/yyyy") ?? "—";
     var parentRangeEndLabel = Model.DueDate?.ToString("dd/MM/yyyy") ?? "—";
     var isDone = Model.Status == ProjectTaskStatus.Done;
+    var orderedUpdates = Model.Updates
+        .OrderByDescending(update => update.CreatedDate)
+        .ToList();
 }
 
 <div class="task-detail-header">
     <div style="flex:1;min-width:0;">
         <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
-            <span class="status-badge @TaskStatusCss(Model.Status)" style="font-size:0.7rem;">@TaskStatusLabel(Model.Status)</span>
+            <span class="status-badge task-header-status @TaskStatusCss(Model.Status)" style="font-size:0.7rem;">@TaskStatusLabel(Model.Status)</span>
             <span class="priority-@Model.Priority.ToString().ToLower()" style="font-size:0.8rem;">@PriorityLabel(Model.Priority)</span>
             @if (!string.IsNullOrWhiteSpace(Model.ParentTaskTitle))
             {
@@ -52,6 +56,8 @@
 </div>
 
 <div class="task-detail-body">
+    <div id="taskPanelNotice" class="task-panel-notice-area"></div>
+
     @if (!string.IsNullOrWhiteSpace(Model.Description))
     {
         <section class="task-section-card">
@@ -64,10 +70,10 @@
         <div class="task-section-head">
             <span class="task-section-label mb-0">Tiến độ</span>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-                <span class="fw-bold">@Model.Progress.ToString("0")%</span>
+                <span class="fw-bold task-progress-value">@Model.Progress.ToString("0")%</span>
                 @if (!isDone && !Model.IsArchived && Model.CanCompleteTask)
                 {
-                    <button type="button" class="btn btn-sm btn-success"
+                    <button type="button" class="btn btn-sm btn-success task-complete-btn"
                             onclick="quickMarkTaskDone(@Model.ProjectTaskId)">
                         <i class="bi bi-check2-circle me-1"></i>Đánh dấu hoàn thành
                     </button>
@@ -75,7 +81,7 @@
             </div>
         </div>
         <div class="progress" style="height:8px;border-radius:4px;">
-            <div class="progress-bar @ProgressColor(Model.Progress)" style="width:@Model.Progress%"></div>
+            <div class="progress-bar task-progress-bar @ProgressColor(Model.Progress)" style="width:@PercentCss(Model.Progress)"></div>
         </div>
 
         @if (Model.ProgressMode == ProgressMode.Manual && !Model.IsArchived && !isDone)
@@ -161,7 +167,7 @@
 
         @if (Model.AssigneeNames.Any())
         {
-            <div class="d-flex flex-wrap gap-1 mb-3">
+            <div class="task-assignee-chip-list d-flex flex-wrap gap-1 mb-3">
                 @foreach (var name in Model.AssigneeNames)
                 {
                     <span class="d-flex align-items-center gap-1 px-2 py-1 rounded-pill bg-light" style="font-size:0.8rem;">
@@ -173,12 +179,12 @@
         }
         else
         {
-            <div class="text-muted small mb-3">Chưa có ai được giao task này.</div>
+            <div class="task-assignee-empty text-muted small mb-3">Chưa có ai được giao task này.</div>
         }
 
         @if (Model.CanManageTask && !Model.IsArchived && Model.AvailableMembers.Any())
         {
-            <form asp-action="AssignMembers" method="post">
+            <form asp-action="AssignMembers" method="post" class="task-assign-members-form">
                 <input type="hidden" name="taskId" value="@Model.ProjectTaskId" />
                 <input type="hidden" name="projectId" value="@Model.ProjectId" />
                 <div class="task-member-picker">
@@ -205,7 +211,7 @@
 
     <section class="task-section-card">
         <div class="task-section-head">
-            <span class="task-section-label mb-0">Subtask (@Model.SubTasks.Count)</span>
+            <span class="task-section-label mb-0 task-subtask-count">Subtask (@Model.SubTasks.Count)</span>
         </div>
 
         @if (Model.SubTasks.Any())
@@ -213,7 +219,7 @@
             <div class="task-subtask-list">
                 @foreach (var sub in Model.SubTasks)
                 {
-                    <div class="task-subtask-card">
+                    <div class="task-subtask-card" data-subtask-id="@sub.ProjectTaskId">
                         <div class="d-flex justify-content-between align-items-start gap-2">
                             <div style="min-width:0;">
                                 <button type="button" class="task-subtask-link" onclick="openTaskPanel(@sub.ProjectTaskId)">
@@ -245,7 +251,7 @@
         }
         else
         {
-            <div class="text-muted small">Task này chưa có subtask.</div>
+            <div class="task-subtask-empty text-muted small">Task này chưa có subtask.</div>
         }
 
         @if (Model.CanManageTask && !Model.IsArchived)
@@ -326,7 +332,7 @@
 
     <section class="task-section-card">
         <div class="task-section-head">
-            <span class="task-section-label mb-0">Checklist (@Model.ChecklistDone/@Model.ChecklistTotal)</span>
+            <span class="task-section-label mb-0 task-checklist-count">Checklist (@Model.ChecklistDone/@Model.ChecklistTotal)</span>
         </div>
 
         <div id="checklistContainer">
@@ -334,7 +340,7 @@
             {
                 @foreach (var item in Model.ChecklistItems)
                 {
-                    <div class="checklist-item @(item.IsDone ? "done" : "")">
+                    <div class="checklist-item @(item.IsDone ? "done" : "")" data-checklist-item-id="@item.ProjectTaskChecklistItemId">
                         <input type="checkbox" class="checklist-toggle" data-item-id="@item.ProjectTaskChecklistItemId"
                                @(item.IsDone ? "checked" : "")
                                @((item.IsDone || isDone || !Model.CanCompleteTask) ? "disabled" : "") />
@@ -351,7 +357,7 @@
             }
             else
             {
-                <div class="text-muted small">Chưa có checklist cho task này.</div>
+                <div class="checklist-empty text-muted small">Chưa có checklist cho task này.</div>
             }
         </div>
 
@@ -365,10 +371,10 @@
         }
     </section>
 
-    <section class="task-section-card">
+    <section class="task-section-card task-worklog-card">
         <div class="task-section-head">
             <span class="task-section-label mb-0">Nhật ký công việc</span>
-            <span class="text-muted small">@Model.Updates.Count cập nhật</span>
+            <span class="text-muted small task-worklog-count">@orderedUpdates.Count cập nhật</span>
         </div>
 
         @if (!Model.WorklogAvailable)
@@ -378,12 +384,12 @@
             </div>
         }
 
-        @if (Model.WorklogAvailable && Model.Updates.Any())
+        @if (Model.WorklogAvailable && orderedUpdates.Any())
         {
-            <div class="task-update-list">
-                @foreach (var update in Model.Updates)
+            <div class="task-update-list @(orderedUpdates.Count > 4 ? "is-scrollable" : "")">
+                @foreach (var update in orderedUpdates)
                 {
-                    <div class="task-update-item">
+                    <div class="task-update-item" data-update-id="@update.ProjectTaskUpdateId">
                         <div class="task-update-avatar">@(string.IsNullOrWhiteSpace(update.SenderName) ? "?" : update.SenderName[0].ToString().ToUpper())</div>
                         <div class="task-update-content">
                             <div class="task-update-meta">
@@ -424,12 +430,12 @@
         }
         else if (Model.WorklogAvailable)
         {
-            <div class="text-muted small">Chưa có cập nhật nào. Có thể dùng khu vực này để báo cáo tiến độ, việc đã làm và gửi file giống ticket.</div>
+            <div class="task-worklog-empty text-muted small">Chưa có cập nhật nào. Có thể dùng khu vực này để báo cáo tiến độ, việc đã làm và gửi file giống ticket.</div>
         }
 
         @if (!Model.IsArchived && Model.WorklogAvailable)
         {
-            <form asp-action="PostUpdate" method="post" enctype="multipart/form-data" class="task-inline-form mt-3">
+            <form asp-action="PostUpdate" method="post" enctype="multipart/form-data" class="task-inline-form mt-3 task-update-form">
                 <input type="hidden" name="ProjectTaskId" value="@Model.ProjectTaskId" />
                 <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
                 <div class="task-inline-form-title">
@@ -459,7 +465,6 @@
         ProjectTaskStatus.InProgress => "Đang làm",
         ProjectTaskStatus.Review     => "Review",
         ProjectTaskStatus.Done       => "Hoàn thành",
-        ProjectTaskStatus.Blocked    => "Bị chặn",
         ProjectTaskStatus.Cancelled  => "Đã huỷ",
         _ => s.ToString()
     };
@@ -480,4 +485,5 @@
         _ => p.ToString()
     };
     string ProgressColor(decimal p) => p >= 100 ? "bg-success" : p >= 60 ? "bg-info" : p >= 30 ? "bg-warning" : "bg-danger";
+    string PercentCss(decimal p) => $"{Math.Clamp(p, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%";
 }

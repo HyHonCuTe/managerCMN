@@ -13,9 +13,9 @@ public interface IProjectTaskService
     Task UpdateStatusAsync(UpdateTaskStatusViewModel vm, int employeeId);
     Task UpdateProgressAsync(UpdateTaskProgressViewModel vm, int employeeId);
     Task AssignMembersAsync(int taskId, List<int> employeeIds, int actorEmployeeId);
-    Task AddChecklistItemAsync(AddChecklistItemViewModel vm, int employeeId);
-    Task ToggleChecklistItemAsync(int checklistItemId, int employeeId);
-    Task DeleteChecklistItemAsync(int checklistItemId, int employeeId);
+    Task<ChecklistItemViewModel> AddChecklistItemAsync(AddChecklistItemViewModel vm, int employeeId);
+    Task<int> ToggleChecklistItemAsync(int checklistItemId, int employeeId);
+    Task<int> DeleteChecklistItemAsync(int checklistItemId, int employeeId);
     Task AddTaskUpdateAsync(PostTaskUpdateViewModel vm, int employeeId);
     Task<ProjectTaskAttachment?> GetAttachmentAsync(int attachmentId, int employeeId);
 }

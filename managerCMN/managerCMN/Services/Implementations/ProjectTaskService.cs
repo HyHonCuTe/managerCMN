@@ -292,7 +292,7 @@ public class ProjectTaskService : IProjectTaskService
         await CreateSystemUpdateAsync(task.ProjectTaskId, actorEmployeeId, updateContent);
     }
 
-    public async Task AddChecklistItemAsync(AddChecklistItemViewModel vm, int employeeId)
+    public async Task<ChecklistItemViewModel> AddChecklistItemAsync(AddChecklistItemViewModel vm, int employeeId)
     {
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(vm.ProjectTaskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
@@ -320,9 +320,19 @@ public class ProjectTaskService : IProjectTaskService
         await _progressService.RecalculateTaskProgressAsync(task.ProjectTaskId);
         await _progressService.BubbleUpParentProgressAsync(task.ProjectTaskId);
         await _progressService.RecalculateProjectProgressAsync(task.ProjectId);
+
+        return new ChecklistItemViewModel
+        {
+            ProjectTaskChecklistItemId = item.ProjectTaskChecklistItemId,
+            ProjectTaskId = item.ProjectTaskId,
+            Title = item.Title,
+            IsDone = item.IsDone,
+            SortOrder = item.SortOrder,
+            CompletedDate = item.CompletedDate
+        };
     }
 
-    public async Task ToggleChecklistItemAsync(int checklistItemId, int employeeId)
+    public async Task<int> ToggleChecklistItemAsync(int checklistItemId, int employeeId)
     {
         var item = await _context.ProjectTaskChecklistItems
             .Include(c => c.ProjectTask)
@@ -349,9 +359,11 @@ public class ProjectTaskService : IProjectTaskService
         await _progressService.RecalculateTaskProgressAsync(item.ProjectTaskId);
         await _progressService.BubbleUpParentProgressAsync(item.ProjectTaskId);
         await _progressService.RecalculateProjectProgressAsync(item.ProjectTask.ProjectId);
+
+        return item.ProjectTaskId;
     }
 
-    public async Task DeleteChecklistItemAsync(int checklistItemId, int employeeId)
+    public async Task<int> DeleteChecklistItemAsync(int checklistItemId, int employeeId)
     {
         var item = await _context.ProjectTaskChecklistItems
             .Include(c => c.ProjectTask)
@@ -368,6 +380,8 @@ public class ProjectTaskService : IProjectTaskService
         await _progressService.RecalculateTaskProgressAsync(item.ProjectTaskId);
         await _progressService.BubbleUpParentProgressAsync(item.ProjectTaskId);
         await _progressService.RecalculateProjectProgressAsync(item.ProjectTask.ProjectId);
+
+        return item.ProjectTaskId;
     }
 
     public async Task AddTaskUpdateAsync(PostTaskUpdateViewModel vm, int employeeId)
@@ -783,7 +797,6 @@ public class ProjectTaskService : IProjectTaskService
         ProjectTaskStatus.InProgress => "Đang làm",
         ProjectTaskStatus.Review => "Review",
         ProjectTaskStatus.Done => "Hoàn thành",
-        ProjectTaskStatus.Blocked => "Bị chặn",
         ProjectTaskStatus.Cancelled => "Đã huỷ",
         _ => status.ToString()
     };

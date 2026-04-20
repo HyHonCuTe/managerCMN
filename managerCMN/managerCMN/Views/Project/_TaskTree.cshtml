@@ -1,5 +1,6 @@
 @model List<managerCMN.Models.ViewModels.ProjectTaskTreeViewModel>
 @using managerCMN.Models.Enums
+@using System.Globalization
 
 @foreach (var task in Model)
 {
@@ -66,7 +67,7 @@
             }
 
             <div class="progress task-progress-mini" title="@task.Progress.ToString("0")%">
-                <div class="progress-bar @ProgressColor(task.Progress)" style="width:@task.Progress%;transition:width 0.3s;"></div>
+                <div class="progress-bar @ProgressColor(task.Progress)" style="width:@PercentCss(task.Progress);transition:width 0.3s;"></div>
             </div>
             <span style="font-size:0.72rem;color:#6b7280;min-width:28px;">@task.Progress.ToString("0")%</span>
         </div>
@@ -86,7 +87,6 @@
         ProjectTaskStatus.InProgress => "Đang làm",
         ProjectTaskStatus.Review     => "Review",
         ProjectTaskStatus.Done       => "Xong",
-        ProjectTaskStatus.Blocked    => "Bị chặn",
         ProjectTaskStatus.Cancelled  => "Huỷ",
         _ => s.ToString()
     };
@@ -100,4 +100,5 @@
         _ => ""
     };
     string ProgressColor(decimal p) => p >= 100 ? "bg-success" : p >= 60 ? "bg-info" : p >= 30 ? "bg-warning" : "bg-danger";
+    string PercentCss(decimal p) => $"{Math.Clamp(p, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%";
 }

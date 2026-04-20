@@ -445,7 +445,7 @@
                                 <div class="task-update-avatar">@(string.IsNullOrWhiteSpace(update.SenderName) ? "?" : update.SenderName[0].ToString().ToUpper())</div>
                                 <div class="task-update-content">
                                     <div class="task-update-meta">
-                                        <strong>@(update.SenderEmployeeId == currentEmployeeId ? "Mình" : (string.IsNullOrWhiteSpace(update.SenderName) ? "Hệ thống" : update.SenderName))</strong>
+                                        <strong>@(update.SenderEmployeeId == currentEmployeeId ? "Tui" : (string.IsNullOrWhiteSpace(update.SenderName) ? "Hệ thống" : update.SenderName))</strong>
                                         <span>@update.CreatedDate.ToString("dd/MM/yyyy HH:mm")</span>
                                     </div>
                                     <div class="task-update-origin @(update.SenderEmployeeId == currentEmployeeId ? "is-mine" : "is-other")">

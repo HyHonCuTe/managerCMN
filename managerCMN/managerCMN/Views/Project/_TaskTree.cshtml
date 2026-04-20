@@ -1,0 +1,103 @@
+@model List<managerCMN.Models.ViewModels.ProjectTaskTreeViewModel>
+@using managerCMN.Models.Enums
+
+@foreach (var task in Model)
+{
+    <div class="task-row task-row-clickable depth-@task.Depth"
+         data-task-id="@task.ProjectTaskId"
+         data-status="@((int)task.Status)"
+         data-assignees="@string.Join(",", task.AssigneeIds)"
+         onclick="handleTaskRowClick(event, @task.ProjectTaskId)">
+
+        <div class="task-title-wrap">
+            @if (task.SubTasks.Any())
+            {
+                <button class="task-expand-btn" data-task-id="@task.ProjectTaskId" data-expanded="true">
+                    <i class="bi bi-caret-down-fill"></i>
+                </button>
+            }
+            else
+            {
+                <span style="width:20px;display:inline-block;"></span>
+            }
+
+            <span class="task-title @(task.Status == ProjectTaskStatus.Done ? "done" : "")"
+                  onclick="openTaskPanel(@task.ProjectTaskId)" style="cursor:pointer;">
+                @task.Title
+            </span>
+
+            <span class="status-badge @TaskStatusCss(task.Status)" style="font-size:0.68rem;">@TaskStatusLabel(task.Status)</span>
+
+            @{
+                var priorityIcon = task.Priority switch {
+                    ProjectTaskPriority.Critical => "<i class='bi bi-exclamation-octagon-fill text-danger'></i>",
+                    ProjectTaskPriority.High     => "<i class='bi bi-exclamation-triangle-fill' style='color:#d97706'></i>",
+                    ProjectTaskPriority.Medium   => "<i class='bi bi-dash-circle' style='color:#6b7280'></i>",
+                    _                            => "<i class='bi bi-arrow-down-circle' style='color:#9ca3af'></i>"
+                };
+            }
+            @Html.Raw(priorityIcon)
+
+            @if (task.IsOverdue)
+            {
+                <span class="overdue-badge"><i class="bi bi-alarm me-1"></i>Quá hạn</span>
+            }
+            @if (task.ChecklistTotal > 0)
+            {
+                <span class="checklist-mini"><i class="bi bi-check2-square me-1"></i>@task.ChecklistDone/@task.ChecklistTotal</span>
+            }
+        </div>
+
+        <div class="task-meta">
+            @foreach (var name in task.AssigneeNames.Take(3))
+            {
+                <span class="assignee-avatar" title="@name">@(name.Length > 0 ? name[0].ToString().ToUpper() : "?")</span>
+            }
+            @if (task.AssigneeNames.Count > 3)
+            {
+                <span class="assignee-avatar" style="background:#6b7280;">+@(task.AssigneeNames.Count - 3)</span>
+            }
+
+            @if (task.DueDate.HasValue)
+            {
+                <span class="text-muted" style="font-size:0.75rem;white-space:nowrap;">
+                    <i class="bi bi-calendar3"></i> @task.DueDate.Value.ToString("dd/MM")
+                </span>
+            }
+
+            <div class="progress task-progress-mini" title="@task.Progress.ToString("0")%">
+                <div class="progress-bar @ProgressColor(task.Progress)" style="width:@task.Progress%;transition:width 0.3s;"></div>
+            </div>
+            <span style="font-size:0.72rem;color:#6b7280;min-width:28px;">@task.Progress.ToString("0")%</span>
+        </div>
+    </div>
+
+    @if (task.SubTasks.Any())
+    {
+        <div class="task-subtree" data-parent="@task.ProjectTaskId">
+            @await Html.PartialAsync("_TaskTree", task.SubTasks)
+        </div>
+    }
+}
+
+@functions {
+    string TaskStatusLabel(ProjectTaskStatus s) => s switch {
+        ProjectTaskStatus.Todo       => "Chưa bắt đầu",
+        ProjectTaskStatus.InProgress => "Đang làm",
+        ProjectTaskStatus.Review     => "Review",
+        ProjectTaskStatus.Done       => "Xong",
+        ProjectTaskStatus.Blocked    => "Bị chặn",
+        ProjectTaskStatus.Cancelled  => "Huỷ",
+        _ => s.ToString()
+    };
+    string TaskStatusCss(ProjectTaskStatus s) => s switch {
+        ProjectTaskStatus.Todo       => "task-status-todo",
+        ProjectTaskStatus.InProgress => "task-status-inprogress",
+        ProjectTaskStatus.Review     => "task-status-review",
+        ProjectTaskStatus.Done       => "task-status-done",
+        ProjectTaskStatus.Blocked    => "task-status-blocked",
+        ProjectTaskStatus.Cancelled  => "task-status-cancelled",
+        _ => ""
+    };
+    string ProgressColor(decimal p) => p >= 100 ? "bg-success" : p >= 60 ? "bg-info" : p >= 30 ? "bg-warning" : "bg-danger";
+}

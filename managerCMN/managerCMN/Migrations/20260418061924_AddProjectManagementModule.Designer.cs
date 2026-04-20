@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using managerCMN.Data;
 
@@ -11,9 +12,11 @@ using managerCMN.Data;
 namespace managerCMN.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260418061924_AddProjectManagementModule")]
+    partial class AddProjectManagementModule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1555,49 +1558,6 @@ namespace managerCMN.Migrations
                     b.ToTable("ProjectTaskAssignments");
                 });
 
-            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTaskAttachment", b =>
-                {
-                    b.Property<int>("ProjectTaskAttachmentId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProjectTaskAttachmentId"));
-
-                    b.Property<string>("ContentType")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<string>("FilePath")
-                        .IsRequired()
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("ProjectTaskUpdateId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("UploadedByEmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("UploadedDate")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("ProjectTaskAttachmentId");
-
-                    b.HasIndex("ProjectTaskUpdateId");
-
-                    b.HasIndex("UploadedByEmployeeId");
-
-                    b.ToTable("ProjectTaskAttachments");
-                });
-
             modelBuilder.Entity("managerCMN.Models.Entities.ProjectTaskChecklistItem", b =>
                 {
                     b.Property<int>("ProjectTaskChecklistItemId")
@@ -1660,43 +1620,6 @@ namespace managerCMN.Migrations
                         .IsUnique();
 
                     b.ToTable("ProjectTaskDependencies");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTaskUpdate", b =>
-                {
-                    b.Property<int>("ProjectTaskUpdateId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProjectTaskUpdateId"));
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal?>("ProgressSnapshot")
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<int>("ProjectTaskId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("SenderEmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("StatusSnapshot")
-                        .HasColumnType("int");
-
-                    b.HasKey("ProjectTaskUpdateId");
-
-                    b.HasIndex("SenderEmployeeId");
-
-                    b.HasIndex("ProjectTaskId", "CreatedDate");
-
-                    b.ToTable("ProjectTaskUpdates");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.PunchRecord", b =>
@@ -2969,25 +2892,6 @@ namespace managerCMN.Migrations
                     b.Navigation("ProjectTask");
                 });
 
-            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTaskAttachment", b =>
-                {
-                    b.HasOne("managerCMN.Models.Entities.ProjectTaskUpdate", "ProjectTaskUpdate")
-                        .WithMany("Attachments")
-                        .HasForeignKey("ProjectTaskUpdateId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("managerCMN.Models.Entities.Employee", "UploadedByEmployee")
-                        .WithMany()
-                        .HasForeignKey("UploadedByEmployeeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("ProjectTaskUpdate");
-
-                    b.Navigation("UploadedByEmployee");
-                });
-
             modelBuilder.Entity("managerCMN.Models.Entities.ProjectTaskChecklistItem", b =>
                 {
                     b.HasOne("managerCMN.Models.Entities.Employee", "CompletedByEmployee")
@@ -3023,25 +2927,6 @@ namespace managerCMN.Migrations
                     b.Navigation("PredecessorTask");
 
                     b.Navigation("SuccessorTask");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTaskUpdate", b =>
-                {
-                    b.HasOne("managerCMN.Models.Entities.ProjectTask", "ProjectTask")
-                        .WithMany("Updates")
-                        .HasForeignKey("ProjectTaskId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("managerCMN.Models.Entities.Employee", "SenderEmployee")
-                        .WithMany()
-                        .HasForeignKey("SenderEmployeeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("ProjectTask");
-
-                    b.Navigation("SenderEmployee");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.PunchRecord", b =>
@@ -3345,13 +3230,6 @@ namespace managerCMN.Migrations
                     b.Navigation("SubTasks");
 
                     b.Navigation("Successors");
-
-                    b.Navigation("Updates");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTaskUpdate", b =>
-                {
-                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Request", b =>

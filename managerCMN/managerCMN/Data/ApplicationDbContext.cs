@@ -65,6 +65,16 @@ public class ApplicationDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PostHistory> PostHistories => Set<PostHistory>();
 
+    // Project Management
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
+    public DbSet<ProjectTask> ProjectTasks => Set<ProjectTask>();
+    public DbSet<ProjectTaskAssignment> ProjectTaskAssignments => Set<ProjectTaskAssignment>();
+    public DbSet<ProjectTaskChecklistItem> ProjectTaskChecklistItems => Set<ProjectTaskChecklistItem>();
+    public DbSet<ProjectTaskUpdate> ProjectTaskUpdates => Set<ProjectTaskUpdate>();
+    public DbSet<ProjectTaskAttachment> ProjectTaskAttachments => Set<ProjectTaskAttachment>();
+    public DbSet<ProjectTaskDependency> ProjectTaskDependencies => Set<ProjectTaskDependency>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -557,6 +567,216 @@ public class ApplicationDbContext : DbContext
             new RolePermission { RolePermissionId = 35, RoleId = 3, PermissionId = 6, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Request.View
             new RolePermission { RolePermissionId = 36, RoleId = 3, PermissionId = 7, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }, // Request.Create
             new RolePermission { RolePermissionId = 37, RoleId = 3, PermissionId = 10, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) } // Attendance.View
+        );
+
+        // ── Project Management ──
+
+        // Project -> CreatedByEmployee
+        modelBuilder.Entity<Project>()
+            .HasOne(p => p.CreatedByEmployee)
+            .WithMany()
+            .HasForeignKey(p => p.CreatedByEmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<Project>()
+            .Property(p => p.Progress)
+            .HasColumnType("decimal(5,2)");
+
+        modelBuilder.Entity<Project>()
+            .HasIndex(p => p.Status);
+
+        // ProjectMember
+        modelBuilder.Entity<ProjectMember>()
+            .HasOne(pm => pm.Project)
+            .WithMany(p => p.Members)
+            .HasForeignKey(pm => pm.ProjectId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProjectMember>()
+            .HasOne(pm => pm.Employee)
+            .WithMany()
+            .HasForeignKey(pm => pm.EmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProjectMember>()
+            .HasOne(pm => pm.AddedByEmployee)
+            .WithMany()
+            .HasForeignKey(pm => pm.AddedByEmployeeId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ProjectMember>()
+            .HasIndex(pm => new { pm.ProjectId, pm.EmployeeId })
+            .IsUnique();
+
+        // ProjectTask
+        modelBuilder.Entity<ProjectTask>()
+            .HasOne(t => t.Project)
+            .WithMany(p => p.Tasks)
+            .HasForeignKey(t => t.ProjectId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProjectTask>()
+            .HasOne(t => t.ParentTask)
+            .WithMany(t => t.SubTasks)
+            .HasForeignKey(t => t.ParentTaskId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProjectTask>()
+            .HasOne(t => t.CreatedByEmployee)
+            .WithMany()
+            .HasForeignKey(t => t.CreatedByEmployeeId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ProjectTask>()
+            .Property(t => t.Progress)
+            .HasColumnType("decimal(5,2)");
+
+        modelBuilder.Entity<ProjectTask>()
+            .Property(t => t.EstimatedHours)
+            .HasColumnType("decimal(7,2)");
+
+        modelBuilder.Entity<ProjectTask>()
+            .Property(t => t.ActualHours)
+            .HasColumnType("decimal(7,2)");
+
+        modelBuilder.Entity<ProjectTask>()
+            .HasIndex(t => new { t.ProjectId, t.Status });
+
+        modelBuilder.Entity<ProjectTask>()
+            .HasIndex(t => new { t.ProjectId, t.ParentTaskId });
+
+        modelBuilder.Entity<ProjectTask>()
+            .HasIndex(t => t.DueDate);
+
+        // ProjectTaskAssignment
+        modelBuilder.Entity<ProjectTaskAssignment>()
+            .HasOne(a => a.ProjectTask)
+            .WithMany(t => t.Assignments)
+            .HasForeignKey(a => a.ProjectTaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProjectTaskAssignment>()
+            .HasOne(a => a.Employee)
+            .WithMany()
+            .HasForeignKey(a => a.EmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProjectTaskAssignment>()
+            .HasOne(a => a.AssignedByEmployee)
+            .WithMany()
+            .HasForeignKey(a => a.AssignedByEmployeeId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        modelBuilder.Entity<ProjectTaskAssignment>()
+            .HasIndex(a => new { a.ProjectTaskId, a.EmployeeId })
+            .IsUnique();
+
+        // ProjectTaskChecklistItem
+        modelBuilder.Entity<ProjectTaskChecklistItem>()
+            .HasOne(c => c.ProjectTask)
+            .WithMany(t => t.ChecklistItems)
+            .HasForeignKey(c => c.ProjectTaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProjectTaskChecklistItem>()
+            .HasOne(c => c.CompletedByEmployee)
+            .WithMany()
+            .HasForeignKey(c => c.CompletedByEmployeeId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        modelBuilder.Entity<ProjectTaskChecklistItem>()
+            .HasIndex(c => new { c.ProjectTaskId, c.SortOrder });
+
+        // ProjectTaskUpdate
+        modelBuilder.Entity<ProjectTaskUpdate>()
+            .HasOne(u => u.ProjectTask)
+            .WithMany(t => t.Updates)
+            .HasForeignKey(u => u.ProjectTaskId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProjectTaskUpdate>()
+            .HasOne(u => u.SenderEmployee)
+            .WithMany()
+            .HasForeignKey(u => u.SenderEmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProjectTaskUpdate>()
+            .Property(u => u.ProgressSnapshot)
+            .HasColumnType("decimal(5,2)");
+
+        modelBuilder.Entity<ProjectTaskUpdate>()
+            .Property(u => u.CreatedDate)
+            .HasColumnType("datetime2");
+
+        modelBuilder.Entity<ProjectTaskUpdate>()
+            .HasIndex(u => new { u.ProjectTaskId, u.CreatedDate });
+
+        // ProjectTaskAttachment
+        modelBuilder.Entity<ProjectTaskAttachment>()
+            .HasOne(a => a.ProjectTaskUpdate)
+            .WithMany(u => u.Attachments)
+            .HasForeignKey(a => a.ProjectTaskUpdateId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProjectTaskAttachment>()
+            .HasOne(a => a.UploadedByEmployee)
+            .WithMany()
+            .HasForeignKey(a => a.UploadedByEmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProjectTaskAttachment>()
+            .Property(a => a.UploadedDate)
+            .HasColumnType("datetime2");
+
+        modelBuilder.Entity<ProjectTaskAttachment>()
+            .HasIndex(a => a.ProjectTaskUpdateId);
+
+        // ProjectTaskDependency
+        modelBuilder.Entity<ProjectTaskDependency>()
+            .HasOne(d => d.PredecessorTask)
+            .WithMany(t => t.Successors)
+            .HasForeignKey(d => d.PredecessorTaskId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProjectTaskDependency>()
+            .HasOne(d => d.SuccessorTask)
+            .WithMany(t => t.Predecessors)
+            .HasForeignKey(d => d.SuccessorTaskId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProjectTaskDependency>()
+            .HasIndex(d => new { d.PredecessorTaskId, d.SuccessorTaskId })
+            .IsUnique();
+
+        // Seed Project permissions (PermissionId 26-32)
+        modelBuilder.Entity<Permission>().HasData(
+            new Permission { PermissionId = 26, PermissionKey = "Project.View", PermissionName = "Xem dự án", Category = "Project", Description = "Xem danh sách và chi tiết dự án", SortOrder = 1, IsActive = true },
+            new Permission { PermissionId = 27, PermissionKey = "Project.Create", PermissionName = "Tạo dự án", Category = "Project", Description = "Tạo dự án mới", SortOrder = 2, IsActive = true },
+            new Permission { PermissionId = 28, PermissionKey = "Project.Edit", PermissionName = "Sửa dự án", Category = "Project", Description = "Chỉnh sửa thông tin dự án", SortOrder = 3, IsActive = true },
+            new Permission { PermissionId = 29, PermissionKey = "Project.ManageMembers", PermissionName = "Quản lý thành viên dự án", Category = "Project", Description = "Thêm/xóa ProjectStaff và Viewer", SortOrder = 4, IsActive = true },
+            new Permission { PermissionId = 30, PermissionKey = "Project.ManageManagers", PermissionName = "Bổ nhiệm quản lý dự án", Category = "Project", Description = "Bổ nhiệm/thu hồi ProjectManager (chỉ Owner)", SortOrder = 5, IsActive = true },
+            new Permission { PermissionId = 31, PermissionKey = "ProjectTask.Manage", PermissionName = "Quản lý công việc dự án", Category = "Project", Description = "Tạo/sửa/xóa task và checklist", SortOrder = 6, IsActive = true },
+            new Permission { PermissionId = 32, PermissionKey = "ProjectTask.UpdateProgress", PermissionName = "Cập nhật tiến độ công việc", Category = "Project", Description = "Cập nhật trạng thái và % hoàn thành task", SortOrder = 7, IsActive = true }
+        );
+
+        // Grant Admin and Manager roles project permissions
+        modelBuilder.Entity<RolePermission>().HasData(
+            // Admin (RoleId=1) gets all project perms
+            new RolePermission { RolePermissionId = 38, RoleId = 1, PermissionId = 26, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 39, RoleId = 1, PermissionId = 27, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 40, RoleId = 1, PermissionId = 28, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 41, RoleId = 1, PermissionId = 29, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 42, RoleId = 1, PermissionId = 30, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 43, RoleId = 1, PermissionId = 31, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 44, RoleId = 1, PermissionId = 32, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            // Manager (RoleId=2) gets view + create + task manage + update progress
+            new RolePermission { RolePermissionId = 45, RoleId = 2, PermissionId = 26, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 46, RoleId = 2, PermissionId = 27, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 47, RoleId = 2, PermissionId = 31, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 48, RoleId = 2, PermissionId = 32, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            // User (RoleId=3) gets view + update progress
+            new RolePermission { RolePermissionId = 49, RoleId = 3, PermissionId = 26, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new RolePermission { RolePermissionId = 50, RoleId = 3, PermissionId = 32, AssignedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc) }
         );
 
         // Seed job titles (Chức vụ)

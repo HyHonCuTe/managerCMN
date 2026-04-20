@@ -1,0 +1,737 @@
+@model managerCMN.Models.ViewModels.ProjectDetailsViewModel
+@using managerCMN.Models.Enums
+@using managerCMN.Models.ViewModels
+@{
+    ViewData["Title"] = Model.Name;
+    bool isOwner = Model.MyRole == ProjectMemberRole.ProjectOwner;
+    bool isManager = Model.MyRole == ProjectMemberRole.ProjectManager;
+    bool canManage = (isOwner || isManager) && !Model.IsArchived;
+    bool canManageTask = Model.MyRole != ProjectMemberRole.ProjectViewer && !Model.IsArchived;
+    var parentTaskOptions = FlattenTaskOptions(Model.RootTasks).ToList();
+    var scheduledTimelineRows = Model.TimelineRows
+        .Where(row => row.StartDate.HasValue || row.DueDate.HasValue)
+        .ToList();
+    var unscheduledTimelineRows = Model.TimelineRows
+        .Where(row => !row.StartDate.HasValue && !row.DueDate.HasValue)
+        .ToList();
+    var timelineDays = Model.TimelineStart.HasValue && Model.TimelineEnd.HasValue
+        ? Enumerable.Range(0, (Model.TimelineEnd.Value.Date - Model.TimelineStart.Value.Date).Days + 1)
+            .Select(offset => Model.TimelineStart.Value.Date.AddDays(offset))
+            .ToList()
+        : new List<DateTime>();
+    int? todayColumn = Model.TimelineStart.HasValue
+        && Model.TimelineEnd.HasValue
+        && DateTime.Today >= Model.TimelineStart.Value.Date
+        && DateTime.Today <= Model.TimelineEnd.Value.Date
+            ? (DateTime.Today - Model.TimelineStart.Value.Date).Days + 1
+            : null;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/project-management.css" asp-append-version="true" />
+}
+
+<div class="d-none">
+    @Html.AntiForgeryToken()
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+        <i class="bi bi-check-circle me-1"></i>@TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show py-2" role="alert">
+        <i class="bi bi-exclamation-triangle me-1"></i>@TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@if (Model.IsArchived)
+{
+    <div class="alert alert-warning py-2 mb-3 d-flex align-items-center gap-2" role="alert">
+        <i class="bi bi-archive-fill fs-5"></i>
+        <span><strong>Dự án này đã được lưu trữ.</strong> Bạn có thể xem nhưng không thể tạo thêm task hoặc chỉnh sửa.</span>
+    </div>
+}
+
+<!-- Header -->
+<div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1" style="font-size:0.82rem;">
+                <li class="breadcrumb-item"><a asp-action="Index" class="text-decoration-none">Dự án</a></li>
+                <li class="breadcrumb-item active">@Model.Name</li>
+            </ol>
+        </nav>
+        <h4 class="mb-0 fw-bold">@Model.Name</h4>
+        <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+            <span class="status-badge @StatusCss(Model.Status)">@StatusLabel(Model.Status)</span>
+            <span class="role-badge @RoleCss(Model.MyRole)">@RoleLabel(Model.MyRole)</span>
+            <span class="text-muted small"><i class="bi bi-person me-1"></i>@Model.OwnerName</span>
+            @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
+            {
+                <span class="text-muted small">
+                    <i class="bi bi-calendar3 me-1"></i>
+                    @(Model.StartDate?.ToString("dd/MM/yyyy") ?? "—") → @(Model.EndDate?.ToString("dd/MM/yyyy") ?? "—")
+                </span>
+            }
+        </div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        @if (canManage)
+        {
+            <a asp-action="Edit" asp-route-id="@Model.ProjectId" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil me-1"></i>Sửa
+            </a>
+        }
+        @if (isOwner)
+        {
+            <form asp-action="Archive" asp-route-id="@Model.ProjectId" method="post"
+                  onsubmit="return confirm('Lưu trữ dự án này?')">
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-archive me-1"></i>Lưu trữ
+                </button>
+            </form>
+        }
+    </div>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Model.Description))
+{
+    <p class="text-muted mb-3" style="font-size:0.9rem;">@Model.Description</p>
+}
+
+<!-- KPI Row -->
+<div class="project-kpi-grid mb-3">
+    <div class="kpi-card">
+        <div class="kpi-value text-primary">@Model.Progress.ToString("0")<span style="font-size:1rem;">%</span></div>
+        <div class="kpi-label">Hoàn thành</div>
+        <div class="progress mt-2" style="height:5px;">
+            <div class="progress-bar @ProgressColor(Model.Progress)" style="width:@Model.Progress%"></div>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value">@Model.TotalTasks</div>
+        <div class="kpi-label">Tổng task</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value text-success">@Model.DoneTasks</div>
+        <div class="kpi-label">Xong</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value @(Model.OverdueTasks > 0 ? "text-danger" : "text-muted")">@Model.OverdueTasks</div>
+        <div class="kpi-label">Quá hạn</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value text-secondary">@Model.Members.Count</div>
+        <div class="kpi-label">Thành viên</div>
+    </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mb-3" id="projectTabs">
+    <li class="nav-item">
+        <button class="nav-link active" id="projectTasksTabBtn" data-bs-toggle="tab" data-bs-target="#tabTasks">
+            <i class="bi bi-list-task me-1"></i>Công việc
+        </button>
+    </li>
+    <li class="nav-item">
+        <button class="nav-link" id="projectMembersTabBtn" data-bs-toggle="tab" data-bs-target="#tabMembers">
+            <i class="bi bi-people me-1"></i>Thành viên <span class="badge bg-secondary ms-1">@Model.Members.Count</span>
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content">
+    <!-- Tasks Tab -->
+    <div class="tab-pane fade show active" id="tabTasks">
+        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+            <div class="filter-bar" style="margin-bottom:0;flex:1;">
+                <span class="text-muted small">Lọc:</span>
+                <select id="filterStatus" class="form-select form-select-sm" style="width:auto;">
+                    <option value="">Tất cả trạng thái</option>
+                    @foreach (var s in Enum.GetValues<ProjectTaskStatus>())
+                    {
+                        <option value="@((int)s)">@TaskStatusLabel(s)</option>
+                    }
+                </select>
+                <select id="filterAssignee" class="form-select form-select-sm" style="width:auto;">
+                    <option value="">Tất cả người thực hiện</option>
+                    @foreach (var m in Model.Members.Where(x => x.Role != ProjectMemberRole.ProjectViewer))
+                    {
+                        <option value="@m.EmployeeId">@m.EmployeeName</option>
+                    }
+                </select>
+            </div>
+            @if (canManageTask)
+            {
+                <button class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#createTaskModal">
+                    <i class="bi bi-plus-circle me-1"></i>Thêm task
+                </button>
+            }
+        </div>
+
+        @if (!Model.RootTasks.Any())
+        {
+            <div class="empty-state">
+                <i class="bi bi-list-task"></i>
+                <p>Chưa có công việc nào trong dự án.</p>
+            </div>
+        }
+        else
+        {
+            <div class="task-tree-container" id="taskTree">
+                @await Html.PartialAsync("_TaskTree", Model.RootTasks)
+            </div>
+
+            <div class="task-gantt-card mt-3">
+                <div class="task-gantt-header">
+                    <div>
+                        <h5 class="mb-1"><i class="bi bi-bar-chart-steps me-1"></i>Timeline Công Việc</h5>
+                        <p class="mb-0 text-muted small">
+                            Toàn bộ task và subtask được đặt trên cùng trục thời gian của dự án để nhìn nhanh việc nào sắp tới hạn, đang trễ hoặc đang chồng nhau.
+                        </p>
+                    </div>
+                    @if (Model.TimelineStart.HasValue && Model.TimelineEnd.HasValue)
+                    {
+                        <span class="task-gantt-range">
+                            @Model.TimelineStart.Value.ToString("dd/MM/yyyy") → @Model.TimelineEnd.Value.ToString("dd/MM/yyyy")
+                        </span>
+                    }
+                </div>
+
+                @if (!scheduledTimelineRows.Any())
+                {
+                    <div class="empty-state py-4">
+                        <i class="bi bi-calendar3"></i>
+                        <p>Chưa có task nào được đặt ngày để hiển thị trên timeline.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="gantt-scroll">
+                        <div class="gantt-board">
+                            <div class="gantt-header-row">
+                                <div class="gantt-task-col">Công việc</div>
+                                <div class="gantt-scale-col">
+                                    <div class="gantt-scale" style="grid-template-columns:repeat(@timelineDays.Count, 34px);">
+                                        @foreach (var day in timelineDays)
+                                        {
+                                            <div class="gantt-day @(day.Date == DateTime.Today ? "is-today" : "") @((day.DayOfWeek == DayOfWeek.Saturday || day.DayOfWeek == DayOfWeek.Sunday) ? "is-weekend" : "")">
+                                                <strong>@day.ToString("dd")</strong>
+                                                <span>@day.ToString("MM")</span>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+
+                            @foreach (var row in scheduledTimelineRows)
+                            {
+                                var barStartDate = (row.StartDate ?? row.DueDate ?? Model.TimelineStart)!.Value.Date;
+                                var barEndDate = (row.DueDate ?? row.StartDate ?? Model.TimelineEnd)!.Value.Date;
+                                if (barEndDate < barStartDate)
+                                {
+                                    barEndDate = barStartDate;
+                                }
+
+                                var barStart = Math.Max(1, (barStartDate - Model.TimelineStart!.Value.Date).Days + 1);
+                                var barSpan = Math.Max(1, (barEndDate - barStartDate).Days + 1);
+                                var dateLabel = row.StartDate.HasValue && row.DueDate.HasValue
+                                    ? $"{row.StartDate.Value:dd/MM} → {row.DueDate.Value:dd/MM}"
+                                    : row.StartDate?.ToString("dd/MM") ?? row.DueDate?.ToString("dd/MM") ?? "Chưa đặt ngày";
+                                var rowClasses = row.IsOverdue ? "is-overdue" : row.IsNearDeadline ? "is-near" : string.Empty;
+                                var depthLevel = Math.Min(row.Depth, 5);
+                                var progressWidth = Math.Max(0, Math.Min(100, row.Progress));
+
+                                <div class="gantt-row @rowClasses depth-@depthLevel"
+                                     style="--gantt-depth:@depthLevel;--gantt-accent:@GanttDepthAccent(row.Depth);"
+                                     data-status="@((int)row.Status)"
+                                     data-assignees="@string.Join(",", row.AssigneeIds)">
+                                    <button type="button" class="gantt-task-col gantt-task-button depth-@row.Depth" onclick="openTaskPanel(@row.ProjectTaskId)">
+                                        <span class="gantt-task-heading">
+                                            <span class="gantt-task-level">@GanttLevelLabel(row.Depth)</span>
+                                            <span class="gantt-task-name">@row.Title</span>
+                                        </span>
+                                        <span class="gantt-task-meta">
+                                            <span class="status-badge @TaskStatusCss(row.Status)" style="font-size:0.65rem;">@TaskStatusLabel(row.Status)</span>
+                                            <span>@dateLabel</span>
+                                            <span>@row.Progress.ToString("0")%</span>
+                                            @if (!string.IsNullOrWhiteSpace(row.ParentTaskTitle))
+                                            {
+                                                <span class="gantt-parent-chip"><i class="bi bi-diagram-2"></i>@row.ParentTaskTitle</span>
+                                            }
+                                        </span>
+                                    </button>
+                                    <div class="gantt-scale-col">
+                                        <div class="gantt-track" style="grid-template-columns:repeat(@timelineDays.Count, 34px);">
+                                            @foreach (var day in timelineDays)
+                                            {
+                                                <span class="gantt-cell @((day.DayOfWeek == DayOfWeek.Saturday || day.DayOfWeek == DayOfWeek.Sunday) ? "is-weekend" : "")"></span>
+                                            }
+                                            @if (todayColumn.HasValue)
+                                            {
+                                                <span class="gantt-today-line" style="grid-column:@todayColumn.Value;"></span>
+                                            }
+                                            <button type="button"
+                                                    class="gantt-bar @GanttBarCss(row) depth-@depthLevel"
+                                                    style="grid-column:@barStart / span @barSpan;--bar-progress:@progressWidth.ToString("0")%;"
+                                                    onclick="openTaskPanel(@row.ProjectTaskId)"
+                                                    title="@($"{row.Title} • {dateLabel}")">
+                                                <span class="gantt-bar-progress"></span>
+                                                <span class="gantt-bar-label">@row.Title</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (unscheduledTimelineRows.Any())
+                {
+                    <div class="gantt-unscheduled mt-3">
+                        <div class="fw-semibold mb-2">Task chưa đặt mốc thời gian</div>
+                        <div class="gantt-unscheduled-list">
+                            @foreach (var row in unscheduledTimelineRows)
+                            {
+                                <button type="button"
+                                        class="gantt-unscheduled-item"
+                                        style="--gantt-depth:@Math.Min(row.Depth, 5);--gantt-accent:@GanttDepthAccent(row.Depth);"
+                                        data-status="@((int)row.Status)"
+                                        data-assignees="@string.Join(",", row.AssigneeIds)"
+                                        onclick="openTaskPanel(@row.ProjectTaskId)">
+                                    <span class="gantt-unscheduled-name depth-@row.Depth">
+                                        <span class="gantt-task-level">@GanttLevelLabel(row.Depth)</span>
+                                        <span>@row.Title</span>
+                                        @if (!string.IsNullOrWhiteSpace(row.ParentTaskTitle))
+                                        {
+                                            <small>Thuộc: @row.ParentTaskTitle</small>
+                                        }
+                                    </span>
+                                    <span class="status-badge @TaskStatusCss(row.Status)" style="font-size:0.65rem;">@TaskStatusLabel(row.Status)</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Members Tab -->
+    <div class="tab-pane fade" id="tabMembers">
+        @if (canManage)
+        {
+            <div class="mb-3">
+                <button id="openAddMemberModalBtn" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addMemberModal">
+                    <i class="bi bi-person-plus me-1"></i>Thêm thành viên
+                </button>
+            </div>
+        }
+
+        <div class="card">
+            <div class="card-body p-2">
+                @foreach (var m in Model.Members)
+                {
+                    <div class="member-row">
+                        <div class="member-avatar">@(m.EmployeeName.Length > 0 ? m.EmployeeName[0].ToString().ToUpper() : "?")</div>
+                        <div class="member-info">
+                            <div class="member-name">@m.EmployeeName <span class="text-muted" style="font-size:0.78rem;">(@m.EmployeeCode)</span></div>
+                            @if (!string.IsNullOrEmpty(m.Department))
+                            {
+                                <div class="member-dept">@m.Department</div>
+                            }
+                        </div>
+                        <span class="role-badge @RoleCss(m.Role)">@RoleLabel(m.Role)</span>
+                        @if (canManage && m.Role != ProjectMemberRole.ProjectOwner)
+                        {
+                            <div class="dropdown">
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                    <i class="bi bi-three-dots"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    @if (isOwner && m.Role != ProjectMemberRole.ProjectManager)
+                                    {
+                                        <li>
+                                            <form asp-action="ChangeMemberRole" method="post">
+                                                <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+                                                <input type="hidden" name="EmployeeId" value="@m.EmployeeId" />
+                                                <input type="hidden" name="NewRole" value="@((int)ProjectMemberRole.ProjectManager)" />
+                                                <button type="submit" class="dropdown-item text-primary">
+                                                    <i class="bi bi-arrow-up-circle me-1"></i>Bổ nhiệm Manager
+                                                </button>
+                                            </form>
+                                        </li>
+                                    }
+                                    @if (isOwner && m.Role == ProjectMemberRole.ProjectManager)
+                                    {
+                                        <li>
+                                            <form asp-action="ChangeMemberRole" method="post">
+                                                <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+                                                <input type="hidden" name="EmployeeId" value="@m.EmployeeId" />
+                                                <input type="hidden" name="NewRole" value="@((int)ProjectMemberRole.ProjectStaff)" />
+                                                <button type="submit" class="dropdown-item text-warning">
+                                                    <i class="bi bi-arrow-down-circle me-1"></i>Thu hồi Manager
+                                                </button>
+                                            </form>
+                                        </li>
+                                    }
+                                    <li>
+                                        <form asp-action="RemoveMember" method="post"
+                                              onsubmit="return confirm('Xoá @m.EmployeeName khỏi dự án?')">
+                                            <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                                            <input type="hidden" name="targetEmployeeId" value="@m.EmployeeId" />
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                <i class="bi bi-person-x me-1"></i>Xoá khỏi dự án
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Member Modal -->
+@if (canManage)
+{
+    <div class="modal fade" id="addMemberModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-person-plus me-1"></i>Thêm thành viên</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="AddMember" method="post">
+                    <div class="modal-body">
+                        <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Nhân viên</label>
+                            <select name="EmployeeId" class="form-select" required>
+                                <option value="">-- Chọn nhân viên --</option>
+                                @if (ViewBag.AllEmployees is SelectList empList)
+                                {
+                                    @foreach (SelectListItem item in empList)
+                                    {
+                                        <option value="@item.Value">@item.Text</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Vai trò</label>
+                            <select name="Role" class="form-select">
+                                @if (isOwner)
+                                {
+                                    <option value="@((int)ProjectMemberRole.ProjectManager)">Manager</option>
+                                }
+                                <option value="@((int)ProjectMemberRole.ProjectStaff)" selected>Staff</option>
+                                <option value="@((int)ProjectMemberRole.ProjectViewer)">Viewer</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Huỷ</button>
+                        <button type="submit" class="btn btn-primary">Thêm</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Create Task Modal -->
+@if (canManageTask)
+{
+    <div class="modal fade" id="createTaskModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Thêm công việc mới</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-controller="ProjectTask" asp-action="Create" method="post" id="createTaskForm"
+                      data-project-start="@(Model.StartDate?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                      data-project-end="@(Model.EndDate?.ToString("yyyy-MM-dd") ?? string.Empty)">
+                    <div class="modal-body">
+                        <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Tiêu đề <span class="text-danger">*</span></label>
+                            <input type="text" name="Title" class="form-control" required maxlength="300" placeholder="Tên công việc..." />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Mô tả</label>
+                            <textarea name="Description" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Task cha (nếu là subtask)</label>
+                                <select name="ParentTaskId" class="form-select" id="createTaskParentSelect">
+                                    <option value="">-- Không có --</option>
+                                    @foreach (var option in parentTaskOptions)
+                                    {
+                                        <option value="@option.ProjectTaskId"
+                                                data-start="@(option.StartDate?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                                                data-due="@(option.DueDate?.ToString("yyyy-MM-dd") ?? string.Empty)">
+                                            @option.Label
+                                        </option>
+                                    }
+                                </select>
+                                <div class="form-text" id="taskScheduleHint">
+                                    @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
+                                    {
+                                        <span>Task của dự án nên nằm trong khoảng @(Model.StartDate?.ToString("dd/MM/yyyy") ?? "—") → @(Model.EndDate?.ToString("dd/MM/yyyy") ?? "—").</span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Độ ưu tiên</label>
+                                <select name="Priority" class="form-select">
+                                    <option value="0">Thấp</option>
+                                    <option value="1" selected>Trung bình</option>
+                                    <option value="2">Cao</option>
+                                    <option value="3">Khẩn cấp</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Ngày bắt đầu</label>
+                                <input type="date" name="StartDate" id="createTaskStartDate" class="form-control"
+                                       min="@(Model.StartDate?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                                       max="@(Model.EndDate?.ToString("yyyy-MM-dd") ?? string.Empty)" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Hạn hoàn thành</label>
+                                <input type="date" name="DueDate" id="createTaskDueDate" class="form-control"
+                                       min="@(Model.StartDate?.ToString("yyyy-MM-dd") ?? string.Empty)"
+                                       max="@(Model.EndDate?.ToString("yyyy-MM-dd") ?? string.Empty)" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Giờ ước tính</label>
+                                <input type="number" name="EstimatedHours" class="form-control" min="0" step="0.5" placeholder="0.0" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Phân công</label>
+                            <div class="border rounded p-2" style="max-height:160px;overflow-y:auto;">
+                                @foreach (var m in Model.Members.Where(x => x.Role == ProjectMemberRole.ProjectStaff || x.Role == ProjectMemberRole.ProjectManager || x.Role == ProjectMemberRole.ProjectOwner))
+                                {
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="AssigneeIds" value="@m.EmployeeId" id="assignee_@m.EmployeeId" />
+                                        <label class="form-check-label" for="assignee_@m.EmployeeId">
+                                            @m.EmployeeName
+                                            <small class="text-muted ms-1">(@RoleLabel(m.Role))</small>
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Huỷ</button>
+                        <button type="submit" class="btn btn-danger"><i class="bi bi-check-circle me-1"></i>Tạo task</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Task Detail Side Panel -->
+<div id="taskDetailOverlay" class="task-detail-overlay"></div>
+<div id="taskDetailPanel" class="task-detail-panel">
+    <div id="taskDetailContent"></div>
+</div>
+
+@functions {
+    string StatusLabel(ProjectStatus s) => s switch {
+        ProjectStatus.Planning  => "Lên kế hoạch",
+        ProjectStatus.Active    => "Đang thực hiện",
+        ProjectStatus.OnHold    => "Tạm dừng",
+        ProjectStatus.Completed => "Hoàn thành",
+        ProjectStatus.Cancelled => "Đã huỷ",
+        ProjectStatus.Archived  => "Lưu trữ",
+        _ => s.ToString()
+    };
+    string StatusCss(ProjectStatus s) => s switch {
+        ProjectStatus.Planning  => "status-planning",
+        ProjectStatus.Active    => "status-active",
+        ProjectStatus.OnHold    => "status-on-hold",
+        ProjectStatus.Completed => "status-completed",
+        ProjectStatus.Cancelled => "status-cancelled",
+        ProjectStatus.Archived  => "status-archived",
+        _ => ""
+    };
+    string RoleLabel(ProjectMemberRole r) => r switch {
+        ProjectMemberRole.ProjectOwner   => "Owner",
+        ProjectMemberRole.ProjectManager => "Manager",
+        ProjectMemberRole.ProjectStaff   => "Staff",
+        ProjectMemberRole.ProjectViewer  => "Viewer",
+        _ => r.ToString()
+    };
+    string RoleCss(ProjectMemberRole r) => r switch {
+        ProjectMemberRole.ProjectOwner   => "role-owner",
+        ProjectMemberRole.ProjectManager => "role-manager",
+        ProjectMemberRole.ProjectStaff   => "role-staff",
+        ProjectMemberRole.ProjectViewer  => "role-viewer",
+        _ => ""
+    };
+    string TaskStatusLabel(ProjectTaskStatus s) => s switch {
+        ProjectTaskStatus.Todo       => "Chưa bắt đầu",
+        ProjectTaskStatus.InProgress => "Đang thực hiện",
+        ProjectTaskStatus.Review     => "Đang review",
+        ProjectTaskStatus.Done       => "Hoàn thành",
+        ProjectTaskStatus.Blocked    => "Bị chặn",
+        ProjectTaskStatus.Cancelled  => "Đã huỷ",
+        _ => s.ToString()
+    };
+    string TaskStatusCss(ProjectTaskStatus s) => s switch {
+        ProjectTaskStatus.Todo       => "task-status-todo",
+        ProjectTaskStatus.InProgress => "task-status-inprogress",
+        ProjectTaskStatus.Review     => "task-status-review",
+        ProjectTaskStatus.Done       => "task-status-done",
+        ProjectTaskStatus.Blocked    => "task-status-blocked",
+        ProjectTaskStatus.Cancelled  => "task-status-cancelled",
+        _ => ""
+    };
+    string ProgressColor(decimal p) => p >= 100 ? "bg-success" : p >= 60 ? "bg-info" : p >= 30 ? "bg-warning" : "bg-danger";
+    string GanttBarCss(ProjectTimelineRowViewModel row) => row.Status switch {
+        ProjectTaskStatus.Done       => "is-done",
+        ProjectTaskStatus.InProgress => "is-inprogress",
+        ProjectTaskStatus.Review     => "is-review",
+        ProjectTaskStatus.Blocked    => "is-blocked",
+        ProjectTaskStatus.Cancelled  => "is-cancelled",
+        _ when row.IsOverdue         => "is-overdue",
+        _ when row.IsNearDeadline    => "is-near",
+        _                            => "is-todo"
+    };
+    string GanttDepthAccent(int depth) => depth switch {
+        0 => "#c83200",
+        1 => "#2563eb",
+        2 => "#059669",
+        3 => "#7c3aed",
+        4 => "#d97706",
+        _ => "#64748b"
+    };
+    string GanttLevelLabel(int depth) => depth <= 0 ? "Task" : $"Sub {depth}";
+    List<ProjectTaskParentOptionViewModel> FlattenTaskOptions(IEnumerable<ProjectTaskTreeViewModel> tasks, int level = 0)
+    {
+        var result = new List<ProjectTaskParentOptionViewModel>();
+        foreach (var task in tasks.OrderBy(t => t.StartDate ?? t.DueDate ?? DateTime.MaxValue).ThenBy(t => t.Title))
+        {
+            var prefix = string.Concat(Enumerable.Repeat("|-- ", level));
+            result.Add(new ProjectTaskParentOptionViewModel
+            {
+                ProjectTaskId = task.ProjectTaskId,
+                Label = $"{prefix}{task.Title}",
+                StartDate = task.StartDate,
+                DueDate = task.DueDate
+            });
+
+            if (task.SubTasks.Any())
+            {
+                result.AddRange(FlattenTaskOptions(task.SubTasks, level + 1));
+            }
+        }
+
+        return result;
+    }
+}
+
+@section Scripts {
+    <script src="~/js/project-management.js" asp-append-version="true"></script>
+    <script>
+    // Filter tasks by status/assignee
+    document.getElementById('filterStatus')?.addEventListener('change', filterTasks);
+    document.getElementById('filterAssignee')?.addEventListener('change', filterTasks);
+    document.getElementById('createTaskParentSelect')?.addEventListener('change', syncCreateTaskDateConstraints);
+    document.getElementById('createTaskStartDate')?.addEventListener('change', syncCreateTaskDateConstraints);
+    document.getElementById('createTaskDueDate')?.addEventListener('change', syncCreateTaskDateConstraints);
+
+    function filterTasks() {
+        const statusVal = document.getElementById('filterStatus').value;
+        const assigneeVal = document.getElementById('filterAssignee').value;
+        document.querySelectorAll('.task-row, .gantt-row, .gantt-unscheduled-item').forEach(row => {
+            const rowStatus = row.dataset.status ?? '';
+            const rowAssignees = row.dataset.assignees ?? '';
+            const matchStatus = !statusVal || rowStatus === statusVal;
+            const matchAssignee = !assigneeVal || rowAssignees.split(',').includes(assigneeVal);
+            row.style.display = (matchStatus && matchAssignee) ? '' : 'none';
+        });
+    }
+
+    function syncCreateTaskDateConstraints() {
+        const form = document.getElementById('createTaskForm');
+        const parentSelect = document.getElementById('createTaskParentSelect');
+        const startInput = document.getElementById('createTaskStartDate');
+        const dueInput = document.getElementById('createTaskDueDate');
+        const hint = document.getElementById('taskScheduleHint');
+        if (!form || !parentSelect || !startInput || !dueInput) return;
+        const submitButton = form.querySelector('button[type="submit"]');
+
+        const projectStart = form.dataset.projectStart || '';
+        const projectEnd = form.dataset.projectEnd || '';
+        const selectedOption = parentSelect.options[parentSelect.selectedIndex];
+        const parentStart = selectedOption?.dataset.start || '';
+        const parentDue = selectedOption?.dataset.due || '';
+        const isSubtask = !!parentSelect.value;
+        const hasParentRange = !!parentStart && !!parentDue;
+
+        const effectiveStart = parentStart || projectStart;
+        const effectiveEnd = parentDue || projectEnd;
+        const effectiveDueMin = startInput.value && (!effectiveStart || startInput.value > effectiveStart)
+            ? startInput.value
+            : effectiveStart;
+        const effectiveStartMax = dueInput.value && (!effectiveEnd || dueInput.value < effectiveEnd)
+            ? dueInput.value
+            : effectiveEnd;
+
+        startInput.min = effectiveStart;
+        dueInput.min = effectiveDueMin || '';
+        startInput.max = effectiveStartMax || '';
+        dueInput.max = effectiveEnd;
+        startInput.required = isSubtask;
+        dueInput.required = isSubtask;
+
+        if (submitButton) {
+            submitButton.disabled = isSubtask && !hasParentRange;
+        }
+
+        if (startInput.value && dueInput.value && dueInput.value < startInput.value) {
+            dueInput.value = startInput.value;
+        }
+
+        if (hint) {
+            if (isSubtask && !hasParentRange) {
+                hint.textContent = 'Task cha chưa có đủ ngày bắt đầu và ngày kết thúc, nên chưa thể tạo subtask trong khoảng thời gian hợp lệ.';
+            } else if (parentSelect.value && (parentStart || parentDue)) {
+                hint.textContent = `Subtask phải nằm trong khoảng của task cha: ${formatTaskDate(parentStart)} → ${formatTaskDate(parentDue)}.`;
+            } else if (projectStart || projectEnd) {
+                hint.textContent = `Task của dự án nên nằm trong khoảng ${formatTaskDate(projectStart)} → ${formatTaskDate(projectEnd)}.`;
+            } else {
+                hint.textContent = 'Có thể đặt ngày để timeline/Gantt hiển thị chính xác hơn.';
+            }
+        }
+    }
+
+    function formatTaskDate(value) {
+        if (!value) return '—';
+        const [year, month, day] = value.split('-');
+        return `${day}/${month}/${year}`;
+    }
+
+    syncCreateTaskDateConstraints();
+    </script>
+}

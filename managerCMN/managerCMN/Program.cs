@@ -47,6 +47,10 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IPostHistoryService, PostHistoryService>();
+builder.Services.AddScoped<IProjectAccessService, ProjectAccessService>();
+builder.Services.AddScoped<IProjectProgressService, ProjectProgressService>();
+builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IProjectTaskService, ProjectTaskService>();
 builder.Services.AddScoped<SystemLogActionFilter>();
 
 // ── Authentication (Google OAuth + Cookie) ──
@@ -106,6 +110,12 @@ builder.Services.AddAuthorization(options =>
         policy.Requirements.Add(new PermissionRequirement("Settings.ManagePermissions")));
     options.AddPolicy("ViewEmployees", policy =>
         policy.Requirements.Add(new PermissionRequirement("Employee.View")));
+    options.AddPolicy("ViewProjects", policy =>
+        policy.Requirements.Add(new PermissionRequirement("Project.View")));
+    options.AddPolicy("CreateProject", policy =>
+        policy.Requirements.Add(new PermissionRequirement("Project.Create")));
+    options.AddPolicy("ManageProjectTask", policy =>
+        policy.Requirements.Add(new PermissionRequirement("ProjectTask.Manage")));
 });
 
 // ── MVC ──

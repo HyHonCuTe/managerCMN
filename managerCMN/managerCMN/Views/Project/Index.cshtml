@@ -1,0 +1,166 @@
+@model IEnumerable<managerCMN.Models.ViewModels.ProjectListViewModel>
+@using managerCMN.Models.Enums
+@{
+    ViewData["Title"] = "Dự án của tôi";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/project-management.css" asp-append-version="true" />
+}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <h4 class="mb-0 fw-bold"><i class="bi bi-kanban text-danger me-2"></i>Dự án của tôi</h4>
+        <small class="text-muted">Danh sách các dự án bạn đang tham gia</small>
+    </div>
+    <a asp-action="Create" class="btn btn-danger btn-sm">
+        <i class="bi bi-plus-circle me-1"></i>Tạo dự án
+    </a>
+</div>
+
+@if (TempData["Success"] != null)
+{
+    <div class="alert alert-success alert-dismissible fade show py-2" role="alert">
+        <i class="bi bi-check-circle me-1"></i>@TempData["Success"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+@if (TempData["Error"] != null)
+{
+    <div class="alert alert-danger alert-dismissible fade show py-2" role="alert">
+        <i class="bi bi-exclamation-triangle me-1"></i>@TempData["Error"]
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+}
+
+@{
+    // Filter — dùng int value để tránh vấn đề culture/locale với tên enum
+    var statusFilter = Context.Request.Query["status"].ToString();
+    ProjectStatus? activeFilter = null;
+    if (!string.IsNullOrEmpty(statusFilter) && int.TryParse(statusFilter, out var sfInt)
+        && Enum.IsDefined(typeof(ProjectStatus), sfInt))
+        activeFilter = (ProjectStatus)sfInt;
+
+    // Mặc định ẩn archived trừ khi chọn filter Archived
+    var filtered = activeFilter.HasValue
+        ? Model.Where(p => p.Status == activeFilter.Value)
+        : Model.Where(p => !p.IsArchived);
+}
+
+<div class="filter-bar mb-3">
+    <span class="text-muted small me-1">Lọc:</span>
+    <a href="@Url.Action("Index")"
+       class="btn btn-sm @(!activeFilter.HasValue ? "btn-secondary" : "btn-outline-secondary")">Tất cả</a>
+    @foreach (var s in Enum.GetValues<ProjectStatus>())
+    {
+        <a href="@Url.Action("Index", new { status = (int)s })"
+           class="btn btn-sm @(activeFilter == s ? "btn-secondary" : "btn-outline-secondary")">
+            @StatusLabel(s)
+        </a>
+    }
+</div>
+
+@if (!filtered.Any())
+{
+    <div class="empty-state">
+        <i class="bi bi-kanban"></i>
+        <p>Bạn chưa tham gia dự án nào.<br />
+            <a asp-action="Create" class="btn btn-outline-danger btn-sm mt-2">
+                <i class="bi bi-plus-circle me-1"></i>Tạo dự án mới
+            </a>
+        </p>
+    </div>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+        @foreach (var p in filtered.OrderByDescending(x => x.CreatedDate))
+        {
+            <div class="col">
+                <a asp-action="Details" asp-route-id="@p.ProjectId" class="text-decoration-none d-block h-100">
+                <div class="card project-card h-100 @(p.IsArchived ? "opacity-75" : "")">
+                    <div class="card-header d-flex align-items-start justify-content-between gap-2">
+                        <div>
+                            <span class="project-name d-block">@p.Name</span>
+                            <div class="mt-1">
+                                <span class="status-badge @StatusCss(p.Status)">@StatusLabel(p.Status)</span>
+                                <span class="role-badge ms-1 @RoleCss(p.MyRole)">@RoleLabel(p.MyRole)</span>
+                                @if (p.IsArchived)
+                                {
+                                    <span class="status-badge status-archived ms-1"><i class="bi bi-archive me-1"></i>Lưu trữ</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body py-2 px-3">
+                        @if (!string.IsNullOrWhiteSpace(p.Description))
+                        {
+                            <p class="text-muted small mb-2" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">@p.Description</p>
+                        }
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="progress-label">@p.Progress.ToString("0")% hoàn thành</span>
+                            @if (p.OverdueTaskCount > 0)
+                            {
+                                <span class="overdue-badge"><i class="bi bi-exclamation-circle me-1"></i>@p.OverdueTaskCount quá hạn</span>
+                            }
+                        </div>
+                        <div class="progress progress-bar-project">
+                            <div class="progress-bar @ProgressColor(p.Progress)" style="width:@p.Progress.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)%"></div>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white border-top-0 px-3 pt-0 pb-2">
+                        <div class="d-flex justify-content-between align-items-center" style="font-size:0.78rem;color:#6b7280;">
+                            <span><i class="bi bi-people me-1"></i>@p.MemberCount TV</span>
+                            <span><i class="bi bi-check2-square me-1"></i>@p.TaskCount task</span>
+                            @if (p.EndDate.HasValue)
+                            {
+                                <span><i class="bi bi-calendar3 me-1"></i>@p.EndDate.Value.ToString("dd/MM/yy")</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+                </a>
+            </div>
+        }
+    </div>
+}
+
+@functions {
+    string StatusLabel(ProjectStatus s) => s switch {
+        ProjectStatus.Planning  => "Lên kế hoạch",
+        ProjectStatus.Active    => "Đang thực hiện",
+        ProjectStatus.OnHold    => "Tạm dừng",
+        ProjectStatus.Completed => "Hoàn thành",
+        ProjectStatus.Cancelled => "Đã huỷ",
+        ProjectStatus.Archived  => "Lưu trữ",
+        _ => s.ToString()
+    };
+    string StatusCss(ProjectStatus s) => s switch {
+        ProjectStatus.Planning  => "status-planning",
+        ProjectStatus.Active    => "status-active",
+        ProjectStatus.OnHold    => "status-on-hold",
+        ProjectStatus.Completed => "status-completed",
+        ProjectStatus.Cancelled => "status-cancelled",
+        ProjectStatus.Archived  => "status-archived",
+        _ => ""
+    };
+    string RoleLabel(ProjectMemberRole r) => r switch {
+        ProjectMemberRole.ProjectOwner   => "Owner",
+        ProjectMemberRole.ProjectManager => "Manager",
+        ProjectMemberRole.ProjectStaff   => "Staff",
+        ProjectMemberRole.ProjectViewer  => "Viewer",
+        _ => r.ToString()
+    };
+    string RoleCss(ProjectMemberRole r) => r switch {
+        ProjectMemberRole.ProjectOwner   => "role-owner",
+        ProjectMemberRole.ProjectManager => "role-manager",
+        ProjectMemberRole.ProjectStaff   => "role-staff",
+        ProjectMemberRole.ProjectViewer  => "role-viewer",
+        _ => ""
+    };
+    string ProgressColor(decimal p) => p >= 100 ? "bg-success" : p >= 60 ? "bg-info" : p >= 30 ? "bg-warning" : "bg-danger";
+}
+
+@section Scripts {
+    <script src="~/js/project-management.js" asp-append-version="true"></script>
+}

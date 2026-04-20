@@ -27,5 +27,8 @@ public interface IUnitOfWork : IDisposable
     INotificationRepository Notifications { get; }
     IPostHistoryRepository PostHistories { get; }
     IPermissionRepository Permissions { get; }
+    IProjectRepository Projects { get; }
+    IProjectTaskRepository ProjectTasks { get; }
+    IProjectMemberRepository ProjectMembers { get; }
     Task<int> SaveChangesAsync();
 }

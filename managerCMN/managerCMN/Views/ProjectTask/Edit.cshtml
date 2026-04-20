@@ -1,0 +1,161 @@
+@model managerCMN.Models.ViewModels.ProjectTaskEditViewModel
+@using managerCMN.Models.Enums
+@{
+    ViewData["Title"] = "Sửa công việc";
+    var members = ViewBag.Members as IEnumerable<managerCMN.Models.ViewModels.ProjectMemberViewModel>;
+    var canCompleteTask = ViewBag.CanCompleteTask as bool? ?? false;
+    var isTaskDone = ViewBag.IsTaskDone as bool? ?? Model.Status == ProjectTaskStatus.Done;
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/project-management.css" asp-append-version="true" />
+}
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-7">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb" style="font-size:0.82rem;">
+                <li class="breadcrumb-item"><a asp-controller="Project" asp-action="Index">Dự án</a></li>
+                <li class="breadcrumb-item"><a asp-controller="Project" asp-action="Details" asp-route-id="@Model.ProjectId">Chi tiết</a></li>
+                <li class="breadcrumb-item active">Sửa task</li>
+            </ol>
+        </nav>
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-pencil text-danger me-2"></i>Sửa công việc</h5>
+            </div>
+            <div class="card-body">
+                <form asp-action="Edit" method="post">
+                    <input asp-for="ProjectTaskId" type="hidden" />
+                    <input asp-for="ProjectId" type="hidden" />
+                    <input asp-for="ParentTaskId" type="hidden" />
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+
+                    <div class="mb-3">
+                        <label asp-for="Title" class="form-label fw-semibold"></label>
+                        <input asp-for="Title" class="form-control" required />
+                        <span asp-validation-for="Title" class="text-danger small"></span>
+                    </div>
+
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label fw-semibold"></label>
+                        <textarea asp-for="Description" class="form-control" rows="3"></textarea>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label asp-for="Status" class="form-label fw-semibold"></label>
+                            @if (isTaskDone)
+                            {
+                                <input asp-for="Status" type="hidden" />
+                            }
+                            <select asp-for="Status" class="form-select" disabled="@isTaskDone">
+                                @foreach (var s in Enum.GetValues<ProjectTaskStatus>())
+                                {
+                                    var disableDoneOption = s == ProjectTaskStatus.Done && !canCompleteTask && Model.Status != ProjectTaskStatus.Done;
+                                    <option value="@s" disabled="@disableDoneOption">@(s switch {
+                                        ProjectTaskStatus.Todo       => "Chưa bắt đầu",
+                                        ProjectTaskStatus.InProgress => "Đang làm",
+                                        ProjectTaskStatus.Review     => "Review",
+                                        ProjectTaskStatus.Done       => "Hoàn thành",
+                                        ProjectTaskStatus.Blocked    => "Bị chặn",
+                                        ProjectTaskStatus.Cancelled  => "Đã huỷ",
+                                        _ => s.ToString()
+                                    })</option>
+                                }
+                            </select>
+                            @if (isTaskDone)
+                            {
+                                <div class="form-text text-success">Task đã hoàn thành nên không thể hoàn tác trạng thái.</div>
+                            }
+                            else if (!canCompleteTask)
+                            {
+                                <div class="form-text">Chỉ assignee hoặc Owner được chọn Hoàn thành.</div>
+                            }
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="Priority" class="form-label fw-semibold"></label>
+                            <select asp-for="Priority" class="form-select">
+                                <option value="0">Thấp</option>
+                                <option value="1">Trung bình</option>
+                                <option value="2">Cao</option>
+                                <option value="3">Khẩn cấp</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="ProgressMode" class="form-label fw-semibold"></label>
+                            <select asp-for="ProgressMode" class="form-select" id="progressModeSelect">
+                                <option value="0">Auto (tự động)</option>
+                                <option value="1">Manual (thủ công)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label asp-for="StartDate" class="form-label fw-semibold"></label>
+                            <input asp-for="StartDate" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-4">
+                            <label asp-for="DueDate" class="form-label fw-semibold"></label>
+                            <input asp-for="DueDate" type="date" class="form-control" />
+                        </div>
+                        <div class="col-md-4" id="manualProgressGroup" style="display:none;">
+                            <label asp-for="Progress" class="form-label fw-semibold"></label>
+                            <input asp-for="Progress" type="number" class="form-control" min="0" max="100" step="1" />
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label asp-for="EstimatedHours" class="form-label fw-semibold"></label>
+                            <input asp-for="EstimatedHours" type="number" class="form-control" min="0" step="0.5" />
+                        </div>
+                        <div class="col-md-6">
+                            <label asp-for="ActualHours" class="form-label fw-semibold"></label>
+                            <input asp-for="ActualHours" type="number" class="form-control" min="0" step="0.5" />
+                        </div>
+                    </div>
+
+                    @if (members != null && members.Any())
+                    {
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Phân công</label>
+                            <div class="border rounded p-2" style="max-height:160px;overflow-y:auto;">
+                                @foreach (var m in members.Where(x => x.Role != ProjectMemberRole.ProjectViewer))
+                                {
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="AssigneeIds" value="@m.EmployeeId"
+                                               id="edit_assignee_@m.EmployeeId"
+                                               @(Model.AssigneeIds.Contains(m.EmployeeId) ? "checked" : "") />
+                                        <label class="form-check-label" for="edit_assignee_@m.EmployeeId">
+                                            @m.EmployeeName
+                                        </label>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    <div class="d-flex gap-2 justify-content-end">
+                        <a asp-controller="Project" asp-action="Details" asp-route-id="@Model.ProjectId" class="btn btn-outline-secondary">Huỷ</a>
+                        <button type="submit" class="btn btn-danger"><i class="bi bi-check-circle me-1"></i>Lưu</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+    const progressModeSelect = document.getElementById('progressModeSelect');
+    const manualGroup = document.getElementById('manualProgressGroup');
+    function toggleManual() {
+        manualGroup.style.display = progressModeSelect.value === '1' ? '' : 'none';
+    }
+    progressModeSelect?.addEventListener('change', toggleManual);
+    toggleManual();
+    </script>
+}

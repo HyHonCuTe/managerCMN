@@ -35,6 +35,9 @@ public class UnitOfWork : IUnitOfWork
         Notifications = new NotificationRepository(context);
         PostHistories = new PostHistoryRepository(context);
         Permissions = new PermissionRepository(context);
+        Projects = new ProjectRepository(context);
+        ProjectTasks = new ProjectTaskRepository(context);
+        ProjectMembers = new ProjectMemberRepository(context);
     }
 
     public IEmployeeRepository Employees { get; }
@@ -62,6 +65,9 @@ public class UnitOfWork : IUnitOfWork
     public INotificationRepository Notifications { get; }
     public IPostHistoryRepository PostHistories { get; }
     public IPermissionRepository Permissions { get; }
+    public IProjectRepository Projects { get; }
+    public IProjectTaskRepository ProjectTasks { get; }
+    public IProjectMemberRepository ProjectMembers { get; }
 
     public async Task<int> SaveChangesAsync() => await _context.SaveChangesAsync();
 

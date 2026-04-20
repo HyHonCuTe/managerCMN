@@ -1,0 +1,483 @@
+@model managerCMN.Models.ViewModels.ProjectTaskTreeViewModel
+@using managerCMN.Helpers
+@using managerCMN.Models.Enums
+@{
+    Layout = null;
+    var canCreateSubtaskInParentRange = Model.StartDate.HasValue && Model.DueDate.HasValue;
+    var parentRangeStartLabel = Model.StartDate?.ToString("dd/MM/yyyy") ?? "—";
+    var parentRangeEndLabel = Model.DueDate?.ToString("dd/MM/yyyy") ?? "—";
+    var isDone = Model.Status == ProjectTaskStatus.Done;
+}
+
+<div class="task-detail-header">
+    <div style="flex:1;min-width:0;">
+        <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+            <span class="status-badge @TaskStatusCss(Model.Status)" style="font-size:0.7rem;">@TaskStatusLabel(Model.Status)</span>
+            <span class="priority-@Model.Priority.ToString().ToLower()" style="font-size:0.8rem;">@PriorityLabel(Model.Priority)</span>
+            @if (!string.IsNullOrWhiteSpace(Model.ParentTaskTitle))
+            {
+                <span class="task-link-chip" onclick="openTaskPanel(@Model.ParentTaskId)">Thuộc: @Model.ParentTaskTitle</span>
+            }
+        </div>
+        <h5 class="mb-0 fw-bold" style="font-size:1rem;line-height:1.3;">@Model.Title</h5>
+        <div class="mt-1 d-flex flex-wrap gap-2" style="font-size:0.78rem;color:#6b7280;">
+            @if (Model.DueDate.HasValue)
+            {
+                <span>
+                    <i class="bi bi-calendar3 me-1"></i>Hạn: @Model.DueDate.Value.ToString("dd/MM/yyyy")
+                    @if (Model.IsOverdue)
+                    {
+                        <span class="overdue-badge ms-1"><i class="bi bi-alarm"></i> Quá hạn</span>
+                    }
+                </span>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.CreatedByName))
+            {
+                <span><i class="bi bi-person-circle me-1"></i>@Model.CreatedByName</span>
+            }
+            <span><i class="bi bi-clock-history me-1"></i>@Model.CreatedDate.ToString("dd/MM/yyyy HH:mm")</span>
+        </div>
+    </div>
+    <div class="d-flex gap-1">
+        @if (Model.CanManageTask)
+        {
+            <a href="/ProjectTask/Edit/@Model.ProjectTaskId" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil"></i>
+            </a>
+        }
+        <button class="btn btn-sm btn-outline-secondary" onclick="closeTaskPanel()">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+</div>
+
+<div class="task-detail-body">
+    @if (!string.IsNullOrWhiteSpace(Model.Description))
+    {
+        <section class="task-section-card">
+            <div class="task-section-label">Mô tả</div>
+            <p class="mb-0" style="font-size:0.88rem;white-space:pre-wrap;">@Model.Description</p>
+        </section>
+    }
+
+    <section class="task-section-card">
+        <div class="task-section-head">
+            <span class="task-section-label mb-0">Tiến độ</span>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="fw-bold">@Model.Progress.ToString("0")%</span>
+                @if (!isDone && !Model.IsArchived && Model.CanCompleteTask)
+                {
+                    <button type="button" class="btn btn-sm btn-success"
+                            onclick="quickMarkTaskDone(@Model.ProjectTaskId)">
+                        <i class="bi bi-check2-circle me-1"></i>Đánh dấu hoàn thành
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="progress" style="height:8px;border-radius:4px;">
+            <div class="progress-bar @ProgressColor(Model.Progress)" style="width:@Model.Progress%"></div>
+        </div>
+
+        @if (Model.ProgressMode == ProgressMode.Manual && !Model.IsArchived && !isDone)
+        {
+            <form class="mt-3 d-flex gap-2 align-items-center" onsubmit="updateProgress(event, @Model.ProjectTaskId)">
+                <input type="range" id="progressSlider" min="0" max="100" value="@((int)Model.Progress)"
+                       class="form-range" style="flex:1;" oninput="document.getElementById('progressVal').textContent=this.value+'%'" />
+                <span id="progressVal" style="font-size:0.82rem;min-width:36px;">@((int)Model.Progress)%</span>
+                <button type="submit" class="btn btn-sm btn-outline-primary">Lưu</button>
+            </form>
+        }
+
+        <div class="row g-2 mt-2 task-fact-grid">
+            @if (Model.StartDate.HasValue)
+            {
+                <div class="col-6">
+                    <span class="text-muted">Bắt đầu:</span>
+                    <strong class="ms-1">@Model.StartDate.Value.ToString("dd/MM/yyyy")</strong>
+                </div>
+            }
+            @if (Model.EstimatedHours.HasValue)
+            {
+                <div class="col-6">
+                    <span class="text-muted">Ước tính:</span>
+                    <strong class="ms-1">@Model.EstimatedHours h</strong>
+                </div>
+            }
+            @if (Model.ActualHours.HasValue)
+            {
+                <div class="col-6">
+                    <span class="text-muted">Thực tế:</span>
+                    <strong class="ms-1">@Model.ActualHours h</strong>
+                </div>
+            }
+            @if (Model.ModifiedDate.HasValue)
+            {
+                <div class="col-6">
+                    <span class="text-muted">Cập nhật:</span>
+                    <strong class="ms-1">@Model.ModifiedDate.Value.ToString("dd/MM/yyyy HH:mm")</strong>
+                </div>
+            }
+        </div>
+
+        <div class="d-flex align-items-center gap-2 flex-wrap mt-3">
+            <span class="text-muted small">Trạng thái:</span>
+            <select class="form-select form-select-sm task-status-select" data-task-id="@Model.ProjectTaskId" style="width:auto;"
+                    disabled="@(Model.IsArchived || isDone)">
+                @foreach (var s in Enum.GetValues<ProjectTaskStatus>())
+                {
+                    var disableDoneOption = s == ProjectTaskStatus.Done && !Model.CanCompleteTask && Model.Status != ProjectTaskStatus.Done;
+                    if (Model.Status == s)
+                    {
+                        <option value="@((int)s)" selected>@TaskStatusLabel(s)</option>
+                    }
+                    else
+                    {
+                        <option value="@((int)s)" disabled="@disableDoneOption">@TaskStatusLabel(s)</option>
+                    }
+                }
+            </select>
+            @if (isDone)
+            {
+                <span class="task-lock-note">Đã hoàn thành, không thể hoàn tác.</span>
+            }
+            else if (!Model.CanCompleteTask)
+            {
+                <span class="task-lock-note">Chỉ assignee hoặc Owner được tick hoàn thành.</span>
+            }
+        </div>
+    </section>
+
+    <section class="task-section-card">
+        <div class="task-section-head">
+            <span class="task-section-label mb-0">Người thực hiện</span>
+            @if (Model.CanManageMembers)
+            {
+                <button type="button" class="btn btn-sm btn-outline-primary"
+                        onclick="openProjectMemberTools(true)">
+                    <i class="bi bi-person-plus me-1"></i>Thêm thành viên dự án
+                </button>
+            }
+        </div>
+
+        @if (Model.AssigneeNames.Any())
+        {
+            <div class="d-flex flex-wrap gap-1 mb-3">
+                @foreach (var name in Model.AssigneeNames)
+                {
+                    <span class="d-flex align-items-center gap-1 px-2 py-1 rounded-pill bg-light" style="font-size:0.8rem;">
+                        <span class="assignee-avatar" style="width:20px;height:20px;font-size:0.6rem;">@(name.Length > 0 ? name[0].ToString().ToUpper() : "?")</span>
+                        @name
+                    </span>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="text-muted small mb-3">Chưa có ai được giao task này.</div>
+        }
+
+        @if (Model.CanManageTask && !Model.IsArchived && Model.AvailableMembers.Any())
+        {
+            <form asp-action="AssignMembers" method="post">
+                <input type="hidden" name="taskId" value="@Model.ProjectTaskId" />
+                <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                <div class="task-member-picker">
+                    @foreach (var member in Model.AvailableMembers)
+                    {
+                        <label class="task-member-option">
+                            <input type="checkbox" name="employeeIds" value="@member.EmployeeId"
+                                   @(Model.AssigneeIds.Contains(member.EmployeeId) ? "checked" : "") />
+                            <span>
+                                <strong>@member.EmployeeName</strong>
+                                <small>@member.RoleLabel • @member.EmployeeCode</small>
+                            </span>
+                        </label>
+                    }
+                </div>
+                <div class="d-flex justify-content-end mt-3">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-person-check me-1"></i>Lưu phân công
+                    </button>
+                </div>
+            </form>
+        }
+    </section>
+
+    <section class="task-section-card">
+        <div class="task-section-head">
+            <span class="task-section-label mb-0">Subtask (@Model.SubTasks.Count)</span>
+        </div>
+
+        @if (Model.SubTasks.Any())
+        {
+            <div class="task-subtask-list">
+                @foreach (var sub in Model.SubTasks)
+                {
+                    <div class="task-subtask-card">
+                        <div class="d-flex justify-content-between align-items-start gap-2">
+                            <div style="min-width:0;">
+                                <button type="button" class="task-subtask-link" onclick="openTaskPanel(@sub.ProjectTaskId)">
+                                    @sub.Title
+                                </button>
+                                <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                                    <span class="status-badge @TaskStatusCss(sub.Status)" style="font-size:0.68rem;">@TaskStatusLabel(sub.Status)</span>
+                                    <span class="text-muted small">@sub.Progress.ToString("0")%</span>
+                                    @if (sub.DueDate.HasValue)
+                                    {
+                                        <span class="text-muted small"><i class="bi bi-calendar3 me-1"></i>@sub.DueDate.Value.ToString("dd/MM")</span>
+                                    }
+                                </div>
+                            </div>
+                            <div class="task-subtask-actions">
+                                @foreach (var name in sub.AssigneeNames.Take(2))
+                                {
+                                    <span class="assignee-avatar" title="@name">@(name.Length > 0 ? name[0].ToString().ToUpper() : "?")</span>
+                                }
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(sub.Description))
+                        {
+                            <p class="task-subtask-desc">@sub.Description</p>
+                        }
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="text-muted small">Task này chưa có subtask.</div>
+        }
+
+        @if (Model.CanManageTask && !Model.IsArchived)
+        {
+            @if (canCreateSubtaskInParentRange)
+            {
+                <form asp-action="Create" method="post" class="task-inline-form mt-3 task-subtask-create-form"
+                      data-parent-start="@Model.StartDate?.ToString("yyyy-MM-dd")"
+                      data-parent-due="@Model.DueDate?.ToString("yyyy-MM-dd")">
+                    <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+                    <input type="hidden" name="ParentTaskId" value="@Model.ProjectTaskId" />
+                    <input type="hidden" name="Priority" value="@((int)ProjectTaskPriority.Medium)" />
+                    <input type="hidden" name="ProgressMode" value="@((int)ProgressMode.Auto)" />
+
+                    <div class="task-inline-form-title">
+                        <i class="bi bi-diagram-3 me-1"></i>Tạo subtask và giao việc ngay
+                    </div>
+                    <div class="mb-2">
+                        <input type="text" name="Title" class="form-control form-control-sm" required maxlength="300"
+                               placeholder="Tên subtask..." />
+                    </div>
+                    <div class="mb-2">
+                        <textarea name="Description" class="form-control form-control-sm" rows="2"
+                                  placeholder="Mô tả ngắn cho subtask..."></textarea>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-4">
+                            <label class="task-inline-label">Bắt đầu</label>
+                            <input type="date" name="StartDate" class="form-control form-control-sm" required
+                                   min="@Model.StartDate?.ToString("yyyy-MM-dd")"
+                                   max="@Model.DueDate?.ToString("yyyy-MM-dd")" />
+                        </div>
+                        <div class="col-4">
+                            <label class="task-inline-label">Kết thúc</label>
+                            <input type="date" name="DueDate" class="form-control form-control-sm" required
+                                   min="@Model.StartDate?.ToString("yyyy-MM-dd")"
+                                   max="@Model.DueDate?.ToString("yyyy-MM-dd")" />
+                        </div>
+                        <div class="col-4">
+                            <label class="task-inline-label">Ước tính</label>
+                            <input type="number" name="EstimatedHours" class="form-control form-control-sm"
+                                   min="0" step="0.5" placeholder="Giờ ước tính" />
+                        </div>
+                    </div>
+                    <div class="task-inline-hint task-subtask-date-hint mt-2">
+                        Subtask phải nằm trong khoảng @parentRangeStartLabel - @parentRangeEndLabel.
+                    </div>
+                    @if (Model.AvailableMembers.Any())
+                    {
+                        <div class="task-member-picker compact mt-2">
+                            @foreach (var member in Model.AvailableMembers)
+                            {
+                                <label class="task-member-option">
+                                    <input type="checkbox" name="AssigneeIds" value="@member.EmployeeId" />
+                                    <span>
+                                        <strong>@member.EmployeeName</strong>
+                                        <small>@member.RoleLabel</small>
+                                    </span>
+                                </label>
+                            }
+                        </div>
+                    }
+                    <div class="d-flex justify-content-end mt-3">
+                        <button type="submit" class="btn btn-sm btn-danger">
+                            <i class="bi bi-plus-circle me-1"></i>Tạo subtask
+                        </button>
+                    </div>
+                </form>
+            }
+            else
+            {
+                <div class="alert alert-warning py-2 small mt-3 mb-0">
+                    Cần đặt đủ ngày bắt đầu và ngày kết thúc cho task cha trước khi tạo subtask, để toàn bộ mốc thời gian của subtask luôn nằm trong phạm vi này.
+                </div>
+            }
+        }
+    </section>
+
+    <section class="task-section-card">
+        <div class="task-section-head">
+            <span class="task-section-label mb-0">Checklist (@Model.ChecklistDone/@Model.ChecklistTotal)</span>
+        </div>
+
+        <div id="checklistContainer">
+            @if (Model.ChecklistItems.Any())
+            {
+                @foreach (var item in Model.ChecklistItems)
+                {
+                    <div class="checklist-item @(item.IsDone ? "done" : "")">
+                        <input type="checkbox" class="checklist-toggle" data-item-id="@item.ProjectTaskChecklistItemId"
+                               @(item.IsDone ? "checked" : "")
+                               @((item.IsDone || isDone || !Model.CanCompleteTask) ? "disabled" : "") />
+                        <label class="@(item.IsDone ? "text-decoration-line-through text-muted" : "")">@item.Title</label>
+                        @if (Model.CanManageTask && !item.IsDone && !isDone)
+                        {
+                            <button class="btn btn-sm btn-outline-danger p-0 px-1 checklist-delete-btn"
+                                    data-item-id="@item.ProjectTaskChecklistItemId" style="font-size:0.72rem;">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="text-muted small">Chưa có checklist cho task này.</div>
+            }
+        </div>
+
+        @if (Model.CanManageTask && !Model.IsArchived && !isDone)
+        {
+            <form id="addChecklistForm" class="mt-3 d-flex gap-2">
+                <input type="hidden" name="ProjectTaskId" value="@Model.ProjectTaskId" />
+                <input type="text" name="Title" class="form-control form-control-sm" required placeholder="Thêm mục..." maxlength="500" style="flex:1;" />
+                <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-plus"></i></button>
+            </form>
+        }
+    </section>
+
+    <section class="task-section-card">
+        <div class="task-section-head">
+            <span class="task-section-label mb-0">Nhật ký công việc</span>
+            <span class="text-muted small">@Model.Updates.Count cập nhật</span>
+        </div>
+
+        @if (!Model.WorklogAvailable)
+        {
+            <div class="alert alert-warning py-2 small mb-3">
+                Cơ sở dữ liệu chưa có bảng nhật ký task. Phần trao đổi và file đính kèm sẽ tạm ẩn cho tới khi chạy `database update`.
+            </div>
+        }
+
+        @if (Model.WorklogAvailable && Model.Updates.Any())
+        {
+            <div class="task-update-list">
+                @foreach (var update in Model.Updates)
+                {
+                    <div class="task-update-item">
+                        <div class="task-update-avatar">@(string.IsNullOrWhiteSpace(update.SenderName) ? "?" : update.SenderName[0].ToString().ToUpper())</div>
+                        <div class="task-update-content">
+                            <div class="task-update-meta">
+                                <strong>@(string.IsNullOrWhiteSpace(update.SenderName) ? "Hệ thống" : update.SenderName)</strong>
+                                <span>@update.CreatedDate.ToString("dd/MM/yyyy HH:mm")</span>
+                            </div>
+                            <div class="task-update-badges">
+                                @if (update.StatusSnapshot.HasValue)
+                                {
+                                    <span class="status-badge @TaskStatusCss(update.StatusSnapshot.Value)" style="font-size:0.66rem;">
+                                        @TaskStatusLabel(update.StatusSnapshot.Value)
+                                    </span>
+                                }
+                                @if (update.ProgressSnapshot.HasValue)
+                                {
+                                    <span class="task-snapshot-chip">@update.ProgressSnapshot.Value.ToString("0")%</span>
+                                }
+                            </div>
+                            <p class="mb-0 mt-2" style="white-space:pre-wrap;">@update.Content</p>
+                            @if (update.Attachments.Any())
+                            {
+                                <div class="task-update-attachments">
+                                    @foreach (var attachment in update.Attachments)
+                                    {
+                                        <a asp-action="DownloadAttachment" asp-route-attachmentId="@attachment.ProjectTaskAttachmentId"
+                                           class="task-attachment-chip">
+                                            <i class="bi bi-paperclip"></i>
+                                            <span>@attachment.FileName</span>
+                                            <small>@FileUploadHelper.FormatFileSize(attachment.FileSize)</small>
+                                        </a>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else if (Model.WorklogAvailable)
+        {
+            <div class="text-muted small">Chưa có cập nhật nào. Có thể dùng khu vực này để báo cáo tiến độ, việc đã làm và gửi file giống ticket.</div>
+        }
+
+        @if (!Model.IsArchived && Model.WorklogAvailable)
+        {
+            <form asp-action="PostUpdate" method="post" enctype="multipart/form-data" class="task-inline-form mt-3">
+                <input type="hidden" name="ProjectTaskId" value="@Model.ProjectTaskId" />
+                <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+                <div class="task-inline-form-title">
+                    <i class="bi bi-chat-left-text me-1"></i>Gửi cập nhật công việc
+                </div>
+                <div class="mb-2">
+                    <textarea name="Content" class="form-control form-control-sm" rows="3"
+                              placeholder="Đã làm gì, đã ai chạm vào đou, đã ai đụng vào đouuuu..."></textarea>
+                </div>
+                <div class="mb-2">
+                    <input type="file" name="Attachments" class="form-control form-control-sm" multiple />
+                    <div class="text-muted small mt-1">Cho phép tài liệu, ảnh, file Excel. Tối đa 2 file / 5MB mỗi file.</div>
+                </div>
+                <div class="d-flex justify-content-end">
+                    <button type="submit" class="btn btn-sm btn-primary">
+                        <i class="bi bi-send me-1"></i>Gửi cập nhật
+                    </button>
+                </div>
+            </form>
+        }
+    </section>
+</div>
+
+@functions {
+    string TaskStatusLabel(ProjectTaskStatus s) => s switch {
+        ProjectTaskStatus.Todo       => "Chưa bắt đầu",
+        ProjectTaskStatus.InProgress => "Đang làm",
+        ProjectTaskStatus.Review     => "Review",
+        ProjectTaskStatus.Done       => "Hoàn thành",
+        ProjectTaskStatus.Blocked    => "Bị chặn",
+        ProjectTaskStatus.Cancelled  => "Đã huỷ",
+        _ => s.ToString()
+    };
+    string TaskStatusCss(ProjectTaskStatus s) => s switch {
+        ProjectTaskStatus.Todo       => "task-status-todo",
+        ProjectTaskStatus.InProgress => "task-status-inprogress",
+        ProjectTaskStatus.Review     => "task-status-review",
+        ProjectTaskStatus.Done       => "task-status-done",
+        ProjectTaskStatus.Blocked    => "task-status-blocked",
+        ProjectTaskStatus.Cancelled  => "task-status-cancelled",
+        _ => ""
+    };
+    string PriorityLabel(ProjectTaskPriority p) => p switch {
+        ProjectTaskPriority.Low      => "Thấp",
+        ProjectTaskPriority.Medium   => "Trung bình",
+        ProjectTaskPriority.High     => "Cao",
+        ProjectTaskPriority.Critical => "Khẩn cấp",
+        _ => p.ToString()
+    };
+    string ProgressColor(decimal p) => p >= 100 ? "bg-success" : p >= 60 ? "bg-info" : p >= 30 ? "bg-warning" : "bg-danger";
+}

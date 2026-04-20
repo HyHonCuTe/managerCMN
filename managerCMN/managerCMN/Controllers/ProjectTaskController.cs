@@ -506,6 +506,7 @@ public class ProjectTaskController : Controller
         return new
         {
             update.ProjectTaskUpdateId,
+            senderEmployeeId = update.SenderEmployeeId,
             senderName = string.IsNullOrWhiteSpace(update.SenderName) ? "Hệ thống" : update.SenderName,
             avatar = string.IsNullOrWhiteSpace(update.SenderName) ? "?" : update.SenderName[0].ToString().ToUpper(),
             content = update.Content,

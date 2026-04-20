@@ -804,6 +804,44 @@
     gap: 0.7rem;
 }
 
+.task-update-item.is-mine {
+    flex-direction: row-reverse;
+}
+
+.task-update-item.is-mine .task-update-content {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+}
+
+.task-update-item.is-mine .task-update-avatar {
+    background: linear-gradient(135deg, #047857, #10b981);
+}
+
+.task-update-item.is-mine .task-update-meta {
+    flex-direction: row-reverse;
+}
+
+.task-update-origin {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.5rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-top: 0.45rem;
+    width: fit-content;
+}
+
+.task-update-origin.is-mine {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.task-update-origin.is-other {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
 .task-update-avatar {
     width: 32px;
     height: 32px;

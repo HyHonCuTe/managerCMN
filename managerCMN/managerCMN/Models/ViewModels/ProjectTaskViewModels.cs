@@ -126,6 +126,7 @@ public class ProjectTaskUpdateViewModel
 {
     public int ProjectTaskUpdateId { get; set; }
     public int ProjectTaskId { get; set; }
+    public int SenderEmployeeId { get; set; }
     public string SenderName { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public ProjectTaskStatus? StatusSnapshot { get; set; }

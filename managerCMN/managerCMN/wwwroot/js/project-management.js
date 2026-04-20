@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 panel.classList.add('open');
                 overlay?.classList.add('open');
                 bindTaskPanel(content);
+                requestAnimationFrame(() => scrollTaskUpdatesToBottom(content));
                 clearOpenTaskQueryParam();
             })
             .catch(() => showToast('Không tải được chi tiết task. Mình đã chặn lỗi im lặng; nếu vẫn còn, mình sẽ truy tiếp route này.', 'danger'));
@@ -456,7 +457,7 @@ function bindTaskPanelForms(container = document) {
                     throw new Error(data.message || 'Không gửi được cập nhật công việc.');
                 }
 
-                prependTaskUpdate(data.update, data.updateCount);
+                appendTaskUpdate(data.update, data.updateCount);
                 this.reset();
                 showPanelNotice(data.message || 'Đã gửi cập nhật công việc.', 'success');
             } catch (error) {
@@ -839,6 +840,10 @@ function removePermissionLockNote(statusSelect) {
 }
 
 function prependTaskUpdate(update, explicitCount) {
+    appendTaskUpdate(update, explicitCount);
+}
+
+function appendTaskUpdate(update, explicitCount) {
     if (!update) return;
 
     const card = getTaskPanelContent()?.querySelector('.task-worklog-card');
@@ -859,17 +864,29 @@ function prependTaskUpdate(update, explicitCount) {
         card.insertBefore(list, form || null);
     }
 
-    list.prepend(createTaskUpdateElement(update));
+    list.appendChild(createTaskUpdateElement(update));
 
     const nextCount = explicitCount ?? (readCurrentWorklogCount() + 1);
     setWorklogCount(nextCount);
     if (nextCount > 4 || list.children.length > 4) {
         list.classList.add('is-scrollable');
     }
+
+    scrollTaskUpdatesToBottom(list);
+}
+
+function scrollTaskUpdatesToBottom(container = document) {
+    const list = container.querySelector?.('.task-update-list') || container?.querySelector?.('[data-scroll-anchor="task-updates"]') || document.querySelector('.task-update-list');
+    if (!list) return;
+
+    if (list.classList.contains('is-scrollable') || list.scrollHeight > list.clientHeight) {
+        list.scrollTop = list.scrollHeight;
+    }
 }
 
 function createTaskUpdateElement(update) {
     const updateId = readPayload(update, 'projectTaskUpdateId', 'ProjectTaskUpdateId');
+    const senderEmployeeId = Number(readPayload(update, 'senderEmployeeId', 'SenderEmployeeId') || 0);
     const senderName = readPayload(update, 'senderName', 'SenderName') || 'Hệ thống';
     const avatarText = readPayload(update, 'avatar', 'Avatar') || '?';
     const content = readPayload(update, 'content', 'Content') || '';
@@ -883,6 +900,10 @@ function createTaskUpdateElement(update) {
     item.className = 'task-update-item';
     if (updateId) item.dataset.updateId = updateId;
 
+    const currentEmployeeId = Number(getTaskPanelContent()?.querySelector('.task-detail-body')?.dataset.currentEmployeeId || 0);
+    const isMine = senderEmployeeId && currentEmployeeId && senderEmployeeId === currentEmployeeId;
+    item.classList.add(isMine ? 'is-mine' : 'is-other');
+
     const avatar = document.createElement('div');
     avatar.className = 'task-update-avatar';
     avatar.textContent = avatarText;
@@ -894,10 +915,14 @@ function createTaskUpdateElement(update) {
     meta.className = 'task-update-meta';
 
     const strong = document.createElement('strong');
-    strong.textContent = senderName;
+    strong.textContent = isMine ? 'Mình' : senderName;
     const time = document.createElement('span');
     time.textContent = createdDate;
     meta.append(strong, time);
+
+    const origin = document.createElement('div');
+    origin.className = `task-update-origin ${isMine ? 'is-mine' : 'is-other'}`;
+    origin.textContent = isMine ? 'Bạn đã gửi' : 'Người khác gửi';
 
     const badges = document.createElement('div');
     badges.className = 'task-update-badges';
@@ -920,7 +945,7 @@ function createTaskUpdateElement(update) {
     text.style.whiteSpace = 'pre-wrap';
     text.textContent = content;
 
-    body.append(meta, badges, text);
+    body.append(meta, origin, badges, text);
 
     if (attachments.length) {
         const attachmentList = document.createElement('div');

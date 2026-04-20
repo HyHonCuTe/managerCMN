@@ -1012,10 +1012,11 @@ public class ProjectTaskService : IProjectTaskService
                 CompletedDate = c.CompletedDate,
                 CompletedByName = c.CompletedByEmployee?.FullName
             }).ToList() ?? new List<ChecklistItemViewModel>(),
-            Updates = task.Updates?.OrderByDescending(u => u.CreatedDate).Select(u => new ProjectTaskUpdateViewModel
+            Updates = task.Updates?.OrderBy(u => u.CreatedDate).Select(u => new ProjectTaskUpdateViewModel
             {
                 ProjectTaskUpdateId = u.ProjectTaskUpdateId,
                 ProjectTaskId = u.ProjectTaskId,
+                SenderEmployeeId = u.SenderEmployeeId,
                 SenderName = u.SenderEmployee?.FullName ?? string.Empty,
                 Content = u.Content,
                 StatusSnapshot = u.StatusSnapshot,

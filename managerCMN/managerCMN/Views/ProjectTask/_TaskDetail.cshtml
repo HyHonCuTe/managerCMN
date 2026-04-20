@@ -13,7 +13,7 @@
     var hasUnfinishedChildren = !isDone && Model.SubTasks.Any(s =>
         s.Status != ProjectTaskStatus.Done && s.Status != ProjectTaskStatus.Cancelled);
     var orderedUpdates = Model.Updates
-        .OrderByDescending(update => update.CreatedDate)
+        .OrderBy(update => update.CreatedDate)
         .ToList();
 }
 
@@ -59,7 +59,7 @@
     </div>
 </div>
 
-<div class="task-detail-body">
+<div class="task-detail-body" data-current-employee-id="@currentEmployeeId">
     <div id="taskPanelNotice" class="task-panel-notice-area"></div>
 
     <ul class="nav nav-tabs task-detail-tabs mb-3" id="taskDetailTabs" role="tablist">
@@ -438,15 +438,18 @@
 
                 @if (Model.WorklogAvailable && orderedUpdates.Any())
                 {
-                    <div class="task-update-list @(orderedUpdates.Count > 4 ? "is-scrollable" : "")">
+                    <div class="task-update-list @(orderedUpdates.Count > 4 ? "is-scrollable" : "")" data-scroll-anchor="task-updates">
                         @foreach (var update in orderedUpdates)
                         {
-                            <div class="task-update-item" data-update-id="@update.ProjectTaskUpdateId">
+                            <div class="task-update-item @(update.SenderEmployeeId == currentEmployeeId ? "is-mine" : "is-other")" data-update-id="@update.ProjectTaskUpdateId">
                                 <div class="task-update-avatar">@(string.IsNullOrWhiteSpace(update.SenderName) ? "?" : update.SenderName[0].ToString().ToUpper())</div>
                                 <div class="task-update-content">
                                     <div class="task-update-meta">
-                                        <strong>@(string.IsNullOrWhiteSpace(update.SenderName) ? "Hệ thống" : update.SenderName)</strong>
+                                        <strong>@(update.SenderEmployeeId == currentEmployeeId ? "Mình" : (string.IsNullOrWhiteSpace(update.SenderName) ? "Hệ thống" : update.SenderName))</strong>
                                         <span>@update.CreatedDate.ToString("dd/MM/yyyy HH:mm")</span>
+                                    </div>
+                                    <div class="task-update-origin @(update.SenderEmployeeId == currentEmployeeId ? "is-mine" : "is-other")">
+                                        @(update.SenderEmployeeId == currentEmployeeId ? "Bạn đã gửi" : "Người khác gửi")
                                     </div>
                                     <div class="task-update-badges">
                                         @if (update.StatusSnapshot.HasValue)

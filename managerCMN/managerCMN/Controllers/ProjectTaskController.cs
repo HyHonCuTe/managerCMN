@@ -475,7 +475,9 @@ public class ProjectTaskController : Controller
             checklistDone = task.ChecklistDone,
             checklistTotal = task.ChecklistTotal,
             isDone = task.Status == ProjectTaskStatus.Done,
-            canCompleteTask
+            canCompleteTask,
+            canUndoDoneTask = task.CanUndoDoneTask,
+            canRejectDoneTask = task.CanRejectDoneTask
         };
     }
 

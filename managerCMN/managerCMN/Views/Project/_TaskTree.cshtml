@@ -90,7 +90,7 @@
             <div class="progress task-progress-mini" title="@task.Progress.ToString("0")%">
                 <div class="progress-bar @ProgressColor(task.Progress)" style="width:@PercentCss(task.Progress);transition:width 0.3s;"></div>
             </div>
-            <span style="font-size:0.72rem;color:#6b7280;min-width:28px;">@task.Progress.ToString("0")%</span>
+            <span class="task-progress-mini-value" style="font-size:0.72rem;color:#6b7280;min-width:28px;">@task.Progress.ToString("0")%</span>
         </div>
     </div>
 

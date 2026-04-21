@@ -27,6 +27,7 @@ public class ProjectTaskTreeViewModel
     public bool IsOverdue => DueDate.HasValue && DueDate.Value < DateTime.Today && Status != ProjectTaskStatus.Done && Status != ProjectTaskStatus.Cancelled;
     public List<string> AssigneeNames { get; set; } = new();
     public List<int> AssigneeIds { get; set; } = new();
+    public List<ProjectTaskAssigneeStatusViewModel> AssigneeStatuses { get; set; } = new();
     public int AssigneeTotalCount { get; set; }
     public int AssigneeCompletedCount { get; set; }
     public bool IsCurrentAssigneeCompleted { get; set; }
@@ -39,6 +40,8 @@ public class ProjectTaskTreeViewModel
     public List<ProjectTaskMemberOptionViewModel> AvailableMembers { get; set; } = new();
     public bool CanManageTask { get; set; }
     public bool CanCompleteTask { get; set; }
+    public bool CanUndoDoneTask { get; set; }
+    public bool CanRejectDoneTask { get; set; }
     public bool CanPostUpdate { get; set; }
     public bool CanManageMembers { get; set; }
     public bool CanManageProjectMembers { get; set; }
@@ -48,6 +51,7 @@ public class ProjectTaskTreeViewModel
     public int ChangeLogCount { get; set; }
     public DateTime? LatestChangeLogDate { get; set; }
     public string? LatestChangeLogSummary { get; set; }
+    public string? LatestChangeLogKind { get; set; }
 }
 
 public class ProjectTaskCreateViewModel
@@ -119,6 +123,10 @@ public class UpdateTaskStatusViewModel
 {
     public int ProjectTaskId { get; set; }
     public ProjectTaskStatus Status { get; set; }
+    [MaxLength(1000)]
+    public string? Reason { get; set; }
+    public bool IsManagerReject { get; set; }
+    public List<int> RejectSubTaskIds { get; set; } = new();
 }
 
 public class UpdateTaskProgressViewModel
@@ -140,6 +148,7 @@ public class ProjectTaskUpdateViewModel
     public DateTime CreatedDate { get; set; }
     public List<ProjectTaskAttachmentViewModel> Attachments { get; set; } = new();
     public bool IsChangeLog { get; set; }
+    public string? ChangeKind { get; set; }
 }
 
 public class ProjectTaskAttachmentViewModel
@@ -156,6 +165,14 @@ public class ProjectTaskMemberOptionViewModel
     public string EmployeeName { get; set; } = string.Empty;
     public string EmployeeCode { get; set; } = string.Empty;
     public string RoleLabel { get; set; } = string.Empty;
+}
+
+public class ProjectTaskAssigneeStatusViewModel
+{
+    public int EmployeeId { get; set; }
+    public string EmployeeName { get; set; } = string.Empty;
+    public bool IsCompleted { get; set; }
+    public DateTime? CompletedDate { get; set; }
 }
 
 public class PostTaskUpdateViewModel

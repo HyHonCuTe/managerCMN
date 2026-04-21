@@ -297,6 +297,7 @@ else if (isProjectViewer && !isSystemAdmin)
 
                                 <div class="gantt-row @rowClasses depth-@depthLevel @(canHighlightEdit ? "can-edit" : "")"
                                      style="--gantt-depth:@depthLevel;--gantt-accent:@GanttDepthAccent(row.Depth);"
+                                      data-task-id="@row.ProjectTaskId"
                                      data-status="@((int)row.Status)"
                                      data-assignees="@string.Join(",", row.AssigneeIds)">
                                     <button type="button" class="gantt-task-col gantt-task-button depth-@row.Depth @(canHighlightEdit ? "can-edit" : "")" onclick="openTaskPanel(@row.ProjectTaskId)">
@@ -313,7 +314,7 @@ else if (isProjectViewer && !isSystemAdmin)
                                         <span class="gantt-task-meta">
                                             <span class="status-badge @TaskStatusCss(row.Status)" style="font-size:0.65rem;">@TaskStatusLabel(row.Status)</span>
                                             <span>@dateLabel</span>
-                                            <span>@row.Progress.ToString("0")%</span>
+                                            <span class="gantt-progress-value">@row.Progress.ToString("0")%</span>
                                             @if (!string.IsNullOrWhiteSpace(row.ParentTaskTitle))
                                             {
                                                 <span class="gantt-parent-chip"><i class="bi bi-diagram-2"></i>@row.ParentTaskTitle</span>
@@ -324,6 +325,14 @@ else if (isProjectViewer && !isSystemAdmin)
                                                       role="button" tabindex="0"
                                                       onclick="event.stopPropagation(); openTaskPanel(@row.ProjectTaskId, 'log')">
                                                     <i class="bi bi-clock-history"></i>
+                                                    @if (string.Equals(row.LatestChangeLogKind, "rejected", StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        <span class="task-change-kind-badge rejected">Rejected</span>
+                                                    }
+                                                    else if (string.Equals(row.LatestChangeLogKind, "undo", StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        <span class="task-change-kind-badge undo">Undo</span>
+                                                    }
                                                     <span>@row.LatestChangeLogSummary</span>
                                                     <small>@row.ChangeLogCount</small>
                                                 </span>
@@ -367,6 +376,7 @@ else if (isProjectViewer && !isSystemAdmin)
                                 <button type="button"
                                         class="gantt-unscheduled-item @(canHighlightEdit ? "can-edit" : "")"
                                         style="--gantt-depth:@Math.Min(row.Depth, 5);--gantt-accent:@GanttDepthAccent(row.Depth);"
+                                    data-task-id="@row.ProjectTaskId"
                                         data-status="@((int)row.Status)"
                                         data-assignees="@string.Join(",", row.AssigneeIds)"
                                         onclick="openTaskPanel(@row.ProjectTaskId)">
@@ -389,6 +399,14 @@ else if (isProjectViewer && !isSystemAdmin)
                                                   role="button" tabindex="0"
                                                   onclick="event.stopPropagation(); openTaskPanel(@row.ProjectTaskId, 'log')">
                                                 <i class="bi bi-clock-history"></i>
+                                                @if (string.Equals(row.LatestChangeLogKind, "rejected", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    <span class="task-change-kind-badge rejected">Rejected</span>
+                                                }
+                                                else if (string.Equals(row.LatestChangeLogKind, "undo", StringComparison.OrdinalIgnoreCase))
+                                                {
+                                                    <span class="task-change-kind-badge undo">Undo</span>
+                                                }
                                                 <span>@row.LatestChangeLogSummary</span>
                                                 <small>@row.ChangeLogCount</small>
                                             </span>

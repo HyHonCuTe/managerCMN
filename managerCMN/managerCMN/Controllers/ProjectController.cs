@@ -358,7 +358,8 @@ public class ProjectController : Controller
                 CanManageTask = task.CanManageTask,
                 ChangeLogCount = task.ChangeLogCount,
                 LatestChangeLogDate = task.LatestChangeLogDate,
-                LatestChangeLogSummary = task.LatestChangeLogSummary
+                LatestChangeLogSummary = task.LatestChangeLogSummary,
+                LatestChangeLogKind = task.LatestChangeLogKind
             };
 
             foreach (var subTask in FlattenTimelineRows(task.SubTasks))

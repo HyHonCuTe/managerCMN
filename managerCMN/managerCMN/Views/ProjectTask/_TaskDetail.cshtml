@@ -10,6 +10,8 @@
     var parentRangeStartLabel = Model.StartDate?.ToString("dd/MM/yyyy") ?? "—";
     var parentRangeEndLabel = Model.DueDate?.ToString("dd/MM/yyyy") ?? "—";
     var isDone = Model.Status == ProjectTaskStatus.Done;
+    var canUndoDoneTask = isDone && !Model.IsArchived && Model.CanUndoDoneTask;
+    var canRejectDoneTask = isDone && !Model.IsArchived && Model.CanRejectDoneTask;
     var hasUnfinishedChildren = !isDone && Model.SubTasks.Any(s =>
         s.Status != ProjectTaskStatus.Done && s.Status != ProjectTaskStatus.Cancelled);
     var orderedUpdates = Model.Updates
@@ -124,6 +126,23 @@
                                 </button>
                             }
                         }
+                        else if (canUndoDoneTask || canRejectDoneTask)
+                        {
+                            @if (canUndoDoneTask)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-warning task-undo-btn"
+                                        onclick="undoCompletedTask(@Model.ProjectTaskId)">
+                                    <i class="bi bi-arrow-counterclockwise me-1"></i>Hoàn tác
+                                </button>
+                            }
+                            @if (canRejectDoneTask)
+                            {
+                                <button type="button" class="btn btn-sm btn-outline-danger task-reject-btn"
+                                        onclick="rejectCompletedTask(@Model.ProjectTaskId)">
+                                    <i class="bi bi-x-octagon me-1"></i>Reject
+                                </button>
+                            }
+                        }
                     </div>
                 </div>
                 <div class="progress" style="height:8px;border-radius:4px;">
@@ -192,7 +211,14 @@
                     </select>
                     @if (isDone)
                     {
-                        <span class="task-lock-note">Đã hoàn thành, không thể hoàn tác.</span>
+                        @if (canUndoDoneTask || canRejectDoneTask)
+                        {
+                            <span class="task-lock-note">Task đã hoàn thành. Có thể hoàn tác/reject khi có lý do.</span>
+                        }
+                        else
+                        {
+                            <span class="task-lock-note">Đã hoàn thành, không thể hoàn tác.</span>
+                        }
                     }
                     else if (hasUnfinishedChildren)
                     {
@@ -213,15 +239,34 @@
                     }
                 </div>
 
-                @if (Model.AssigneeNames.Any())
+                @if (Model.AssigneeStatuses.Any() || Model.AssigneeNames.Any())
                 {
                     <div class="task-assignee-chip-list d-flex flex-wrap gap-1 mb-3">
-                        @foreach (var name in Model.AssigneeNames)
+                        @foreach (var assignee in Model.AssigneeStatuses)
                         {
-                            <span class="d-flex align-items-center gap-1 px-2 py-1 rounded-pill bg-light" style="font-size:0.8rem;">
-                                <span class="assignee-avatar" style="width:20px;height:20px;font-size:0.6rem;">@(name.Length > 0 ? name[0].ToString().ToUpper() : "?")</span>
-                                @name
+                            <span class="d-flex align-items-center gap-1 px-2 py-1 rounded-pill bg-light border" style="font-size:0.8rem;">
+                                <span class="assignee-avatar" style="width:20px;height:20px;font-size:0.6rem;">@(assignee.EmployeeName.Length > 0 ? assignee.EmployeeName[0].ToString().ToUpper() : "?")</span>
+                                <span>@assignee.EmployeeName</span>
+                                @if (assignee.IsCompleted)
+                                {
+                                    <span class="badge rounded-pill text-bg-success" style="font-size:0.65rem;">Đã xác nhận</span>
+                                }
+                                else
+                                {
+                                    <span class="badge rounded-pill text-bg-secondary" style="font-size:0.65rem;">Chưa xác nhận</span>
+                                }
                             </span>
+                        }
+
+                        @if (!Model.AssigneeStatuses.Any())
+                        {
+                            @foreach (var name in Model.AssigneeNames)
+                            {
+                                <span class="d-flex align-items-center gap-1 px-2 py-1 rounded-pill bg-light" style="font-size:0.8rem;">
+                                    <span class="assignee-avatar" style="width:20px;height:20px;font-size:0.6rem;">@(name.Length > 0 ? name[0].ToString().ToUpper() : "?")</span>
+                                    @name
+                                </span>
+                            }
                         }
                     </div>
 
@@ -459,7 +504,17 @@
                                 <div class="task-change-log-body">
                                     <div class="task-change-log-meta">
                                         <strong>@(string.IsNullOrWhiteSpace(log.SenderName) ? "Hệ thống" : log.SenderName)</strong>
-                                        <span>@log.CreatedDate.ToString("dd/MM/yyyy HH:mm")</span>
+                                        <div class="d-inline-flex align-items-center gap-2">
+                                            @if (string.Equals(log.ChangeKind, "rejected", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <span class="task-change-kind-badge rejected">Rejected</span>
+                                            }
+                                            else if (string.Equals(log.ChangeKind, "undo", StringComparison.OrdinalIgnoreCase))
+                                            {
+                                                <span class="task-change-kind-badge undo">Undo</span>
+                                            }
+                                            <span>@log.CreatedDate.ToString("dd/MM/yyyy HH:mm")</span>
+                                        </div>
                                     </div>
                                     <div class="task-change-log-content">@log.Content</div>
                                 </div>

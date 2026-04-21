@@ -101,6 +101,7 @@ public class ProjectTimelineRowViewModel
     public int ChangeLogCount { get; set; }
     public DateTime? LatestChangeLogDate { get; set; }
     public string? LatestChangeLogSummary { get; set; }
+    public string? LatestChangeLogKind { get; set; }
     public bool IsOverdue => DueDate.HasValue
         && DueDate.Value.Date < DateTime.Today
         && Status != ProjectTaskStatus.Done

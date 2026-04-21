@@ -15,6 +15,9 @@ namespace managerCMN.Services.Implementations;
 public class ProjectTaskService : IProjectTaskService
 {
     private const string TaskChangeLogPrefix = "[TASK_CHANGE_LOG]";
+    private const string TaskChangeKindRejected = "rejected";
+    private const string TaskChangeKindUndo = "undo";
+    private const string TaskChangeKindOther = "other";
 
     private readonly IUnitOfWork _unitOfWork;
     private readonly IProjectAccessService _accessService;
@@ -106,6 +109,8 @@ public class ProjectTaskService : IProjectTaskService
         vm.CanManageTask = !isArchived && await CanManageTaskNodeAsync(task, employeeId);
         vm.CanManageMembers = vm.CanManageTask;
         vm.CanCompleteTask = !isArchived && await CanCompleteTaskAsync(task, employeeId);
+        vm.CanUndoDoneTask = !isArchived && await CanUndoDoneTaskAsync(task, employeeId);
+        vm.CanRejectDoneTask = !isArchived && await CanRejectDoneTaskAsync(task, employeeId);
         vm.CanPostUpdate = !isArchived && await CanPostTaskUpdateAsync(task, employeeId);
         vm.WorklogAvailable = worklogAvailable;
         return vm;
@@ -253,7 +258,24 @@ public class ProjectTaskService : IProjectTaskService
         if (task.Status == ProjectTaskStatus.Done)
         {
             if (vm.Status != ProjectTaskStatus.Done)
-                throw new InvalidOperationException("Task đã hoàn thành nên không thể hoàn tác trạng thái.");
+            {
+                var reason = vm.Reason?.Trim();
+                if (string.IsNullOrWhiteSpace(reason))
+                    throw new InvalidOperationException("Vui lòng nhập lý do hoàn tác/reject task.");
+
+                if (vm.IsManagerReject)
+                {
+                    await EnsureCanRejectDoneTaskAsync(task, employeeId);
+                    await RejectTaskWithCascadeAsync(task, employeeId, reason, vm.RejectSubTaskIds);
+                }
+                else
+                {
+                    await EnsureCanUndoDoneTaskAsync(task, employeeId);
+                    await ReopenDoneTaskAsync(task, employeeId, reason, vm.Status);
+                }
+
+                return;
+            }
 
             return;
         }
@@ -789,6 +811,235 @@ public class ProjectTaskService : IProjectTaskService
                 && !a.IsCompleted);
     }
 
+    private async Task EnsureCanUndoDoneTaskAsync(ProjectTask task, int employeeId)
+    {
+        if (await CanUndoDoneTaskAsync(task, employeeId))
+            return;
+
+        throw new UnauthorizedAccessException("Bạn không có quyền hoàn tác task đã hoàn thành.");
+    }
+
+    private async Task<bool> CanUndoDoneTaskAsync(ProjectTask task, int employeeId)
+    {
+        if (task.Status != ProjectTaskStatus.Done)
+            return false;
+
+        if (_accessService.IsSystemAdmin())
+            return true;
+
+        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
+        if (role == ProjectMemberRole.ProjectOwner)
+            return true;
+
+        if (role == ProjectMemberRole.ProjectManager && await CanManageTaskNodeAsync(task, employeeId))
+            return true;
+
+        return await _context.ProjectTaskAssignments
+            .AsNoTracking()
+            .AnyAsync(a => a.ProjectTaskId == task.ProjectTaskId
+                && a.EmployeeId == employeeId
+                && a.IsCompleted);
+    }
+
+    private async Task EnsureCanRejectDoneTaskAsync(ProjectTask task, int employeeId)
+    {
+        if (await CanRejectDoneTaskAsync(task, employeeId))
+            return;
+
+        throw new UnauthorizedAccessException("Chỉ ProjectOwner/ProjectManager/Admin mới có quyền reject task đã hoàn thành.");
+    }
+
+    private async Task<bool> CanRejectDoneTaskAsync(ProjectTask task, int employeeId)
+    {
+        if (_accessService.IsSystemAdmin())
+            return true;
+
+        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
+        if (role == ProjectMemberRole.ProjectOwner)
+            return true;
+
+        return role == ProjectMemberRole.ProjectManager
+            && await CanManageTaskNodeAsync(task, employeeId);
+    }
+
+    private async Task ReopenDoneTaskAsync(ProjectTask task, int employeeId, string reason, ProjectTaskStatus requestedStatus)
+    {
+        var assignments = await _context.ProjectTaskAssignments
+            .Where(a => a.ProjectTaskId == task.ProjectTaskId)
+            .ToListAsync();
+
+        if (assignments.Count > 0)
+        {
+            var assignmentChanged = false;
+            var actorAssignment = assignments.FirstOrDefault(a => a.EmployeeId == employeeId);
+            if (actorAssignment != null && actorAssignment.IsCompleted)
+            {
+                actorAssignment.IsCompleted = false;
+                actorAssignment.CompletedDate = null;
+                _context.ProjectTaskAssignments.Update(actorAssignment);
+                assignmentChanged = true;
+            }
+            else
+            {
+                var canManageUndo = _accessService.IsSystemAdmin() || await CanRejectDoneTaskAsync(task, employeeId);
+                if (!canManageUndo)
+                    throw new UnauthorizedAccessException("Bạn chỉ được hoàn tác phần việc do chính bạn hoàn thành.");
+
+                var latestCompleted = assignments
+                    .Where(a => a.IsCompleted)
+                    .OrderByDescending(a => a.CompletedDate)
+                    .FirstOrDefault();
+
+                if (latestCompleted != null)
+                {
+                    latestCompleted.IsCompleted = false;
+                    latestCompleted.CompletedDate = null;
+                    _context.ProjectTaskAssignments.Update(latestCompleted);
+                    assignmentChanged = true;
+                }
+            }
+
+            if (!assignmentChanged)
+                throw new InvalidOperationException("Task này chưa có phần hoàn thành nào để hoàn tác.");
+
+            ApplyAssignmentCompletionState(task, assignments);
+        }
+        else
+        {
+            task.Status = requestedStatus == ProjectTaskStatus.Done
+                ? ProjectTaskStatus.InProgress
+                : requestedStatus;
+            task.CompletedDate = null;
+            task.Progress = 0;
+            task.ModifiedDate = DateTime.Now;
+        }
+
+        _unitOfWork.ProjectTasks.Update(task);
+        await _context.SaveChangesAsync();
+
+        await _progressService.BubbleUpParentProgressAsync(task.ProjectTaskId);
+        await _progressService.RecalculateProjectProgressAsync(task.ProjectId);
+
+        await CreateTaskChangeLogAsync(task.ProjectTaskId, employeeId,
+            $"Hoàn tác trạng thái hoàn thành.{Environment.NewLine}Lý do: {reason}");
+        await CreateSystemUpdateAsync(task.ProjectTaskId, employeeId, "Đã hoàn tác trạng thái hoàn thành để tiếp tục xử lý task.");
+    }
+
+    private async Task RejectTaskWithCascadeAsync(ProjectTask task, int employeeId, string reason, IEnumerable<int>? selectedSubTaskIds)
+    {
+        var allNodes = await _context.ProjectTasks
+            .AsNoTracking()
+            .Where(t => t.ProjectId == task.ProjectId)
+            .Select(t => new { t.ProjectTaskId, t.ParentTaskId })
+            .ToListAsync();
+
+        var childrenLookup = allNodes.ToLookup(t => t.ParentTaskId, t => t.ProjectTaskId);
+        var descendantIds = CollectDescendantTaskIds(task.ProjectTaskId, childrenLookup).ToHashSet();
+
+        var requestedSubTaskIds = (selectedSubTaskIds ?? Enumerable.Empty<int>())
+            .Where(id => id > 0 && id != task.ProjectTaskId)
+            .Distinct()
+            .ToList();
+
+        var invalidSubTaskIds = requestedSubTaskIds
+            .Where(id => !descendantIds.Contains(id))
+            .ToList();
+
+        if (invalidSubTaskIds.Count > 0)
+            throw new InvalidOperationException("Danh sách subtask cần reject không hợp lệ.");
+
+        var taskIdSet = new HashSet<int> { task.ProjectTaskId };
+        if (requestedSubTaskIds.Count > 0)
+        {
+            foreach (var subTaskId in requestedSubTaskIds)
+            {
+                taskIdSet.Add(subTaskId);
+                foreach (var nestedId in CollectDescendantTaskIds(subTaskId, childrenLookup))
+                    taskIdSet.Add(nestedId);
+            }
+        }
+
+        var taskIds = taskIdSet.ToList();
+
+        var taskEntities = await _context.ProjectTasks
+            .Where(t => taskIds.Contains(t.ProjectTaskId))
+            .ToListAsync();
+
+        var changedTaskIds = new List<int>();
+        foreach (var item in taskEntities)
+        {
+            if (item.Status == ProjectTaskStatus.Cancelled)
+                continue;
+
+            if (item.Status != ProjectTaskStatus.InProgress || item.CompletedDate.HasValue || item.Progress > 0)
+            {
+                item.Status = ProjectTaskStatus.InProgress;
+                item.CompletedDate = null;
+                item.Progress = 0;
+                item.ModifiedDate = DateTime.Now;
+                _unitOfWork.ProjectTasks.Update(item);
+                changedTaskIds.Add(item.ProjectTaskId);
+            }
+        }
+
+        var assignments = await _context.ProjectTaskAssignments
+            .Where(a => taskIds.Contains(a.ProjectTaskId) && a.IsCompleted)
+            .ToListAsync();
+
+        foreach (var assignment in assignments)
+        {
+            assignment.IsCompleted = false;
+            assignment.CompletedDate = null;
+            _context.ProjectTaskAssignments.Update(assignment);
+        }
+
+        await _context.SaveChangesAsync();
+
+        await _progressService.BubbleUpParentProgressAsync(task.ProjectTaskId);
+        await _progressService.RecalculateProjectProgressAsync(task.ProjectId);
+
+        await CreateTaskChangeLogAsync(task.ProjectTaskId, employeeId,
+            $"Reject task cần làm lại.{Environment.NewLine}Lý do: {reason}");
+        await CreateSystemUpdateAsync(task.ProjectTaskId, employeeId,
+            "Task đã bị reject và chuyển về trạng thái cần làm lại.");
+
+        foreach (var childTaskId in changedTaskIds.Where(id => id != task.ProjectTaskId))
+        {
+            await CreateTaskChangeLogAsync(childTaskId, employeeId,
+                $"Task con bị reject theo task cha.{Environment.NewLine}Lý do: {reason}");
+        }
+    }
+
+    private async Task<List<int>> CollectDescendantTaskIdsAsync(int rootTaskId)
+    {
+        var allNodes = await _context.ProjectTasks
+            .AsNoTracking()
+            .Select(t => new { t.ProjectTaskId, t.ParentTaskId })
+            .ToListAsync();
+
+        var lookup = allNodes.ToLookup(t => t.ParentTaskId, t => t.ProjectTaskId);
+        return CollectDescendantTaskIds(rootTaskId, lookup);
+    }
+
+    private static List<int> CollectDescendantTaskIds(int rootTaskId, ILookup<int?, int> lookup)
+    {
+        var result = new List<int>();
+        var queue = new Queue<int>();
+        queue.Enqueue(rootTaskId);
+
+        while (queue.Count > 0)
+        {
+            var current = queue.Dequeue();
+            foreach (var childId in lookup[current])
+            {
+                result.Add(childId);
+                queue.Enqueue(childId);
+            }
+        }
+
+        return result;
+    }
+
     private async Task<bool> CanCompleteTaskOnBehalfAsync(ProjectTask task, int employeeId)
     {
         if (_accessService.IsSystemAdmin())
@@ -1218,6 +1469,17 @@ public class ProjectTaskService : IProjectTaskService
                 .Where(n => !string.IsNullOrEmpty(n))
                 .ToList() ?? new List<string>(),
             AssigneeIds = task.Assignments?.Select(a => a.EmployeeId).ToList() ?? new List<int>(),
+            AssigneeStatuses = task.Assignments?
+                .Select(a => new ProjectTaskAssigneeStatusViewModel
+                {
+                    EmployeeId = a.EmployeeId,
+                    EmployeeName = a.Employee?.FullName ?? string.Empty,
+                    IsCompleted = a.IsCompleted,
+                    CompletedDate = a.CompletedDate
+                })
+                .Where(a => !string.IsNullOrWhiteSpace(a.EmployeeName))
+                .OrderBy(a => a.EmployeeName)
+                .ToList() ?? new List<ProjectTaskAssigneeStatusViewModel>(),
             AssigneeTotalCount = task.Assignments?.Count ?? 0,
             AssigneeCompletedCount = task.Assignments?.Count(a => a.IsCompleted) ?? 0,
             IsCurrentAssigneeCompleted = currentEmployeeId.HasValue
@@ -1239,6 +1501,7 @@ public class ProjectTaskService : IProjectTaskService
             ChangeLogCount = changeLogs.Count,
             LatestChangeLogDate = latestChangeLog?.CreatedDate,
             LatestChangeLogSummary = latestChangeLog == null ? null : BuildChangeLogSummary(latestChangeLog.Content),
+            LatestChangeLogKind = latestChangeLog?.ChangeKind,
             Depth = depth,
             SubTasks = OrderTasks(task.SubTasks).Select(s => MapToTreeViewModel(s, depth + 1, currentEmployeeId)).ToList()
                 ?? new List<ProjectTaskTreeViewModel>()
@@ -1248,6 +1511,8 @@ public class ProjectTaskService : IProjectTaskService
     private static ProjectTaskUpdateViewModel MapProjectTaskUpdate(ProjectTaskUpdate update)
     {
         var isChangeLog = IsTaskChangeLogContent(update.Content);
+        var normalizedContent = NormalizeTaskUpdateContent(update.Content);
+        var changeKind = isChangeLog ? DetectTaskChangeKind(normalizedContent) : null;
 
         return new ProjectTaskUpdateViewModel
         {
@@ -1255,11 +1520,12 @@ public class ProjectTaskService : IProjectTaskService
             ProjectTaskId = update.ProjectTaskId,
             SenderEmployeeId = update.SenderEmployeeId,
             SenderName = update.SenderEmployee?.FullName ?? string.Empty,
-            Content = NormalizeTaskUpdateContent(update.Content),
+            Content = normalizedContent,
             StatusSnapshot = update.StatusSnapshot,
             ProgressSnapshot = update.ProgressSnapshot,
             CreatedDate = update.CreatedDate,
             IsChangeLog = isChangeLog,
+            ChangeKind = changeKind,
             Attachments = update.Attachments.Select(a => new ProjectTaskAttachmentViewModel
             {
                 ProjectTaskAttachmentId = a.ProjectTaskAttachmentId,
@@ -1277,6 +1543,24 @@ public class ProjectTaskService : IProjectTaskService
         => IsTaskChangeLogContent(content)
             ? content[TaskChangeLogPrefix.Length..].TrimStart()
             : content;
+
+    private static string DetectTaskChangeKind(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+            return TaskChangeKindOther;
+
+        var normalized = content.Trim().ToLowerInvariant();
+
+        if (normalized.Contains("reject", StringComparison.Ordinal)
+            || normalized.Contains("bị reject", StringComparison.Ordinal))
+            return TaskChangeKindRejected;
+
+        if (normalized.Contains("hoàn tác", StringComparison.Ordinal)
+            || normalized.Contains("hoan tac", StringComparison.Ordinal))
+            return TaskChangeKindUndo;
+
+        return TaskChangeKindOther;
+    }
 
     private static string BuildChangeLogSummary(string content)
     {
@@ -1307,6 +1591,17 @@ public class ProjectTaskService : IProjectTaskService
                         || role == ProjectMemberRole.ProjectOwner
                         || (role != ProjectMemberRole.ProjectViewer
                             && (task.Assignments?.Any(a => a.EmployeeId == employeeId && !a.IsCompleted) == true)));
+                vm.CanUndoDoneTask = !isArchived
+                    && task.Status == ProjectTaskStatus.Done
+                    && (isSystemAdmin
+                        || role == ProjectMemberRole.ProjectOwner
+                        || (role == ProjectMemberRole.ProjectManager && isManagedBranch)
+                        || (task.Assignments?.Any(a => a.EmployeeId == employeeId && a.IsCompleted) == true));
+                vm.CanRejectDoneTask = !isArchived
+                    && task.Status == ProjectTaskStatus.Done
+                    && (isSystemAdmin
+                        || role == ProjectMemberRole.ProjectOwner
+                        || (role == ProjectMemberRole.ProjectManager && isManagedBranch));
                 vm.CanPostUpdate = !isArchived
                     && (isSystemAdmin
                         || role == ProjectMemberRole.ProjectOwner

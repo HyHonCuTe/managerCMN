@@ -290,8 +290,63 @@ function quickMarkTaskDone(taskId) {
     statusSelect.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+async function submitCompletedTaskAction(taskId, isManagerReject) {
+    const rejectableSubTasks = isManagerReject ? collectRejectableSubTasks() : [];
+    const result = await showTaskReasonModal({
+        title: isManagerReject ? 'Reject task hoàn thành' : 'Hoàn tác task hoàn thành',
+        description: isManagerReject
+            ? 'Nhập lý do reject để yêu cầu làm lại. Lý do này sẽ được ghi log cho task chính và task con liên quan.'
+            : 'Nhập lý do hoàn tác để mở lại task và tiếp tục chỉnh sửa.',
+        placeholder: isManagerReject
+            ? 'Ví dụ: Đầu ra chưa đúng yêu cầu nghiệp vụ, cần sửa lại...'
+            : 'Ví dụ: Cập nhật thiếu thông tin quan trọng, cần mở lại để bổ sung...',
+        subTasks: rejectableSubTasks
+    });
+
+    if (!result) {
+        showPanelNotice('Cần nhập lý do để tiếp tục.', 'warning');
+        return;
+    }
+
+    const reason = (result.reason || '').trim();
+    const rejectSubTaskIds = Array.isArray(result.selectedSubTaskIds)
+        ? result.selectedSubTaskIds
+        : [];
+
+    try {
+        const data = await postUrlEncoded('/ProjectTask/UpdateStatus', {
+            ProjectTaskId: taskId,
+            Status: 1,
+            Reason: reason,
+            IsManagerReject: isManagerReject,
+            RejectSubTaskIds: isManagerReject ? rejectSubTaskIds : []
+        });
+
+        if (!data.success) {
+            throw new Error(data.message || 'Không thực hiện được thao tác.');
+        }
+
+        applyTaskState(data.task);
+        prependTaskUpdate(data.update);
+        showPanelNotice(data.message || 'Đã cập nhật task.', 'success');
+        openTaskPanel(taskId, 'log');
+    } catch (error) {
+        showPanelNotice(error.message || 'Không thực hiện được thao tác.', 'danger');
+    }
+}
+
+function undoCompletedTask(taskId) {
+    submitCompletedTaskAction(taskId, false);
+}
+
+function rejectCompletedTask(taskId) {
+    submitCompletedTaskAction(taskId, true);
+}
+
 window.updateProgress = updateProgress;
 window.quickMarkTaskDone = quickMarkTaskDone;
+window.undoCompletedTask = undoCompletedTask;
+window.rejectCompletedTask = rejectCompletedTask;
 
 function initChecklistPanel(container = document) {
     if (!container) return;
@@ -620,6 +675,23 @@ function objectToUrlSearchParams(data) {
     return params;
 }
 
+function collectRejectableSubTasks() {
+    const cards = Array.from(document.querySelectorAll('.task-subtask-card[data-subtask-id]'));
+    return cards
+        .map(card => {
+            const id = Number(card.dataset.subtaskId || 0);
+            const titleElement = card.querySelector('.task-subtask-link');
+            const title = (titleElement?.textContent || '').trim();
+
+            if (!id || !title) {
+                return null;
+            }
+
+            return { id, title };
+        })
+        .filter(Boolean);
+}
+
 function formToUrlSearchParams(form) {
     const params = new URLSearchParams();
     new FormData(form).forEach((value, key) => {
@@ -627,6 +699,133 @@ function formToUrlSearchParams(form) {
         params.append(key, value);
     });
     return params;
+}
+
+function showTaskReasonModal(options = {}) {
+    const title = options.title || 'Nhập lý do';
+    const description = options.description || 'Vui lòng nhập lý do trước khi tiếp tục.';
+    const placeholder = options.placeholder || 'Nhập lý do...';
+    const minLength = Number(options.minLength || 10);
+    const subTasks = Array.isArray(options.subTasks) ? options.subTasks : [];
+    const modalId = 'taskReasonModal';
+
+    document.getElementById(modalId)?.remove();
+
+    return new Promise(resolve => {
+        const modalWrapper = document.createElement('div');
+        modalWrapper.innerHTML = `
+            <div class="modal fade" id="${modalId}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">${escapeHtml(title)}</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <form class="task-reason-form">
+                            <div class="modal-body">
+                                <p class="text-muted small mb-2">${escapeHtml(description)}</p>
+                                <textarea class="form-control task-reason-textarea" rows="4" maxlength="1000" placeholder="${escapeHtml(placeholder)}" required></textarea>
+                                <div class="d-flex justify-content-between mt-2">
+                                    <small class="text-muted">Tối thiểu ${minLength} ký tự.</small>
+                                    <small class="text-muted task-reason-count">0/1000</small>
+                                </div>
+                                <div class="text-danger small mt-2 d-none task-reason-error">Lý do quá ngắn, vui lòng nhập rõ hơn.</div>
+                                ${renderRejectSubTaskPicker(subTasks)}
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Huỷ</button>
+                                <button type="submit" class="btn btn-primary task-reason-submit" disabled>Xác nhận</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>`;
+
+        const modalElement = modalWrapper.firstElementChild;
+        document.body.appendChild(modalElement);
+
+        const textarea = modalElement.querySelector('.task-reason-textarea');
+        const errorLabel = modalElement.querySelector('.task-reason-error');
+        const counter = modalElement.querySelector('.task-reason-count');
+        const submitButton = modalElement.querySelector('.task-reason-submit');
+        const form = modalElement.querySelector('.task-reason-form');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+
+        let settled = false;
+
+        const updateState = () => {
+            const text = (textarea.value || '').trim();
+            counter.textContent = `${text.length}/1000`;
+            const valid = text.length >= minLength;
+            submitButton.disabled = !valid;
+            errorLabel.classList.toggle('d-none', valid || text.length === 0);
+        };
+
+        textarea.addEventListener('input', updateState);
+        form.addEventListener('submit', event => {
+            event.preventDefault();
+            const text = (textarea.value || '').trim();
+            if (text.length < minLength) {
+                updateState();
+                textarea.focus();
+                return;
+            }
+
+            const selectedSubTaskIds = Array.from(modalElement.querySelectorAll('.task-reject-subtask:checked'))
+                .map(cb => Number(cb.value || 0))
+                .filter(id => id > 0);
+
+            settled = true;
+            resolve({
+                reason: text,
+                selectedSubTaskIds
+            });
+            modal.hide();
+        });
+
+        modalElement.addEventListener('hidden.bs.modal', () => {
+            if (!settled) {
+                resolve(null);
+            }
+            modal.dispose();
+            modalElement.remove();
+        });
+
+        modal.show();
+        setTimeout(() => textarea.focus(), 120);
+    });
+}
+
+function renderRejectSubTaskPicker(subTasks) {
+    if (!subTasks.length) {
+        return '';
+    }
+
+    const items = subTasks
+        .map(task => `
+            <label class="form-check mt-2">
+                <input class="form-check-input task-reject-subtask" type="checkbox" value="${task.id}">
+                <span class="form-check-label">${escapeHtml(task.title)}</span>
+            </label>`)
+        .join('');
+
+    return `
+        <div class="mt-3 pt-2 border-top">
+            <div class="small fw-semibold mb-1">Chọn subtask cần reject (tuỳ chọn)</div>
+            <div class="small text-muted mb-2">Nếu không chọn, hệ thống chỉ reject task hiện tại.</div>
+            <div class="task-reject-subtask-list" style="max-height:180px;overflow:auto;">
+                ${items}
+            </div>
+        </div>`;
+}
+
+function escapeHtml(value) {
+    return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }
 
 function validateTaskUpdateFiles(form) {
@@ -667,6 +866,8 @@ function applyTaskState(task) {
     const progressCss = readPayload(task, 'progressCss', 'ProgressCss') || progressColor(progress);
     const isDone = Boolean(readPayload(task, 'isDone', 'IsDone'));
     const canCompleteTask = readPayload(task, 'canCompleteTask', 'CanCompleteTask');
+    const canUndoDoneTask = Boolean(readPayload(task, 'canUndoDoneTask', 'CanUndoDoneTask'));
+    const canRejectDoneTask = Boolean(readPayload(task, 'canRejectDoneTask', 'CanRejectDoneTask'));
 
     const headerStatus = content.querySelector('.task-header-status');
     if (headerStatus) {
@@ -680,6 +881,8 @@ function applyTaskState(task) {
         statusSelect.dataset.previousValue = String(status);
         if (isDone) statusSelect.disabled = true;
     }
+
+    const taskId = Number(currentOpenTaskId || statusSelect?.dataset?.taskId || 0);
 
     const progressValue = content.querySelector('.task-progress-value');
     if (progressValue) progressValue.textContent = progressText;
@@ -702,14 +905,89 @@ function applyTaskState(task) {
     }
 
     if (isDone) {
-        markPanelDoneLocked(content);
+        markPanelDoneLocked(content, canUndoDoneTask, canRejectDoneTask);
+    } else {
+        removeDoneActionButtons(content);
     }
+
+    syncTaskSurfaceState(taskId, {
+        status,
+        statusLabel,
+        statusCss,
+        progress,
+        progressCss,
+        isDone
+    });
 }
 
-function markPanelDoneLocked(content) {
+function syncTaskSurfaceState(taskId, state) {
+    if (!taskId || !state) return;
+
+    const progressText = formatPercentText(state.progress);
+    const progressCss = state.progressCss || progressColor(state.progress);
+
+    document.querySelectorAll(`.task-row[data-task-id="${taskId}"]`).forEach(row => {
+        row.dataset.status = String(state.status ?? '');
+
+        const title = row.querySelector('.task-title');
+        if (title) {
+            title.classList.toggle('done', Boolean(state.isDone));
+        }
+
+        const statusBadge = row.querySelector('.status-badge');
+        if (statusBadge) {
+            replaceClassPrefix(statusBadge, 'task-status-', state.statusCss);
+            if (state.statusLabel) statusBadge.textContent = state.statusLabel;
+        }
+
+        const progressBar = row.querySelector('.task-progress-mini .progress-bar');
+        if (progressBar) {
+            progressBar.style.width = formatPercentCss(state.progress);
+            replaceProgressClass(progressBar, progressCss);
+        }
+
+        const progressValue = row.querySelector('.task-progress-mini-value');
+        if (progressValue) {
+            progressValue.textContent = progressText;
+        }
+    });
+
+    document.querySelectorAll(`.gantt-row[data-task-id="${taskId}"], .gantt-unscheduled-item[data-task-id="${taskId}"]`).forEach(row => {
+        row.dataset.status = String(state.status ?? '');
+
+        const statusBadge = row.querySelector('.status-badge');
+        if (statusBadge) {
+            replaceClassPrefix(statusBadge, 'task-status-', state.statusCss);
+            if (state.statusLabel) statusBadge.textContent = state.statusLabel;
+        }
+
+        row.querySelectorAll('.gantt-progress-value').forEach(progressNode => {
+            progressNode.textContent = progressText;
+        });
+
+        row.querySelectorAll('.gantt-bar').forEach(bar => {
+            bar.style.setProperty('--bar-progress', formatPercentCss(state.progress));
+            ['is-done', 'is-inprogress', 'is-review', 'is-cancelled', 'is-todo'].forEach(css => bar.classList.remove(css));
+            if (state.statusCss === 'task-status-done') {
+                bar.classList.add('is-done');
+            } else if (state.statusCss === 'task-status-inprogress') {
+                bar.classList.add('is-inprogress');
+            } else if (state.statusCss === 'task-status-review') {
+                bar.classList.add('is-review');
+            } else if (state.statusCss === 'task-status-cancelled') {
+                bar.classList.add('is-cancelled');
+            } else {
+                bar.classList.add('is-todo');
+            }
+        });
+    });
+}
+
+function markPanelDoneLocked(content, canUndoDoneTask = false, canRejectDoneTask = false) {
     if (!content) return;
 
     content.querySelector('.task-complete-btn')?.remove();
+    renderDoneActionButtons(content, canUndoDoneTask, canRejectDoneTask);
     content.querySelectorAll('.checklist-toggle').forEach(cb => cb.disabled = true);
     content.querySelector('#addChecklistForm')?.remove();
 
@@ -719,7 +997,49 @@ function markPanelDoneLocked(content) {
     const statusSelect = content.querySelector('.task-status-select');
     if (statusSelect) {
         statusSelect.disabled = true;
-        ensureTaskLockNote(statusSelect, 'Đã hoàn thành, không thể hoàn tác.');
+        if (canUndoDoneTask || canRejectDoneTask) {
+            ensureTaskLockNote(statusSelect, 'Task đã hoàn thành. Có thể hoàn tác/reject khi có lý do.');
+        } else {
+            ensureTaskLockNote(statusSelect, 'Đã hoàn thành, không thể hoàn tác.');
+        }
+    }
+}
+
+function removeDoneActionButtons(content) {
+    if (!content) return;
+
+    content.querySelector('.task-undo-btn')?.remove();
+    content.querySelector('.task-reject-btn')?.remove();
+}
+
+function renderDoneActionButtons(content, canUndoDoneTask, canRejectDoneTask) {
+    if (!content) return;
+
+    const progressActions = content.querySelector('.task-progress-value')?.parentElement;
+    const statusSelect = content.querySelector('.task-status-select');
+    if (!progressActions || !statusSelect) return;
+
+    removeDoneActionButtons(content);
+
+    const taskId = Number(statusSelect.dataset.taskId || currentOpenTaskId || 0);
+    if (!taskId) return;
+
+    if (canUndoDoneTask) {
+        const undoBtn = document.createElement('button');
+        undoBtn.type = 'button';
+        undoBtn.className = 'btn btn-sm btn-outline-warning task-undo-btn';
+        undoBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Hoàn tác';
+        undoBtn.addEventListener('click', () => undoCompletedTask(taskId));
+        progressActions.appendChild(undoBtn);
+    }
+
+    if (canRejectDoneTask) {
+        const rejectBtn = document.createElement('button');
+        rejectBtn.type = 'button';
+        rejectBtn.className = 'btn btn-sm btn-outline-danger task-reject-btn';
+        rejectBtn.innerHTML = '<i class="bi bi-x-octagon me-1"></i>Reject';
+        rejectBtn.addEventListener('click', () => rejectCompletedTask(taskId));
+        progressActions.appendChild(rejectBtn);
     }
 }
 

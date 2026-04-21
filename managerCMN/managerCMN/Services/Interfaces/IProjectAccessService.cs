@@ -4,6 +4,7 @@ namespace managerCMN.Services.Interfaces;
 
 public interface IProjectAccessService
 {
+    bool IsSystemAdmin();
     Task<ProjectMemberRole?> GetRoleAsync(int projectId, int employeeId);
     Task<bool> IsMemberAsync(int projectId, int employeeId);
     Task EnsureIsMemberAsync(int projectId, int employeeId);

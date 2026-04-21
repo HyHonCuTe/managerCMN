@@ -16,6 +16,7 @@ public class ProjectListViewModel
     public int TaskCount { get; set; }
     public int OverdueTaskCount { get; set; }
     public ProjectMemberRole MyRole { get; set; }
+    public bool IsSystemAdmin { get; set; }
     public string OwnerName { get; set; } = string.Empty;
     public DateTime CreatedDate { get; set; }
     public bool IsArchived { get; set; }
@@ -59,6 +60,7 @@ public class ProjectDetailsViewModel
     public string OwnerName { get; set; } = string.Empty;
     public DateTime CreatedDate { get; set; }
     public ProjectMemberRole MyRole { get; set; }
+    public bool IsSystemAdmin { get; set; }
 
     public List<ProjectMemberViewModel> Members { get; set; } = new();
     public List<ProjectTaskTreeViewModel> RootTasks { get; set; } = new();
@@ -122,9 +124,21 @@ public class ProjectMemberViewModel
 public class AddMemberViewModel
 {
     public int ProjectId { get; set; }
-    [Required]
     public int EmployeeId { get; set; }
+    public List<int> EmployeeIds { get; set; } = new();
     public ProjectMemberRole Role { get; set; } = ProjectMemberRole.ProjectStaff;
+}
+
+public class ProjectMemberCandidateViewModel
+{
+    public int EmployeeId { get; set; }
+    public string EmployeeName { get; set; } = string.Empty;
+    public string EmployeeCode { get; set; } = string.Empty;
+    public int? DepartmentId { get; set; }
+    public string DepartmentName { get; set; } = "Chưa có phòng ban";
+
+    public string Display => $"{EmployeeName} ({EmployeeCode})";
+    public string SearchText => $"{EmployeeName} {EmployeeCode} {DepartmentName}".ToLowerInvariant();
 }
 
 public class ChangeMemberRoleViewModel

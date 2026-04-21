@@ -27,24 +27,19 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> Details(int id)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
             var task = await _taskService.GetTaskDetailsAsync(id, employeeId);
             if (task == null) return NotFound();
 
-            var project = await _projectService.GetDetailsAsync(task.ProjectId, employeeId);
+            var project = await _projectService.GetDetailsAsync(task.ProjectId, employeeId, ignoreAccessCheck: isSysAdmin);
             if (project == null) return NotFound();
 
-            task.CanManageTask = !project.IsArchived
-                && (project.MyRole == ProjectMemberRole.ProjectOwner
-                    || project.MyRole == ProjectMemberRole.ProjectManager
-                    || task.AssigneeIds.Contains(employeeId));
-            task.CanCompleteTask = CanCurrentUserCompleteTask(task, project.MyRole, project.IsArchived, employeeId);
-            task.CanManageMembers = (project.MyRole == ProjectMemberRole.ProjectOwner
-                || project.MyRole == ProjectMemberRole.ProjectManager) && !project.IsArchived;
-            task.IsArchived = project.IsArchived;
+            task.CanManageProjectMembers = !project.IsArchived
+                && (isSysAdmin || project.MyRole == ProjectMemberRole.ProjectOwner);
             task.AvailableMembers = project.Members
                 .Where(m => m.Role != ProjectMemberRole.ProjectViewer)
                 .Select(m => new ProjectTaskMemberOptionViewModel
@@ -118,12 +113,18 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> Edit(int id)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
             var task = await _taskService.GetTaskDetailsAsync(id, employeeId);
             if (task == null) return NotFound();
+
+            var project = await _projectService.GetDetailsAsync(task.ProjectId, employeeId, ignoreAccessCheck: isSysAdmin);
+            if (project == null) return NotFound();
+            if (!task.CanManageTask)
+                return Forbid();
 
             var vm = new ProjectTaskEditViewModel
             {
@@ -143,12 +144,9 @@ public class ProjectTaskController : Controller
                 AssigneeIds = task.AssigneeIds
             };
 
-            var members = await _projectService.GetMembersAsync(task.ProjectId, employeeId);
+            var members = await _projectService.GetMembersAsync(task.ProjectId, employeeId, isSysAdmin);
             ViewBag.Members = members;
-            var project = await _projectService.GetDetailsAsync(task.ProjectId, employeeId);
-            ViewBag.CanCompleteTask = project != null
-                && !project.IsArchived
-                && (project.MyRole == ProjectMemberRole.ProjectOwner || task.AssigneeIds.Contains(employeeId));
+            ViewBag.CanCompleteTask = task.CanCompleteTask;
             ViewBag.IsTaskDone = task.Status == ProjectTaskStatus.Done;
             return View(vm);
         }
@@ -162,16 +160,15 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> Edit(ProjectTaskEditViewModel vm)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         if (!ModelState.IsValid)
         {
-            var members = await _projectService.GetMembersAsync(vm.ProjectId, employeeId);
+            var members = await _projectService.GetMembersAsync(vm.ProjectId, employeeId, isSysAdmin);
             ViewBag.Members = members;
-            var project = await _projectService.GetDetailsAsync(vm.ProjectId, employeeId);
-            ViewBag.CanCompleteTask = project != null
-                && !project.IsArchived
-                && (project.MyRole == ProjectMemberRole.ProjectOwner || vm.AssigneeIds.Contains(employeeId));
+            var task = await _taskService.GetTaskDetailsAsync(vm.ProjectTaskId, employeeId);
+            ViewBag.CanCompleteTask = task?.CanCompleteTask ?? false;
             ViewBag.IsTaskDone = vm.Status == ProjectTaskStatus.Done;
             return View(vm);
         }
@@ -185,16 +182,12 @@ public class ProjectTaskController : Controller
         catch (Exception ex)
         {
             ModelState.AddModelError("", ex.Message);
-            var members = await _projectService.GetMembersAsync(vm.ProjectId, employeeId);
+            var members = await _projectService.GetMembersAsync(vm.ProjectId, employeeId, isSysAdmin);
             ViewBag.Members = members;
             try
             {
                 var task = await _taskService.GetTaskDetailsAsync(vm.ProjectTaskId, employeeId);
-                var project = task == null ? null : await _projectService.GetDetailsAsync(task.ProjectId, employeeId);
-                ViewBag.CanCompleteTask = task != null
-                    && project != null
-                    && !project.IsArchived
-                    && (project.MyRole == ProjectMemberRole.ProjectOwner || task.AssigneeIds.Contains(employeeId));
+                ViewBag.CanCompleteTask = task?.CanCompleteTask ?? false;
                 ViewBag.IsTaskDone = task?.Status == ProjectTaskStatus.Done;
             }
             catch
@@ -210,7 +203,8 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> Delete(int id, int projectId)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
@@ -228,18 +222,18 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> UpdateStatus(UpdateTaskStatusViewModel vm)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Json(new { success = false, message = "Không xác thực được người dùng." });
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Json(new { success = false, message = "Không xác thực được người dùng." });
 
         try
         {
             await _taskService.UpdateStatusAsync(vm, employeeId);
             var task = await _taskService.GetTaskDetailsAsync(vm.ProjectTaskId, employeeId);
-            var project = task == null ? null : await _projectService.GetDetailsAsync(task.ProjectId, employeeId);
             return Json(new
             {
                 success = true,
                 message = "Đã cập nhật trạng thái.",
-                task = ToTaskPanelState(task, project?.MyRole, project?.IsArchived ?? false, employeeId),
+                task = ToTaskPanelState(task),
                 update = ToTaskUpdateDto(task?.Updates.OrderByDescending(u => u.CreatedDate).FirstOrDefault())
             });
         }
@@ -253,18 +247,18 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> UpdateProgress(UpdateTaskProgressViewModel vm)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Json(new { success = false, message = "Không xác thực được người dùng." });
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Json(new { success = false, message = "Không xác thực được người dùng." });
 
         try
         {
             await _taskService.UpdateProgressAsync(vm, employeeId);
             var task = await _taskService.GetTaskDetailsAsync(vm.ProjectTaskId, employeeId);
-            var project = task == null ? null : await _projectService.GetDetailsAsync(task.ProjectId, employeeId);
             return Json(new
             {
                 success = true,
                 message = "Đã cập nhật tiến độ.",
-                task = ToTaskPanelState(task, project?.MyRole, project?.IsArchived ?? false, employeeId),
+                task = ToTaskPanelState(task),
                 update = ToTaskUpdateDto(task?.Updates.OrderByDescending(u => u.CreatedDate).FirstOrDefault())
             });
         }
@@ -278,7 +272,8 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> AssignMembers(int taskId, int projectId, List<int> employeeIds)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
@@ -286,7 +281,6 @@ public class ProjectTaskController : Controller
             if (IsAjaxRequest())
             {
                 var task = await _taskService.GetTaskDetailsAsync(taskId, employeeId);
-                var project = task == null ? null : await _projectService.GetDetailsAsync(task.ProjectId, employeeId);
                 return Json(new
                 {
                     success = true,
@@ -294,9 +288,7 @@ public class ProjectTaskController : Controller
                     assignees = task?.AssigneeNames ?? new List<string>(),
                     updateCount = task?.Updates.Count ?? 0,
                     update = ToTaskUpdateDto(task?.Updates.OrderByDescending(u => u.CreatedDate).FirstOrDefault()),
-                    canCompleteTask = task != null
-                        && project != null
-                        && CanCurrentUserCompleteTask(task, project.MyRole, project.IsArchived, employeeId)
+                    canCompleteTask = task?.CanCompleteTask ?? false
                 });
             }
 
@@ -316,7 +308,8 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> PostUpdate(PostTaskUpdateViewModel vm)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
@@ -350,7 +343,8 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> AddChecklistItem(AddChecklistItemViewModel vm)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Json(new { success = false });
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Json(new { success = false });
 
         try
         {
@@ -374,7 +368,8 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> ToggleChecklistItem(int id)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Json(new { success = false });
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Json(new { success = false });
 
         try
         {
@@ -397,7 +392,8 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> DeleteChecklistItem(int id, int taskId)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Json(new { success = false });
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Json(new { success = false });
 
         try
         {
@@ -419,7 +415,8 @@ public class ProjectTaskController : Controller
     public async Task<IActionResult> DownloadAttachment(int attachmentId)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
@@ -460,13 +457,12 @@ public class ProjectTaskController : Controller
         => string.Equals(Request.Headers["X-Requested-With"], "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
 
     private object? ToTaskPanelState(ProjectTaskTreeViewModel? task, ProjectMemberRole? myRole = null,
-        bool isArchived = false, int currentEmployeeId = 0)
+        bool isArchived = false, int currentEmployeeId = 0, bool isSystemAdmin = false)
     {
         if (task == null)
             return null;
 
-        var canCompleteTask = myRole.HasValue
-            && CanCurrentUserCompleteTask(task, myRole.Value, isArchived, currentEmployeeId);
+        var canCompleteTask = task.CanCompleteTask;
 
         return new
         {
@@ -484,18 +480,21 @@ public class ProjectTaskController : Controller
     }
 
     private static bool CanCurrentUserCompleteTask(ProjectTaskTreeViewModel task, ProjectMemberRole myRole,
-        bool isArchived, int currentEmployeeId)
+        bool isArchived, int currentEmployeeId, bool isSystemAdmin = false)
     {
         if (isArchived)
             return false;
+
+        if (isSystemAdmin)
+            return true;
 
         var hasAssignees = task.AssigneeTotalCount > 0;
         var isAssignee = task.AssigneeIds.Contains(currentEmployeeId);
 
         if (hasAssignees)
-            return isAssignee && !task.IsCurrentAssigneeCompleted;
+            return isSystemAdmin || myRole == ProjectMemberRole.ProjectOwner || (isAssignee && !task.IsCurrentAssigneeCompleted);
 
-        return myRole == ProjectMemberRole.ProjectOwner || myRole == ProjectMemberRole.ProjectManager;
+        return isSystemAdmin || myRole == ProjectMemberRole.ProjectOwner;
     }
 
     private object? ToTaskUpdateDto(ProjectTaskUpdateViewModel? update)

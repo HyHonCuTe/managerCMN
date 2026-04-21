@@ -6,6 +6,5 @@ public enum ProjectTaskStatus
     InProgress = 1,
     Review = 2,
     Done = 3,
-    Blocked = 4,
-    Cancelled = 5
+    Cancelled = 4
 }

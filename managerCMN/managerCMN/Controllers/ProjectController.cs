@@ -25,8 +25,10 @@ public class ProjectController : Controller
     public async Task<IActionResult> Index()
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
-        var projects = await _projectService.GetMyProjectsAsync(employeeId);
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
+
+        var projects = await _projectService.GetMyProjectsAsync(employeeId, includeAll: isSysAdmin);
         return View(projects);
     }
 
@@ -52,14 +54,23 @@ public class ProjectController : Controller
 
             if (isFullView)
             {
-                details.RootTasks = taskTree.ToList();
+                details.RootTasks = isSysAdmin || details.MyRole == ProjectMemberRole.ProjectOwner
+                    ? taskTree.ToList()
+                    : FilterTasksForEmployee(taskTree, employeeId, details.MyRole);
+
+                NormalizeTaskDepths(details.RootTasks, 0);
                 PopulateTimeline(details);
-                ViewBag.AllMembers = await GetMemberSelectListAsync(id, employeeId);
-                ViewBag.AllEmployees = await GetNonMemberSelectListAsync(id);
+
+                if (isSysAdmin || details.MyRole == ProjectMemberRole.ProjectOwner)
+                {
+                    ViewBag.AllMembers = await GetMemberSelectListAsync(id, employeeId, isSysAdmin);
+                    ViewBag.AllEmployees = await GetNonMemberCandidatesAsync(id, employeeId, isSysAdmin);
+                }
             }
             else
             {
-                details.RootTasks = FilterTasksForEmployee(taskTree, employeeId);
+                details.RootTasks = FilterTasksForEmployee(taskTree, employeeId, details.MyRole);
+                NormalizeTaskDepths(details.RootTasks, 0);
             }
 
             return View(details);
@@ -97,14 +108,21 @@ public class ProjectController : Controller
     public async Task<IActionResult> Edit(int id)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
-            var details = await _projectService.GetDetailsAsync(id, employeeId);
+            var details = await _projectService.GetDetailsAsync(id, employeeId, ignoreAccessCheck: isSysAdmin);
             if (details == null) return NotFound();
 
-            if (details.MyRole != ProjectMemberRole.ProjectOwner && details.MyRole != ProjectMemberRole.ProjectManager)
+            if (details.IsArchived)
+            {
+                TempData["Error"] = "Dự án đã lưu trữ chỉ có thể xem, không thể chỉnh sửa.";
+                return RedirectToAction(nameof(Details), new { id });
+            }
+
+            if (!isSysAdmin && details.MyRole != ProjectMemberRole.ProjectOwner)
                 return Forbid();
 
             var vm = new ProjectEditViewModel
@@ -128,7 +146,8 @@ public class ProjectController : Controller
     public async Task<IActionResult> Edit(ProjectEditViewModel vm)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         if (!ModelState.IsValid) return View(vm);
 
@@ -149,7 +168,8 @@ public class ProjectController : Controller
     public async Task<IActionResult> AddMember(AddMemberViewModel vm)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
@@ -167,7 +187,8 @@ public class ProjectController : Controller
     public async Task<IActionResult> RemoveMember(int projectId, int targetEmployeeId)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
@@ -185,7 +206,8 @@ public class ProjectController : Controller
     public async Task<IActionResult> ChangeMemberRole(ChangeMemberRoleViewModel vm)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
@@ -203,12 +225,13 @@ public class ProjectController : Controller
     public async Task<IActionResult> Archive(int id)
     {
         var employeeId = GetCurrentEmployeeId();
-        if (employeeId == 0) return Forbid();
+        var isSysAdmin = User.IsInRole("Admin");
+        if (employeeId == 0 && !isSysAdmin) return Forbid();
 
         try
         {
             await _projectService.ArchiveAsync(id, employeeId);
-            TempData["Success"] = "Dự án đã được lưu trữ. Bạn vẫn có thể xem nhưng không thể chỉnh sửa thêm.";
+            TempData["Success"] = "Dự án đã được lưu trữ. Admin hệ thống có thể xoá vĩnh viễn trong khu lưu trữ.";
         }
         catch (Exception ex)
         {
@@ -217,31 +240,78 @@ public class ProjectController : Controller
         return RedirectToAction(nameof(Details), new { id });
     }
 
+    [HttpPost]
+    public async Task<IActionResult> Restore(int id)
+    {
+        var employeeId = GetCurrentEmployeeId();
+        if (!User.IsInRole("Admin")) return Forbid();
+
+        try
+        {
+            await _projectService.RestoreAsync(id, employeeId);
+            TempData["Success"] = "Dự án đã được phục hồi khỏi khu lưu trữ.";
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = ex.Message;
+        }
+
+        return RedirectToAction(nameof(Details), new { id });
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var employeeId = GetCurrentEmployeeId();
+        if (!User.IsInRole("Admin")) return Forbid();
+
+        try
+        {
+            await _projectService.DeleteAsync(id, employeeId);
+            TempData["Success"] = "Đã xoá vĩnh viễn dự án khỏi khu lưu trữ.";
+            return RedirectToAction(nameof(Index), new { status = (int)ProjectStatus.Archived });
+        }
+        catch (Exception ex)
+        {
+            TempData["Error"] = ex.Message;
+            return RedirectToAction(nameof(Details), new { id });
+        }
+    }
+
     private int GetCurrentEmployeeId()
     {
         var claim = User.FindFirst("EmployeeId")?.Value;
         return int.TryParse(claim, out var id) ? id : 0;
     }
 
-    private async Task<SelectList> GetMemberSelectListAsync(int projectId, int employeeId)
+    private async Task<SelectList> GetMemberSelectListAsync(int projectId, int employeeId, bool ignoreAccessCheck)
     {
-        var members = await _projectService.GetMembersAsync(projectId, employeeId);
+        var members = await _projectService.GetMembersAsync(projectId, employeeId, ignoreAccessCheck);
         return new SelectList(members.Select(m => new { m.EmployeeId, Display = $"{m.EmployeeName} ({m.EmployeeCode})" }),
             "EmployeeId", "Display");
     }
 
-    private async Task<SelectList> GetNonMemberSelectListAsync(int projectId)
+    private async Task<IReadOnlyList<ProjectMemberCandidateViewModel>> GetNonMemberCandidatesAsync(int projectId,
+        int employeeId, bool ignoreAccessCheck)
     {
         var allEmployees = await _employeeService.GetAllAsync();
-        var memberIds = (await _projectService.GetMembersAsync(projectId, GetCurrentEmployeeId()))
+        var memberIds = (await _projectService.GetMembersAsync(projectId, employeeId, ignoreAccessCheck))
             .Select(m => m.EmployeeId)
             .ToHashSet();
 
-        var nonMembers = allEmployees
+        return allEmployees
             .Where(e => !memberIds.Contains(e.EmployeeId))
-            .Select(e => new { e.EmployeeId, Display = $"{e.FullName} ({e.EmployeeCode})" });
-
-        return new SelectList(nonMembers, "EmployeeId", "Display");
+            .OrderBy(e => e.Department?.DepartmentName ?? "zzz")
+            .ThenBy(e => e.FullName)
+            .Select(e => new ProjectMemberCandidateViewModel
+            {
+                EmployeeId = e.EmployeeId,
+                EmployeeName = e.FullName,
+                EmployeeCode = e.EmployeeCode,
+                DepartmentId = e.DepartmentId,
+                DepartmentName = e.Department?.DepartmentName ?? "Chưa có phòng ban"
+            })
+            .ToList();
     }
 
     private static void PopulateTimeline(ProjectDetailsViewModel details)
@@ -299,17 +369,22 @@ public class ProjectController : Controller
             .ThenBy(task => task.Title);
 
     private static List<ProjectTaskTreeViewModel> FilterTasksForEmployee(
-        IEnumerable<ProjectTaskTreeViewModel> tasks, int employeeId)
+        IEnumerable<ProjectTaskTreeViewModel> tasks, int employeeId, ProjectMemberRole role)
     {
         var result = new List<ProjectTaskTreeViewModel>();
         foreach (var task in tasks)
         {
-            var childMatches = FilterTasksForEmployee(task.SubTasks, employeeId);
+            if (role == ProjectMemberRole.ProjectManager && task.AssigneeIds.Contains(employeeId))
+            {
+                result.Add(task);
+                continue;
+            }
 
-            if (task.AssigneeIds.Contains(employeeId))
+            var childMatches = FilterTasksForEmployee(task.SubTasks, employeeId, role);
+
+            if (role != ProjectMemberRole.ProjectManager && task.AssigneeIds.Contains(employeeId))
             {
                 task.SubTasks = childMatches;
-                task.Depth = 0;
                 result.Add(task);
             }
 

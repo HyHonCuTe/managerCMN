@@ -4,10 +4,19 @@
 @using System.Globalization
 @{
     ViewData["Title"] = Model.Name;
+    bool isSystemAdmin = Model.IsSystemAdmin;
     bool isOwner = Model.MyRole == ProjectMemberRole.ProjectOwner;
-    bool isManager = Model.MyRole == ProjectMemberRole.ProjectManager;
-    bool canManage = (isOwner || isManager) && !Model.IsArchived;
-    bool canManageTask = Model.MyRole != ProjectMemberRole.ProjectViewer && !Model.IsArchived;
+    bool canManage = (isSystemAdmin || isOwner) && !Model.IsArchived;
+    bool canManageTask = (isSystemAdmin || isOwner) && !Model.IsArchived;
+    bool canArchiveProject = (isSystemAdmin || isOwner) && !Model.IsArchived;
+    bool canRestoreProject = isSystemAdmin && Model.IsArchived;
+    bool canDeleteProject = isSystemAdmin && Model.IsArchived;
+    var memberCandidates = ViewBag.AllEmployees as IReadOnlyList<ProjectMemberCandidateViewModel>
+        ?? new List<ProjectMemberCandidateViewModel>();
+    var departmentFilters = memberCandidates
+        .GroupBy(e => new { e.DepartmentId, e.DepartmentName })
+        .OrderBy(g => g.Key.DepartmentName)
+        .ToList();
     var parentTaskOptions = FlattenTaskOptions(Model.RootTasks).ToList();
     var scheduledTimelineRows = Model.TimelineRows
         .Where(row => row.StartDate.HasValue || row.DueDate.HasValue)
@@ -40,7 +49,7 @@
 {
     <div class="alert alert-warning py-2 mb-3 d-flex align-items-center gap-2" role="alert">
         <i class="bi bi-archive-fill fs-5"></i>
-        <span><strong>Dự án này đã được lưu trữ.</strong> Bạn có thể xem nhưng không thể tạo thêm task hoặc chỉnh sửa.</span>
+        <span><strong>Dự án này đã được lưu trữ.</strong> Bạn có thể xem nhưng không thể tạo thêm task hoặc chỉnh sửa. System Admin có thể phục hồi dự án từ đây.</span>
     </div>
 }
 
@@ -56,7 +65,9 @@
         <h4 class="mb-0 fw-bold">@Model.Name</h4>
         <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
             <span class="status-badge @StatusCss(Model.Status)">@StatusLabel(Model.Status)</span>
-            <span class="role-badge @RoleCss(Model.MyRole)">@RoleLabel(Model.MyRole)</span>
+            <span class="role-badge @(isSystemAdmin ? "role-admin" : RoleCss(Model.MyRole))">
+                @(isSystemAdmin ? "System Admin" : RoleLabel(Model.MyRole))
+            </span>
             <span class="text-muted small"><i class="bi bi-person me-1"></i>@Model.OwnerName</span>
             @if (Model.StartDate.HasValue || Model.EndDate.HasValue)
             {
@@ -74,12 +85,30 @@
                 <i class="bi bi-pencil me-1"></i>Sửa
             </a>
         }
-        @if (isOwner)
+        @if (canArchiveProject)
         {
             <form asp-action="Archive" asp-route-id="@Model.ProjectId" method="post"
-                  onsubmit="return confirm('Lưu trữ dự án này?')">
-                <button type="submit" class="btn btn-outline-danger btn-sm">
+                  onsubmit="return confirm('Lưu trữ dự án này? Sau khi lưu trữ, dự án chỉ còn để xem và admin hệ thống có thể xoá vĩnh viễn trong khu lưu trữ.')">
+                <button type="submit" class="btn btn-outline-warning btn-sm">
                     <i class="bi bi-archive me-1"></i>Lưu trữ
+                </button>
+            </form>
+        }
+        @if (canDeleteProject)
+        {
+            <form asp-action="Delete" asp-route-id="@Model.ProjectId" method="post"
+                  onsubmit="return confirm('Xoá vĩnh viễn dự án đã lưu trữ này? Hành động này không thể hoàn tác.')">
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="bi bi-trash3 me-1"></i>Xoá vĩnh viễn
+                </button>
+            </form>
+        }
+        @if (canRestoreProject)
+        {
+            <form asp-action="Restore" asp-route-id="@Model.ProjectId" method="post"
+                  onsubmit="return confirm('Phục hồi dự án này khỏi lưu trữ? Dự án sẽ quay lại trạng thái Lên kế hoạch.')">
+                <button type="submit" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Phục hồi
                 </button>
             </form>
         }
@@ -344,7 +373,7 @@
                                     <i class="bi bi-three-dots"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    @if (isOwner && m.Role != ProjectMemberRole.ProjectManager)
+                                    @if ((isOwner || isSystemAdmin) && m.Role != ProjectMemberRole.ProjectManager)
                                     {
                                         <li>
                                             <form asp-action="ChangeMemberRole" method="post">
@@ -357,7 +386,7 @@
                                             </form>
                                         </li>
                                     }
-                                    @if (isOwner && m.Role == ProjectMemberRole.ProjectManager)
+                                    @if ((isOwner || isSystemAdmin) && m.Role == ProjectMemberRole.ProjectManager)
                                     {
                                         <li>
                                             <form asp-action="ChangeMemberRole" method="post">
@@ -394,7 +423,7 @@
 @if (canManage)
 {
     <div class="modal fade" id="addMemberModal" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title"><i class="bi bi-person-plus me-1"></i>Thêm thành viên</h5>
@@ -405,21 +434,59 @@
                         <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Nhân viên</label>
-                            <select name="EmployeeId" class="form-select" required>
-                                <option value="">-- Chọn nhân viên --</option>
-                                @if (ViewBag.AllEmployees is SelectList empList)
-                                {
-                                    @foreach (SelectListItem item in empList)
+                            <div class="member-add-toolbar">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                    <input type="search" id="memberSearchInput" class="form-control"
+                                           placeholder="Tìm tên, mã nhân viên, phòng ban..." autocomplete="off" />
+                                </div>
+                                <select id="memberDepartmentFilter" class="form-select form-select-sm">
+                                    <option value="">Tất cả phòng ban</option>
+                                    @foreach (var group in departmentFilters)
                                     {
-                                        <option value="@item.Value">@item.Text</option>
+                                        <option value="@(group.Key.DepartmentId?.ToString() ?? "none")">
+                                            @group.Key.DepartmentName (@group.Count())
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="member-add-actions">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="selectVisibleMembersBtn">
+                                    <i class="bi bi-check2-square me-1"></i>Chọn tất cả đang lọc
+                                </button>
+                                <span class="text-muted small"><span id="selectedMemberCount">0</span> đã chọn</span>
+                            </div>
+
+                            <div class="project-member-picker" id="projectMemberPicker">
+                                @if (memberCandidates.Any())
+                                {
+                                    @foreach (var employee in memberCandidates)
+                                    {
+                                        var deptKey = employee.DepartmentId?.ToString() ?? "none";
+                                        <label class="project-member-option"
+                                               data-search="@employee.SearchText"
+                                               data-department="@deptKey">
+                                            <input type="checkbox" name="EmployeeIds" value="@employee.EmployeeId" />
+                                            <span class="project-member-option-main">
+                                                <strong>@employee.EmployeeName</strong>
+                                                <small>@employee.EmployeeCode • @employee.DepartmentName</small>
+                                            </span>
+                                        </label>
                                     }
                                 }
-                            </select>
+                                else
+                                {
+                                    <div class="text-muted small p-3">Tất cả nhân viên đã thuộc dự án này.</div>
+                                }
+                            </div>
+                            <div class="text-danger small mt-2 d-none" id="memberPickerError">
+                                Vui lòng chọn ít nhất một nhân viên.
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Vai trò</label>
                             <select name="Role" class="form-select">
-                                @if (isOwner)
+                                @if (isOwner || isSystemAdmin)
                                 {
                                     <option value="@((int)ProjectMemberRole.ProjectManager)">Manager</option>
                                 }
@@ -651,10 +718,26 @@ else
     document.getElementById('createTaskParentSelect')?.addEventListener('change', syncCreateTaskDateConstraints);
     document.getElementById('createTaskStartDate')?.addEventListener('change', syncCreateTaskDateConstraints);
     document.getElementById('createTaskDueDate')?.addEventListener('change', syncCreateTaskDateConstraints);
+    document.getElementById('memberSearchInput')?.addEventListener('input', filterMemberCandidates);
+    document.getElementById('memberDepartmentFilter')?.addEventListener('change', filterMemberCandidates);
+    document.getElementById('selectVisibleMembersBtn')?.addEventListener('click', selectVisibleMemberCandidates);
+    document.querySelectorAll('#projectMemberPicker input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', updateSelectedMemberCount);
+    });
+    document.querySelector('#addMemberModal form')?.addEventListener('submit', function (event) {
+        const checkedCount = document.querySelectorAll('#projectMemberPicker input[type="checkbox"]:checked').length;
+        const error = document.getElementById('memberPickerError');
+        if (checkedCount === 0) {
+            event.preventDefault();
+            error?.classList.remove('d-none');
+            return;
+        }
+        error?.classList.add('d-none');
+    });
 
     function filterTasks() {
-        const statusVal = document.getElementById('filterStatus').value;
-        const assigneeVal = document.getElementById('filterAssignee').value;
+        const statusVal = document.getElementById('filterStatus')?.value || '';
+        const assigneeVal = document.getElementById('filterAssignee')?.value || '';
         document.querySelectorAll('.task-row, .gantt-row, .gantt-unscheduled-item').forEach(row => {
             const rowStatus = row.dataset.status ?? '';
             const rowAssignees = row.dataset.assignees ?? '';
@@ -724,6 +807,49 @@ else
         return `${day}/${month}/${year}`;
     }
 
+    function normalizeMemberText(value) {
+        return (value || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
+    function filterMemberCandidates() {
+        const query = normalizeMemberText(document.getElementById('memberSearchInput')?.value);
+        const department = document.getElementById('memberDepartmentFilter')?.value || '';
+        let visibleCount = 0;
+
+        document.querySelectorAll('.project-member-option').forEach(option => {
+            const searchText = normalizeMemberText(option.dataset.search);
+            const optionDepartment = option.dataset.department || '';
+            const matchesText = !query || searchText.includes(query);
+            const matchesDepartment = !department || optionDepartment === department;
+            const isVisible = matchesText && matchesDepartment;
+            option.classList.toggle('d-none', !isVisible);
+            if (isVisible) visibleCount++;
+        });
+
+        const selectButton = document.getElementById('selectVisibleMembersBtn');
+        if (selectButton) selectButton.disabled = visibleCount === 0;
+    }
+
+    function selectVisibleMemberCandidates() {
+        document.querySelectorAll('.project-member-option:not(.d-none) input[type="checkbox"]').forEach(cb => {
+            cb.checked = true;
+        });
+        document.getElementById('memberPickerError')?.classList.add('d-none');
+        updateSelectedMemberCount();
+    }
+
+    function updateSelectedMemberCount() {
+        const checkedCount = document.querySelectorAll('#projectMemberPicker input[type="checkbox"]:checked').length;
+        const label = document.getElementById('selectedMemberCount');
+        if (label) label.textContent = checkedCount.toString();
+        if (checkedCount > 0) document.getElementById('memberPickerError')?.classList.add('d-none');
+    }
+
     syncCreateTaskDateConstraints();
+    filterMemberCandidates();
+    updateSelectedMemberCount();
     </script>
 }

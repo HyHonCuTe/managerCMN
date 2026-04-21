@@ -70,31 +70,30 @@ public class ProjectTaskService : IProjectTaskService
         if (task == null) return null;
         await _accessService.EnsureIsMemberAsync(task.ProjectId, employeeId);
 
-        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
-        if (role != ProjectMemberRole.ProjectOwner && role != ProjectMemberRole.ProjectManager)
-        {
-            var isAssigned = await _context.ProjectTaskAssignments
-                .AsNoTracking()
-                .AnyAsync(a => a.ProjectTaskId == task.ProjectTaskId && a.EmployeeId == employeeId);
-
-            if (!isAssigned)
-                throw new UnauthorizedAccessException("Bạn không có quyền xem task này.");
-        }
+        await EnsureCanViewTaskAsync(task, employeeId);
 
         var vm = MapToTreeViewModel(task, 0, employeeId);
-        if (role != ProjectMemberRole.ProjectOwner && role != ProjectMemberRole.ProjectManager)
+        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
+        if (!_accessService.IsSystemAdmin()
+            && role != ProjectMemberRole.ProjectOwner
+            && role != ProjectMemberRole.ProjectManager)
         {
             vm.SubTasks = FilterVisibleSubTasks(vm.SubTasks, employeeId);
             NormalizeTaskDepths(vm.SubTasks, 1);
         }
 
+        var isArchived = await IsProjectArchivedAsync(task.ProjectId);
+        vm.IsArchived = isArchived;
+        vm.CanManageTask = !isArchived && await CanManageTaskNodeAsync(task, employeeId);
+        vm.CanManageMembers = vm.CanManageTask;
+        vm.CanCompleteTask = !isArchived && await CanCompleteTaskAsync(task, employeeId);
         vm.WorklogAvailable = worklogAvailable;
         return vm;
     }
 
     public async Task<int> CreateTaskAsync(ProjectTaskCreateViewModel vm, int creatorEmployeeId)
     {
-        await _accessService.EnsureCanManageMembersAsync(vm.ProjectId, creatorEmployeeId);
+        await EnsureCanCreateTaskAsync(vm, creatorEmployeeId);
         await ValidateTaskScheduleAsync(vm.ProjectId, vm.ParentTaskId, vm.StartDate, vm.DueDate);
 
         var task = new ProjectTask
@@ -128,7 +127,7 @@ public class ProjectTaskService : IProjectTaskService
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(vm.ProjectTaskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
 
-        await _accessService.EnsureCanManageTaskAsync(task.ProjectId, employeeId);
+        await EnsureCanManageTaskNodeAsync(task, employeeId);
         await ValidateTaskScheduleAsync(task.ProjectId, task.ParentTaskId, vm.StartDate, vm.DueDate, task.ProjectTaskId);
 
         var wasDone = task.Status == ProjectTaskStatus.Done;
@@ -192,7 +191,7 @@ public class ProjectTaskService : IProjectTaskService
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(taskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
 
-        await _accessService.EnsureCanManageTaskAsync(task.ProjectId, employeeId);
+        await EnsureCanManageTaskNodeAsync(task, employeeId);
         if (task.Status == ProjectTaskStatus.Done)
             throw new InvalidOperationException("Task đã hoàn thành nên không thể xoá hoặc hoàn tác.");
 
@@ -219,6 +218,9 @@ public class ProjectTaskService : IProjectTaskService
 
         await _accessService.EnsureIsMemberAsync(task.ProjectId, employeeId);
         await EnsureCanViewTaskAsync(task, employeeId);
+
+        if (vm.Status != ProjectTaskStatus.Done)
+            await EnsureCanManageTaskNodeAsync(task, employeeId);
 
         if (task.Status == ProjectTaskStatus.Done)
         {
@@ -283,6 +285,9 @@ public class ProjectTaskService : IProjectTaskService
         await _accessService.EnsureIsMemberAsync(task.ProjectId, employeeId);
         await EnsureCanViewTaskAsync(task, employeeId);
 
+        if (vm.Progress < 100)
+            await EnsureCanManageTaskNodeAsync(task, employeeId);
+
         if (task.Status == ProjectTaskStatus.Done)
         {
             if (vm.Progress < 100)
@@ -344,7 +349,7 @@ public class ProjectTaskService : IProjectTaskService
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(taskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
 
-        await _accessService.EnsureCanManageMembersAsync(task.ProjectId, actorEmployeeId);
+        await EnsureCanManageTaskNodeAsync(task, actorEmployeeId);
 
         await SyncAssignmentsAsync(task, employeeIds, actorEmployeeId);
         await SyncTaskProgressFromAssignmentsOrEngineAsync(task.ProjectTaskId);
@@ -363,7 +368,7 @@ public class ProjectTaskService : IProjectTaskService
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(vm.ProjectTaskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
 
-        await _accessService.EnsureCanManageTaskAsync(task.ProjectId, employeeId);
+        await EnsureCanManageTaskNodeAsync(task, employeeId);
         if (task.Status == ProjectTaskStatus.Done)
             throw new InvalidOperationException("Task đã hoàn thành nên không thể thêm checklist mới.");
 
@@ -437,7 +442,7 @@ public class ProjectTaskService : IProjectTaskService
             .FirstOrDefaultAsync(c => c.ProjectTaskChecklistItemId == checklistItemId)
             ?? throw new InvalidOperationException("Checklist item không tồn tại.");
 
-        await _accessService.EnsureCanManageTaskAsync(item.ProjectTask.ProjectId, employeeId);
+        await EnsureCanManageTaskNodeAsync(item.ProjectTask, employeeId);
         if (item.ProjectTask.Status == ProjectTaskStatus.Done || item.IsDone)
             throw new InvalidOperationException("Không thể xoá checklist đã hoàn thành.");
 
@@ -509,17 +514,17 @@ public class ProjectTaskService : IProjectTaskService
             .Distinct()
             .ToListAsync();
 
-        var managerUserIds = await _context.ProjectMembers
+        var ownerUserIds = await _context.ProjectMembers
             .AsNoTracking()
             .Where(pm => pm.ProjectId == task.ProjectId
-                && (pm.Role == ProjectMemberRole.ProjectOwner || pm.Role == ProjectMemberRole.ProjectManager))
+                && pm.Role == ProjectMemberRole.ProjectOwner)
             .Where(pm => pm.EmployeeId != senderEmployeeId)
             .Join(_context.Users.AsNoTracking(), pm => pm.EmployeeId, u => u.EmployeeId, (pm, u) => u.UserId)
             .Distinct()
             .ToListAsync();
 
         var targetUserIds = assigneeUserIds
-            .Concat(managerUserIds)
+            .Concat(ownerUserIds)
             .Distinct()
             .ToList();
 
@@ -571,17 +576,95 @@ public class ProjectTaskService : IProjectTaskService
 
     private async Task EnsureCanViewTaskAsync(ProjectTask task, int employeeId)
     {
-        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
-        if (role == ProjectMemberRole.ProjectOwner || role == ProjectMemberRole.ProjectManager)
+        if (_accessService.IsSystemAdmin())
             return;
 
-        var isAssigned = await _context.ProjectTaskAssignments
-            .AsNoTracking()
-            .AnyAsync(a => a.ProjectTaskId == task.ProjectTaskId && a.EmployeeId == employeeId);
+        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
+        if (role == ProjectMemberRole.ProjectOwner)
+            return;
+
+        var isAssigned = role == ProjectMemberRole.ProjectManager
+            ? await IsAssignedToTaskOrAncestorAsync(task, employeeId)
+            : await IsTaskAssigneeAsync(task.ProjectTaskId, employeeId);
 
         if (!isAssigned)
             throw new UnauthorizedAccessException("Bạn không có quyền xem task này.");
     }
+
+    private async Task EnsureCanCreateTaskAsync(ProjectTaskCreateViewModel vm, int employeeId)
+    {
+        if (!vm.ParentTaskId.HasValue)
+        {
+            await _accessService.EnsureCanManageTaskAsync(vm.ProjectId, employeeId);
+            return;
+        }
+
+        var parentTask = await _unitOfWork.ProjectTasks.GetByIdAsync(vm.ParentTaskId.Value)
+            ?? throw new InvalidOperationException("Task cha không tồn tại.");
+
+        if (parentTask.ProjectId != vm.ProjectId)
+            throw new InvalidOperationException("Task cha không thuộc dự án này.");
+
+        await EnsureCanManageTaskNodeAsync(parentTask, employeeId);
+    }
+
+    private async Task EnsureCanManageTaskNodeAsync(ProjectTask task, int employeeId)
+    {
+        if (await CanManageTaskNodeAsync(task, employeeId))
+            return;
+
+        throw new UnauthorizedAccessException("Bạn không có quyền quản lý task này.");
+    }
+
+    private async Task<bool> CanManageTaskNodeAsync(ProjectTask task, int employeeId)
+    {
+        if (_accessService.IsSystemAdmin())
+            return true;
+
+        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
+        if (role == ProjectMemberRole.ProjectOwner)
+            return true;
+
+        if (role != ProjectMemberRole.ProjectManager)
+            return false;
+
+        return await IsAssignedToTaskOrAncestorAsync(task, employeeId);
+    }
+
+    private async Task<bool> IsAssignedToTaskOrAncestorAsync(ProjectTask task, int employeeId)
+    {
+        var currentTaskId = task.ProjectTaskId;
+        var parentTaskId = task.ParentTaskId;
+        var visited = new HashSet<int>();
+
+        while (visited.Add(currentTaskId))
+        {
+            if (await IsTaskAssigneeAsync(currentTaskId, employeeId))
+                return true;
+
+            if (!parentTaskId.HasValue)
+                return false;
+
+            var parent = await _context.ProjectTasks
+                .AsNoTracking()
+                .Where(t => t.ProjectTaskId == parentTaskId.Value)
+                .Select(t => new { t.ProjectTaskId, t.ParentTaskId })
+                .FirstOrDefaultAsync();
+
+            if (parent == null)
+                return false;
+
+            currentTaskId = parent.ProjectTaskId;
+            parentTaskId = parent.ParentTaskId;
+        }
+
+        return false;
+    }
+
+    private async Task<bool> IsTaskAssigneeAsync(int taskId, int employeeId)
+        => await _context.ProjectTaskAssignments
+            .AsNoTracking()
+            .AnyAsync(a => a.ProjectTaskId == taskId && a.EmployeeId == employeeId);
 
     private static List<ProjectTaskTreeViewModel> FilterVisibleSubTasks(
         IEnumerable<ProjectTaskTreeViewModel> tasks, int employeeId)
@@ -628,24 +711,43 @@ public class ProjectTaskService : IProjectTaskService
 
     private async Task EnsureCanCompleteTaskAsync(ProjectTask task, int employeeId)
     {
-        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
-
-        var hasAssignments = await _context.ProjectTaskAssignments
-            .AsNoTracking()
-            .AnyAsync(a => a.ProjectTaskId == task.ProjectTaskId);
-
-        var isAssigned = await _context.ProjectTaskAssignments
-            .AsNoTracking()
-            .AnyAsync(a => a.ProjectTaskId == task.ProjectTaskId && a.EmployeeId == employeeId);
-
-        if (isAssigned)
+        if (await CanCompleteTaskAsync(task, employeeId))
             return;
 
-        if (!hasAssignments && (role == ProjectMemberRole.ProjectOwner || role == ProjectMemberRole.ProjectManager))
-            return;
-
-        throw new UnauthorizedAccessException("Chỉ người được giao task này mới được xác nhận hoàn thành.");
+        throw new UnauthorizedAccessException("Chỉ người được giao task này hoặc ProjectOwner/admin hệ thống mới được xác nhận hoàn thành.");
     }
+
+    private async Task<bool> CanCompleteTaskAsync(ProjectTask task, int employeeId)
+    {
+        if (_accessService.IsSystemAdmin())
+            return true;
+
+        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
+        if (role == ProjectMemberRole.ProjectOwner)
+            return true;
+
+        return await _context.ProjectTaskAssignments
+            .AsNoTracking()
+            .AnyAsync(a => a.ProjectTaskId == task.ProjectTaskId
+                && a.EmployeeId == employeeId
+                && !a.IsCompleted);
+    }
+
+    private async Task<bool> CanCompleteTaskOnBehalfAsync(ProjectTask task, int employeeId)
+    {
+        if (_accessService.IsSystemAdmin())
+            return true;
+
+        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
+        return role == ProjectMemberRole.ProjectOwner;
+    }
+
+    private async Task<bool> IsProjectArchivedAsync(int projectId)
+        => await _context.Projects
+            .AsNoTracking()
+            .Where(p => p.ProjectId == projectId)
+            .Select(p => p.IsArchived || p.Status == ProjectStatus.Archived)
+            .FirstOrDefaultAsync();
 
     private async Task<int> GetTaskDepthAsync(int taskId)
     {
@@ -846,6 +948,24 @@ public class ProjectTaskService : IProjectTaskService
 
         if (assignments.Count == 0)
             return (false, false);
+
+        if (await CanCompleteTaskOnBehalfAsync(task, employeeId))
+        {
+            var changed = false;
+            foreach (var assignment in assignments.Where(a => !a.IsCompleted))
+            {
+                assignment.IsCompleted = true;
+                assignment.CompletedDate = DateTime.Now;
+                _context.ProjectTaskAssignments.Update(assignment);
+                changed = true;
+            }
+
+            ApplyAssignmentCompletionState(task, assignments);
+            _unitOfWork.ProjectTasks.Update(task);
+            await _context.SaveChangesAsync();
+
+            return (true, changed);
+        }
 
         var currentAssignment = assignments.FirstOrDefault(a => a.EmployeeId == employeeId);
         if (currentAssignment == null)

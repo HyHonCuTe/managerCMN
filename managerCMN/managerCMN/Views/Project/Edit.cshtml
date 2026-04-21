@@ -33,7 +33,7 @@
                     <div class="mb-3">
                         <label asp-for="Status" class="form-label fw-semibold"></label>
                         <select asp-for="Status" class="form-select">
-                            @foreach (var s in Enum.GetValues<ProjectStatus>())
+                            @foreach (var s in Enum.GetValues<ProjectStatus>().Where(s => s != ProjectStatus.Archived))
                             {
                                 <option value="@s">@(s switch {
                                     ProjectStatus.Planning  => "Lên kế hoạch",
@@ -41,7 +41,6 @@
                                     ProjectStatus.OnHold    => "Tạm dừng",
                                     ProjectStatus.Completed => "Hoàn thành",
                                     ProjectStatus.Cancelled => "Đã huỷ",
-                                    ProjectStatus.Archived  => "Lưu trữ",
                                     _ => s.ToString()
                                 })</option>
                             }

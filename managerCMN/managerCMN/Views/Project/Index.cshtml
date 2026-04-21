@@ -1,7 +1,8 @@
 @model IEnumerable<managerCMN.Models.ViewModels.ProjectListViewModel>
 @using managerCMN.Models.Enums
 @{
-    ViewData["Title"] = "Dự án của tôi";
+    var isSystemAdmin = User.IsInRole("Admin");
+    ViewData["Title"] = isSystemAdmin ? "Tất cả dự án" : "Dự án của tôi";
 }
 
 @section Styles {
@@ -10,8 +11,8 @@
 
 <div class="d-flex align-items-center justify-content-between mb-3">
     <div>
-        <h4 class="mb-0 fw-bold"><i class="bi bi-kanban text-danger me-2"></i>Dự án của tôi</h4>
-        <small class="text-muted">Danh sách các dự án bạn đang tham gia</small>
+        <h4 class="mb-0 fw-bold"><i class="bi bi-kanban text-danger me-2"></i>@(isSystemAdmin ? "Tất cả dự án" : "Dự án của tôi")</h4>
+        <small class="text-muted">@(isSystemAdmin ? "Admin hệ thống có quyền xem toàn bộ dự án" : "Danh sách các dự án bạn đang tham gia")</small>
     </div>
     <a asp-action="Create" class="btn btn-danger btn-sm">
         <i class="bi bi-plus-circle me-1"></i>Tạo dự án
@@ -26,10 +27,13 @@
         && Enum.IsDefined(typeof(ProjectStatus), sfInt))
         activeFilter = (ProjectStatus)sfInt;
 
-    // Mặc định ẩn archived trừ khi chọn filter Archived
-    var filtered = activeFilter.HasValue
-        ? Model.Where(p => p.Status == activeFilter.Value)
-        : Model.Where(p => !p.IsArchived);
+    // IsArchived là nguồn thật cho dự án đã lưu trữ; một số dữ liệu cũ vẫn còn Status = Planning.
+    var filtered = activeFilter switch
+    {
+        ProjectStatus.Archived => Model.Where(p => p.IsArchived || p.Status == ProjectStatus.Archived),
+        not null => Model.Where(p => !p.IsArchived && p.Status == activeFilter.Value),
+        _ => Model.Where(p => !p.IsArchived)
+    };
 }
 
 <div class="filter-bar mb-3">
@@ -61,6 +65,7 @@ else
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
         @foreach (var p in filtered.OrderByDescending(x => x.CreatedDate))
         {
+            var displayStatus = p.IsArchived ? ProjectStatus.Archived : p.Status;
             <div class="col">
                 <a asp-action="Details" asp-route-id="@p.ProjectId" class="text-decoration-none d-block h-100">
                 <div class="card project-card h-100 @(p.IsArchived ? "opacity-75" : "")">
@@ -68,8 +73,10 @@ else
                         <div>
                             <span class="project-name d-block">@p.Name</span>
                             <div class="mt-1">
-                                <span class="status-badge @StatusCss(p.Status)">@StatusLabel(p.Status)</span>
-                                <span class="role-badge ms-1 @RoleCss(p.MyRole)">@RoleLabel(p.MyRole)</span>
+                                <span class="status-badge @StatusCss(displayStatus)">@StatusLabel(displayStatus)</span>
+                                <span class="role-badge ms-1 @(p.IsSystemAdmin ? "role-admin" : RoleCss(p.MyRole))">
+                                    @(p.IsSystemAdmin ? "System Admin" : RoleLabel(p.MyRole))
+                                </span>
                                 @if (p.IsArchived)
                                 {
                                     <span class="status-badge status-archived ms-1"><i class="bi bi-archive me-1"></i>Lưu trữ</span>

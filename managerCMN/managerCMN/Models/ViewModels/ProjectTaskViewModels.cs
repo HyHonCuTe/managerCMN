@@ -39,6 +39,7 @@ public class ProjectTaskTreeViewModel
     public bool CanManageTask { get; set; }
     public bool CanCompleteTask { get; set; }
     public bool CanManageMembers { get; set; }
+    public bool CanManageProjectMembers { get; set; }
     public bool IsArchived { get; set; }
     public bool WorklogAvailable { get; set; } = true;
     public int Depth { get; set; } = 0;

@@ -8,7 +8,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const overlay = document.getElementById('taskDetailOverlay');
 
     document.querySelectorAll('.task-expand-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
+        btn.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+
             const taskId = this.dataset.taskId;
             const children = document.querySelectorAll(`.task-subtree[data-parent="${taskId}"]`);
             const isExpanded = this.dataset.expanded === 'true';
@@ -130,8 +133,29 @@ function bindTaskPanel(container = document) {
     if (!container) return;
     bindSubtaskFormConstraints(container);
     bindPanelStatusHandlers(container);
+    bindTaskUpdateScrollHandlers(container);
     initChecklistPanel(container);
     bindTaskPanelForms(container);
+}
+
+function bindTaskUpdateScrollHandlers(container = document) {
+    if (!container) return;
+
+    const updatesTabButton = container.querySelector('#task-updates-tab');
+    const updatesPane = container.querySelector('#task-updates');
+    if (!updatesTabButton || !updatesPane || updatesTabButton.dataset.scrollBound === 'true') return;
+
+    updatesTabButton.dataset.scrollBound = 'true';
+
+    const scrollUpdatesToBottom = () => {
+        requestAnimationFrame(() => scrollTaskUpdatesToBottom(updatesPane));
+    };
+
+    updatesTabButton.addEventListener('shown.bs.tab', scrollUpdatesToBottom);
+
+    if (updatesPane.classList.contains('show') && updatesPane.classList.contains('active')) {
+        scrollUpdatesToBottom();
+    }
 }
 
 function bindPanelStatusHandlers(container = document) {

@@ -1,0 +1,15 @@
+Ban la Technical Writer cho he thong managerCMN.
+Hay viet lai tai lieu huong dan su dung chi tiet cho module Du an (Project) duoi dang DOCX, tieng Viet, ro rang cho nguoi dung noi bo.
+
+Yeu cau bat buoc:
+1) Bao gom day du cac man hinh: Danh sach du an, Tao/Sua du an, Chi tiet du an, tab Thanh vien, tab Cong viec, panel chi tiet task (Tong quan, Subtask & Checklist, Nhat ky), Timeline/Gantt.
+2) Trinh bay theo tung vai tro: Admin, Owner, Manager, Staff, Viewer; neu quyen khac nhau phai ghi ro.
+3) Co huong dan thao tac theo buoc (step-by-step), co luong best practice de van hanh du an.
+4) Co muc canh bao/rang buoc nghiep vu (VD: subtask phai nam trong khoang thoi gian task cha, task da Done khong rollback nhanh).
+5) Chen cac placeholder anh theo mau: [VI TRI CHEN ANH - P01], [VI TRI CHEN ANH - P02]... kem chu thich can chup gi.
+6) Van phong de doc, de train user moi; ngan gon nhung khong thieu chi tiet quan trong.
+7) Ket thuc bang muc Loi thuong gap va cach xu ly.
+
+Dau ra mong muon:
+- 01 file DOCX dat ten: HUONG_DAN_SU_DUNG_CHUC_NANG_DU_AN_CHI_TIET.docx
+- Co muc "Danh muc hinh anh can chen" de bo sung anh sau.

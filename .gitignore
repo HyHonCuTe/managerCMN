@@ -79,6 +79,8 @@ nginx_config_crm.conf
 
 .sixth/
 
+.claude/
+
 # biến môi trường
 .env
 .env.*

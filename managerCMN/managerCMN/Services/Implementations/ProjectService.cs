@@ -94,6 +94,7 @@ public class ProjectService : IProjectService
         var now = DateTime.Today;
 
         var allTasks = await _context.ProjectTasks
+            .Include(t => t.Assignments)
             .Where(t => t.ProjectId == projectId)
             .ToListAsync();
 
@@ -107,6 +108,15 @@ public class ProjectService : IProjectService
             Role = m.Role,
             JoinedDate = m.JoinedDate
         }).OrderBy(m => m.Role).ToList();
+
+        // Calculate filtered KPI for Manager (only tasks assigned to them)
+        var filteredTasks = allTasks;
+        if (myRole == ProjectMemberRole.ProjectManager && !isSystemAdmin)
+        {
+            filteredTasks = allTasks
+                .Where(t => t.Assignments.Any(a => a.EmployeeId == employeeId))
+                .ToList();
+        }
 
         return new ProjectDetailsViewModel
         {
@@ -125,6 +135,9 @@ public class ProjectService : IProjectService
             TotalTasks = allTasks.Count,
             DoneTasks = allTasks.Count(t => t.Status == ProjectTaskStatus.Done),
             OverdueTasks = allTasks.Count(t => t.DueDate < now && t.Status != ProjectTaskStatus.Done && t.Status != ProjectTaskStatus.Cancelled),
+            FilteredTotalTasks = filteredTasks.Count,
+            FilteredDoneTasks = filteredTasks.Count(t => t.Status == ProjectTaskStatus.Done),
+            FilteredOverdueTasks = filteredTasks.Count(t => t.DueDate < now && t.Status != ProjectTaskStatus.Done && t.Status != ProjectTaskStatus.Cancelled),
             IsArchived = isArchived
         };
     }
@@ -207,6 +220,10 @@ public class ProjectService : IProjectService
         if (project.IsArchived && project.Status == ProjectStatus.Archived)
             return;
 
+        // Save prior status if not already archived
+        if (!project.IsArchived && project.Status != ProjectStatus.Archived)
+            project.PriorStatus = project.Status;
+
         project.IsArchived = true;
         project.Status = ProjectStatus.Archived;
         project.ModifiedDate = DateTime.Now;
@@ -227,7 +244,9 @@ public class ProjectService : IProjectService
             return;
 
         project.IsArchived = false;
-        project.Status = ProjectStatus.Planning;
+        // Restore to prior status if available, otherwise to Planning
+        project.Status = project.PriorStatus ?? ProjectStatus.Planning;
+        project.PriorStatus = null;
         project.ModifiedDate = DateTime.Now;
         _unitOfWork.Projects.Update(project);
         await _unitOfWork.SaveChangesAsync();

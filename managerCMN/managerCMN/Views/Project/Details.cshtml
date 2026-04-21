@@ -6,7 +6,8 @@
     ViewData["Title"] = Model.Name;
     bool isSystemAdmin = Model.IsSystemAdmin;
     bool isOwner = Model.MyRole == ProjectMemberRole.ProjectOwner;
-    bool canManage = (isSystemAdmin || isOwner) && !Model.IsArchived;
+    bool isProjectManager = Model.MyRole == ProjectMemberRole.ProjectManager;
+    bool canManage = (isSystemAdmin || isOwner || isProjectManager) && !Model.IsArchived;
     bool canManageTask = (isSystemAdmin || isOwner) && !Model.IsArchived;
     bool canArchiveProject = (isSystemAdmin || isOwner) && !Model.IsArchived;
     bool canRestoreProject = isSystemAdmin && Model.IsArchived;
@@ -106,7 +107,7 @@
         @if (canRestoreProject)
         {
             <form asp-action="Restore" asp-route-id="@Model.ProjectId" method="post"
-                  onsubmit="return confirm('Phục hồi dự án này khỏi lưu trữ? Dự án sẽ quay lại trạng thái Lên kế hoạch.')">
+                  onsubmit="return confirm('Phục hồi dự án này khỏi lưu trữ? Dự án sẽ quay lại trạng thái trước khi được lưu trữ.')">
                 <button type="submit" class="btn btn-outline-success btn-sm">
                     <i class="bi bi-arrow-counterclockwise me-1"></i>Phục hồi
                 </button>
@@ -132,15 +133,15 @@
         </div>
     </div>
     <div class="kpi-card">
-        <div class="kpi-value">@Model.TotalTasks</div>
-        <div class="kpi-label">Tổng task</div>
+        <div class="kpi-value">@(isProjectManager ? Model.FilteredTotalTasks : Model.TotalTasks)</div>
+        <div class="kpi-label">@(isProjectManager ? "Task của tôi" : "Tổng task")</div>
     </div>
     <div class="kpi-card">
-        <div class="kpi-value text-success">@Model.DoneTasks</div>
+        <div class="kpi-value text-success">@(isProjectManager ? Model.FilteredDoneTasks : Model.DoneTasks)</div>
         <div class="kpi-label">Xong</div>
     </div>
     <div class="kpi-card">
-        <div class="kpi-value @(Model.OverdueTasks > 0 ? "text-danger" : "text-muted")">@Model.OverdueTasks</div>
+        <div class="kpi-value @(((isProjectManager ? Model.FilteredOverdueTasks : Model.OverdueTasks) > 0) ? "text-danger" : "text-muted")">@(isProjectManager ? Model.FilteredOverdueTasks : Model.OverdueTasks)</div>
         <div class="kpi-label">Quá hạn</div>
     </div>
     <div class="kpi-card">

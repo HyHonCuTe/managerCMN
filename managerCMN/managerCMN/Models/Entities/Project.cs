@@ -15,6 +15,9 @@ public class Project
 
     public ProjectStatus Status { get; set; } = ProjectStatus.Planning;
 
+    // Status before archiving (for restore)
+    public ProjectStatus? PriorStatus { get; set; }
+
     public DateTime? StartDate { get; set; }
     public DateTime? EndDate { get; set; }
 

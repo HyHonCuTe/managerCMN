@@ -939,7 +939,7 @@ function createTaskUpdateElement(update) {
     meta.className = 'task-update-meta';
 
     const strong = document.createElement('strong');
-    strong.textContent = isMine ? 'Mình' : senderName;
+    strong.textContent = isMine ? 'Tui' : senderName;
     const time = document.createElement('span');
     time.textContent = createdDate;
     meta.append(strong, time);

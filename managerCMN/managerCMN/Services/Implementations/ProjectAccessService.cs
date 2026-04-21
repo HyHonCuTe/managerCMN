@@ -40,8 +40,8 @@ public class ProjectAccessService : IProjectAccessService
             return;
 
         var role = await GetRoleAsync(projectId, employeeId);
-        if (role != ProjectMemberRole.ProjectOwner)
-            throw new UnauthorizedAccessException("Chỉ ProjectOwner hoặc admin hệ thống mới được quản lý thành viên dự án.");
+        if (role != ProjectMemberRole.ProjectOwner && role != ProjectMemberRole.ProjectManager)
+            throw new UnauthorizedAccessException("Chỉ ProjectOwner, ProjectManager hoặc admin hệ thống mới được quản lý thành viên dự án.");
     }
 
     public async Task EnsureCanManageManagersAsync(int projectId, int employeeId)

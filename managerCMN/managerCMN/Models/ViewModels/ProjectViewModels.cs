@@ -71,6 +71,12 @@ public class ProjectDetailsViewModel
     public int TotalTasks { get; set; }
     public int DoneTasks { get; set; }
     public int OverdueTasks { get; set; }
+    
+    // Filtered KPI for Manager (only their managed branch tasks)
+    public int FilteredTotalTasks { get; set; }
+    public int FilteredDoneTasks { get; set; }
+    public int FilteredOverdueTasks { get; set; }
+    
     public bool IsArchived { get; set; }
 
     public bool IsFullView { get; set; }

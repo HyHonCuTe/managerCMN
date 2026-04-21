@@ -15,6 +15,9 @@
     var orderedUpdates = Model.Updates
         .OrderBy(update => update.CreatedDate)
         .ToList();
+    var orderedChangeLogs = Model.ChangeLogs
+        .OrderByDescending(update => update.CreatedDate)
+        .ToList();
 }
 
 <div class="task-detail-header">
@@ -71,6 +74,15 @@
         <li class="nav-item" role="presentation">
             <button class="nav-link" id="task-work-tab" data-bs-toggle="tab" data-bs-target="#task-work" type="button" role="tab" aria-controls="task-work" aria-selected="false">
                 <i class="bi bi-kanban me-1"></i>Subtask & Checklist
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="task-log-tab" data-bs-toggle="tab" data-bs-target="#task-log" type="button" role="tab" aria-controls="task-log" aria-selected="false">
+                <i class="bi bi-clock-history me-1"></i>Log
+                @if (orderedChangeLogs.Any())
+                {
+                    <span class="badge bg-secondary ms-1">@orderedChangeLogs.Count</span>
+                }
             </button>
         </li>
         <li class="nav-item" role="presentation">
@@ -422,6 +434,46 @@
             </section>
         </div>
 
+        <div class="tab-pane fade" id="task-log" role="tabpanel" aria-labelledby="task-log-tab" tabindex="0">
+            <section class="task-section-card task-log-card">
+                <div class="task-section-head">
+                    <span class="task-section-label mb-0">Log thay đổi</span>
+                    <span class="text-muted small">@orderedChangeLogs.Count mục</span>
+                </div>
+
+                @if (!Model.WorklogAvailable)
+                {
+                    <div class="alert alert-warning py-2 small mb-0">
+                        Cơ sở dữ liệu chưa có bảng nhật ký task. Log thay đổi sẽ hiển thị sau khi chạy `database update`.
+                    </div>
+                }
+                else if (orderedChangeLogs.Any())
+                {
+                    <div class="task-change-log-list">
+                        @foreach (var log in orderedChangeLogs)
+                        {
+                            <div class="task-change-log-item">
+                                <div class="task-change-log-icon">
+                                    <i class="bi bi-clock-history"></i>
+                                </div>
+                                <div class="task-change-log-body">
+                                    <div class="task-change-log-meta">
+                                        <strong>@(string.IsNullOrWhiteSpace(log.SenderName) ? "Hệ thống" : log.SenderName)</strong>
+                                        <span>@log.CreatedDate.ToString("dd/MM/yyyy HH:mm")</span>
+                                    </div>
+                                    <div class="task-change-log-content">@log.Content</div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="task-worklog-empty text-muted small">Chưa có thay đổi tên task hoặc timeline nào được ghi nhận.</div>
+                }
+            </section>
+        </div>
+
         <div class="tab-pane fade" id="task-updates" role="tabpanel" aria-labelledby="task-updates-tab" tabindex="0">
             <section class="task-section-card task-worklog-card">
                 <div class="task-section-head">
@@ -488,7 +540,7 @@
                     <div class="task-worklog-empty text-muted small">Chưa có cập nhật nào. Có thể dùng khu vực này để báo cáo tiến độ, việc đã làm và gửi file giống ticket.</div>
                 }
 
-                @if (!Model.IsArchived && Model.WorklogAvailable)
+                @if (!Model.IsArchived && Model.WorklogAvailable && Model.CanPostUpdate)
                 {
                     <form asp-action="PostUpdate" method="post" enctype="multipart/form-data" class="task-inline-form mt-3 task-update-form">
                         <input type="hidden" name="ProjectTaskId" value="@Model.ProjectTaskId" />

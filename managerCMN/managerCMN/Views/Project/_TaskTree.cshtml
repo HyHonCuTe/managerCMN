@@ -1,10 +1,14 @@
 @model List<managerCMN.Models.ViewModels.ProjectTaskTreeViewModel>
 @using managerCMN.Models.Enums
 @using System.Globalization
+@{
+    var showEditableTaskMarkers = ViewData["ShowEditableTaskMarkers"] as bool? ?? false;
+}
 
 @foreach (var task in Model)
 {
-    <div class="task-row task-row-clickable depth-@task.Depth"
+    var canHighlightEdit = showEditableTaskMarkers && task.CanManageTask;
+    <div class="task-row task-row-clickable depth-@task.Depth @(canHighlightEdit ? "task-row-editable" : "")"
          data-task-id="@task.ProjectTaskId"
          data-status="@((int)task.Status)"
          data-assignees="@string.Join(",", task.AssigneeIds)"
@@ -26,6 +30,23 @@
                   onclick="openTaskPanel(@task.ProjectTaskId)" style="cursor:pointer;">
                 @task.Title
             </span>
+            @if (canHighlightEdit)
+            {
+                <span class="editable-mini-badge" title="Có quyền chỉnh sửa" aria-label="Có quyền chỉnh sửa">
+                    <i class="bi bi-pencil-square"></i>
+                </span>
+            }
+            @if (task.ChangeLogCount > 0)
+            {
+                <button type="button"
+                        class="task-change-mini"
+                        title="@task.LatestChangeLogSummary"
+                        onclick="event.stopPropagation(); openTaskPanel(@task.ProjectTaskId, 'log')">
+                    <i class="bi bi-clock-history"></i>
+                    <span>@task.LatestChangeLogSummary</span>
+                    <small>@task.ChangeLogCount</small>
+                </button>
+            }
 
             <span class="status-badge @TaskStatusCss(task.Status)" style="font-size:0.68rem;">@TaskStatusLabel(task.Status)</span>
 

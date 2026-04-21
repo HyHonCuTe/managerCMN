@@ -414,16 +414,22 @@ public class ProjectService : IProjectService
         if (vm.NewRole == ProjectMemberRole.ProjectOwner)
             throw new InvalidOperationException("Không thể bổ nhiệm ProjectOwner thứ hai.");
 
-        if (vm.NewRole == ProjectMemberRole.ProjectManager)
-            await _accessService.EnsureCanManageManagersAsync(vm.ProjectId, actorEmployeeId);
-        else
-            await _accessService.EnsureCanManageMembersAsync(vm.ProjectId, actorEmployeeId);
+        await _accessService.EnsureCanManageMembersAsync(vm.ProjectId, actorEmployeeId);
 
         var member = await _unitOfWork.ProjectMembers.GetMemberAsync(vm.ProjectId, vm.EmployeeId)
             ?? throw new InvalidOperationException("Thành viên không tồn tại.");
 
         if (member.Role == ProjectMemberRole.ProjectOwner)
             throw new InvalidOperationException("Không thể thay đổi role của ProjectOwner.");
+
+        var touchesManagerRole = member.Role == ProjectMemberRole.ProjectManager
+            || vm.NewRole == ProjectMemberRole.ProjectManager;
+
+        if (touchesManagerRole)
+            await _accessService.EnsureCanManageManagersAsync(vm.ProjectId, actorEmployeeId);
+
+        if (member.Role == vm.NewRole)
+            return;
 
         member.Role = vm.NewRole;
         _unitOfWork.ProjectMembers.Update(member);

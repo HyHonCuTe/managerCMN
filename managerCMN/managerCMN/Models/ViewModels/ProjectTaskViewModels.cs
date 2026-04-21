@@ -35,14 +35,19 @@ public class ProjectTaskTreeViewModel
     public List<ProjectTaskTreeViewModel> SubTasks { get; set; } = new();
     public List<ChecklistItemViewModel> ChecklistItems { get; set; } = new();
     public List<ProjectTaskUpdateViewModel> Updates { get; set; } = new();
+    public List<ProjectTaskUpdateViewModel> ChangeLogs { get; set; } = new();
     public List<ProjectTaskMemberOptionViewModel> AvailableMembers { get; set; } = new();
     public bool CanManageTask { get; set; }
     public bool CanCompleteTask { get; set; }
+    public bool CanPostUpdate { get; set; }
     public bool CanManageMembers { get; set; }
     public bool CanManageProjectMembers { get; set; }
     public bool IsArchived { get; set; }
     public bool WorklogAvailable { get; set; } = true;
     public int Depth { get; set; } = 0;
+    public int ChangeLogCount { get; set; }
+    public DateTime? LatestChangeLogDate { get; set; }
+    public string? LatestChangeLogSummary { get; set; }
 }
 
 public class ProjectTaskCreateViewModel
@@ -134,6 +139,7 @@ public class ProjectTaskUpdateViewModel
     public decimal? ProgressSnapshot { get; set; }
     public DateTime CreatedDate { get; set; }
     public List<ProjectTaskAttachmentViewModel> Attachments { get; set; } = new();
+    public bool IsChangeLog { get; set; }
 }
 
 public class ProjectTaskAttachmentViewModel

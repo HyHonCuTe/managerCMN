@@ -98,10 +98,24 @@
     background: #fff3ec;
     box-shadow: inset 3px 0 0 #c83200;
 }
+.task-row-editable {
+    background: #eff6ff;
+    box-shadow: inset 3px 0 0 #2563eb;
+}
+.task-row-editable:hover {
+    background: #dbeafe;
+    box-shadow: inset 3px 0 0 #1d4ed8;
+}
 .task-row.depth-1 { padding-left: 2.2rem; background: #fafafa; }
 .task-row.depth-2 { padding-left: 3.4rem; background: #f5f5f5; }
 .task-row.depth-3 { padding-left: 4.6rem; background: #f0f0f0; }
 .task-row.depth-4 { padding-left: 5.8rem; background: #ebebeb; }
+.task-row.task-row-editable.depth-1,
+.task-row.task-row-editable.depth-2,
+.task-row.task-row-editable.depth-3,
+.task-row.task-row-editable.depth-4 {
+    background: #eff6ff;
+}
 
 .task-title-wrap { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; min-width: 0; }
 .task-expand-btn {
@@ -132,6 +146,76 @@
 .overdue-badge { color: #dc2626; font-size: 0.7rem; font-weight: 600; }
 .checklist-mini { font-size: 0.72rem; color: #6b7280; }
 
+.editable-mini-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: 0.78rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.task-change-mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: min(320px, 100%);
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1e40af;
+    padding: 0.16rem 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+button.task-change-mini {
+    cursor: pointer;
+}
+
+button.task-change-mini:hover,
+.task-change-mini[role="button"]:hover {
+    border-color: #2563eb;
+    background: #dbeafe;
+}
+
+.task-change-mini[role="button"] {
+    cursor: pointer;
+}
+
+.task-change-mini span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.task-change-mini small {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 0.28rem;
+    border-radius: 999px;
+    background: #2563eb;
+    color: #fff;
+    font-size: 0.62rem;
+    font-weight: 800;
+}
+
+.task-change-mini.is-inline {
+    max-width: 230px;
+    padding-block: 0.12rem;
+}
+
 /* ── Project Details Layout ── */
 .project-kpi-grid {
     display: grid;
@@ -146,8 +230,33 @@
     border: 1px solid #e5e7eb;
     text-align: center;
 }
+.kpi-card-editable {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+}
 .kpi-value { font-size: 1.6rem; font-weight: 800; color: #1f2937; }
 .kpi-label { font-size: 0.75rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.project-permission-note {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    border-radius: 10px;
+    border: 1px solid #e5e7eb;
+    padding: 0.7rem 0.85rem;
+    font-size: 0.86rem;
+    font-weight: 600;
+}
+.project-permission-note.manager {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #1e40af;
+}
+.project-permission-note.viewer {
+    border-color: #e5e7eb;
+    background: #f9fafb;
+    color: #4b5563;
+}
 
 .task-gantt-card {
     border: 1px solid #e5e7eb;
@@ -277,6 +386,16 @@
     border-color: #c83200;
     box-shadow: 0 0 0 3px rgba(200, 50, 0, 0.08);
     transform: translateY(-1px);
+}
+.gantt-task-button.can-edit {
+    border-color: #bfdbfe;
+    border-left-color: #2563eb;
+    background: #eff6ff;
+    box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.08);
+}
+.gantt-task-button.can-edit:hover {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .gantt-task-heading {
@@ -419,6 +538,10 @@
 .gantt-bar.is-cancelled { background: linear-gradient(135deg, #4b5563, #9ca3af); }
 .gantt-bar.is-near { background: linear-gradient(135deg, #d97706, #fbbf24); }
 .gantt-bar.is-overdue { background: linear-gradient(135deg, #b91c1c, #ef4444); }
+.gantt-bar.can-edit {
+    outline: 3px solid rgba(37, 99, 235, 0.22);
+    outline-offset: 2px;
+}
 
 .gantt-row.is-overdue .gantt-task-button {
     border-color: #fecaca;
@@ -471,6 +594,14 @@
 .gantt-unscheduled-item:hover {
     border-color: #c83200;
     box-shadow: 0 0 0 3px rgba(200, 50, 0, 0.08);
+}
+.gantt-unscheduled-item.can-edit {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+}
+.gantt-unscheduled-item.can-edit:hover {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .gantt-unscheduled-name {
@@ -970,6 +1101,54 @@
     flex-wrap: wrap;
     gap: 0.45rem;
     margin-top: 0.8rem;
+}
+
+.task-change-log-list {
+    display: grid;
+    gap: 0.7rem;
+}
+
+.task-change-log-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.task-change-log-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #eff6ff;
+    color: #2563eb;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.task-change-log-body {
+    flex: 1;
+    min-width: 0;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #f8fbff;
+    padding: 0.75rem 0.85rem;
+}
+
+.task-change-log-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    font-size: 0.78rem;
+    color: #475569;
+}
+
+.task-change-log-content {
+    margin-top: 0.45rem;
+    white-space: pre-wrap;
+    font-size: 0.84rem;
+    color: #1f2937;
 }
 
 .task-attachment-chip {

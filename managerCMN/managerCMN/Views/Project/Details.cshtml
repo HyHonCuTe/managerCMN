@@ -7,11 +7,17 @@
     bool isSystemAdmin = Model.IsSystemAdmin;
     bool isOwner = Model.MyRole == ProjectMemberRole.ProjectOwner;
     bool isProjectManager = Model.MyRole == ProjectMemberRole.ProjectManager;
+    bool isProjectViewer = Model.MyRole == ProjectMemberRole.ProjectViewer;
     bool canManage = (isSystemAdmin || isOwner || isProjectManager) && !Model.IsArchived;
+    bool canManageManagers = isSystemAdmin || isOwner;
+    bool canEditProject = (isSystemAdmin || isOwner) && !Model.IsArchived;
     bool canManageTask = (isSystemAdmin || isOwner) && !Model.IsArchived;
     bool canArchiveProject = (isSystemAdmin || isOwner) && !Model.IsArchived;
     bool canRestoreProject = isSystemAdmin && Model.IsArchived;
     bool canDeleteProject = isSystemAdmin && Model.IsArchived;
+    bool showEditableTaskMarkers = isProjectManager && !Model.IsArchived;
+    int editableTaskCount = CountManageableTasks(Model.RootTasks);
+    ViewData["ShowEditableTaskMarkers"] = showEditableTaskMarkers;
     var memberCandidates = ViewBag.AllEmployees as IReadOnlyList<ProjectMemberCandidateViewModel>
         ?? new List<ProjectMemberCandidateViewModel>();
     var departmentFilters = memberCandidates
@@ -80,7 +86,7 @@
         </div>
     </div>
     <div class="d-flex gap-2 flex-wrap">
-        @if (canManage)
+        @if (canEditProject)
         {
             <a asp-action="Edit" asp-route-id="@Model.ProjectId" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-pencil me-1"></i>Sửa
@@ -121,6 +127,21 @@
     <p class="text-muted mb-3" style="font-size:0.9rem;">@Model.Description</p>
 }
 
+@if (showEditableTaskMarkers && editableTaskCount > 0)
+{
+    <div class="project-permission-note manager mb-3">
+        <i class="bi bi-pencil-square"></i>
+        <span>Bạn có thể chỉnh sửa @editableTaskCount công việc được đánh dấu trong dự án này.</span>
+    </div>
+}
+else if (isProjectViewer && !isSystemAdmin)
+{
+    <div class="project-permission-note viewer mb-3">
+        <i class="bi bi-eye"></i>
+        <span>Viewer được xem toàn bộ dự án, không có quyền tạo hoặc chỉnh sửa.</span>
+    </div>
+}
+
 @if (Model.IsFullView)
 {
 <!-- KPI Row -->
@@ -133,21 +154,28 @@
         </div>
     </div>
     <div class="kpi-card">
-        <div class="kpi-value">@(isProjectManager ? Model.FilteredTotalTasks : Model.TotalTasks)</div>
-        <div class="kpi-label">@(isProjectManager ? "Task của tôi" : "Tổng task")</div>
+        <div class="kpi-value">@Model.TotalTasks</div>
+        <div class="kpi-label">Tổng task</div>
     </div>
     <div class="kpi-card">
-        <div class="kpi-value text-success">@(isProjectManager ? Model.FilteredDoneTasks : Model.DoneTasks)</div>
+        <div class="kpi-value text-success">@Model.DoneTasks</div>
         <div class="kpi-label">Xong</div>
     </div>
     <div class="kpi-card">
-        <div class="kpi-value @(((isProjectManager ? Model.FilteredOverdueTasks : Model.OverdueTasks) > 0) ? "text-danger" : "text-muted")">@(isProjectManager ? Model.FilteredOverdueTasks : Model.OverdueTasks)</div>
+        <div class="kpi-value @(Model.OverdueTasks > 0 ? "text-danger" : "text-muted")">@Model.OverdueTasks</div>
         <div class="kpi-label">Quá hạn</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-value text-secondary">@Model.Members.Count</div>
         <div class="kpi-label">Thành viên</div>
     </div>
+    @if (showEditableTaskMarkers)
+    {
+        <div class="kpi-card kpi-card-editable">
+            <div class="kpi-value text-primary">@editableTaskCount</div>
+            <div class="kpi-label">Có thể sửa</div>
+        </div>
+    }
 </div>
 
 <!-- Tabs -->
@@ -265,15 +293,22 @@
                                 var rowClasses = row.IsOverdue ? "is-overdue" : row.IsNearDeadline ? "is-near" : string.Empty;
                                 var depthLevel = Math.Min(row.Depth, 5);
                                 var progressWidth = Math.Max(0, Math.Min(100, row.Progress));
+                                var canHighlightEdit = showEditableTaskMarkers && row.CanManageTask;
 
-                                <div class="gantt-row @rowClasses depth-@depthLevel"
+                                <div class="gantt-row @rowClasses depth-@depthLevel @(canHighlightEdit ? "can-edit" : "")"
                                      style="--gantt-depth:@depthLevel;--gantt-accent:@GanttDepthAccent(row.Depth);"
                                      data-status="@((int)row.Status)"
                                      data-assignees="@string.Join(",", row.AssigneeIds)">
-                                    <button type="button" class="gantt-task-col gantt-task-button depth-@row.Depth" onclick="openTaskPanel(@row.ProjectTaskId)">
+                                    <button type="button" class="gantt-task-col gantt-task-button depth-@row.Depth @(canHighlightEdit ? "can-edit" : "")" onclick="openTaskPanel(@row.ProjectTaskId)">
                                         <span class="gantt-task-heading">
                                             <span class="gantt-task-level">@GanttLevelLabel(row.Depth)</span>
                                             <span class="gantt-task-name">@row.Title</span>
+                                            @if (canHighlightEdit)
+                                            {
+                                                <span class="editable-mini-badge" title="Có quyền chỉnh sửa" aria-label="Có quyền chỉnh sửa">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </span>
+                                            }
                                         </span>
                                         <span class="gantt-task-meta">
                                             <span class="status-badge @TaskStatusCss(row.Status)" style="font-size:0.65rem;">@TaskStatusLabel(row.Status)</span>
@@ -282,6 +317,16 @@
                                             @if (!string.IsNullOrWhiteSpace(row.ParentTaskTitle))
                                             {
                                                 <span class="gantt-parent-chip"><i class="bi bi-diagram-2"></i>@row.ParentTaskTitle</span>
+                                            }
+                                            @if (row.ChangeLogCount > 0)
+                                            {
+                                                <span class="task-change-mini is-inline" title="@row.LatestChangeLogSummary"
+                                                      role="button" tabindex="0"
+                                                      onclick="event.stopPropagation(); openTaskPanel(@row.ProjectTaskId, 'log')">
+                                                    <i class="bi bi-clock-history"></i>
+                                                    <span>@row.LatestChangeLogSummary</span>
+                                                    <small>@row.ChangeLogCount</small>
+                                                </span>
                                             }
                                         </span>
                                     </button>
@@ -296,7 +341,7 @@
                                                 <span class="gantt-today-line" style="grid-column:@todayColumn.Value;"></span>
                                             }
                                             <button type="button"
-                                                    class="gantt-bar @GanttBarCss(row) depth-@depthLevel"
+                                                    class="gantt-bar @GanttBarCss(row) depth-@depthLevel @(canHighlightEdit ? "can-edit" : "")"
                                                     style="grid-column:@barStart / span @barSpan;--bar-progress:@progressWidth.ToString("0")%;"
                                                     onclick="openTaskPanel(@row.ProjectTaskId)"
                                                     title="@($"{row.Title} • {dateLabel}")">
@@ -318,8 +363,9 @@
                         <div class="gantt-unscheduled-list">
                             @foreach (var row in unscheduledTimelineRows)
                             {
+                                var canHighlightEdit = showEditableTaskMarkers && row.CanManageTask;
                                 <button type="button"
-                                        class="gantt-unscheduled-item"
+                                        class="gantt-unscheduled-item @(canHighlightEdit ? "can-edit" : "")"
                                         style="--gantt-depth:@Math.Min(row.Depth, 5);--gantt-accent:@GanttDepthAccent(row.Depth);"
                                         data-status="@((int)row.Status)"
                                         data-assignees="@string.Join(",", row.AssigneeIds)"
@@ -330,6 +376,22 @@
                                         @if (!string.IsNullOrWhiteSpace(row.ParentTaskTitle))
                                         {
                                             <small>Thuộc: @row.ParentTaskTitle</small>
+                                        }
+                                        @if (canHighlightEdit)
+                                        {
+                                            <span class="editable-mini-badge" title="Có quyền chỉnh sửa" aria-label="Có quyền chỉnh sửa">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </span>
+                                        }
+                                        @if (row.ChangeLogCount > 0)
+                                        {
+                                            <span class="task-change-mini is-inline" title="@row.LatestChangeLogSummary"
+                                                  role="button" tabindex="0"
+                                                  onclick="event.stopPropagation(); openTaskPanel(@row.ProjectTaskId, 'log')">
+                                                <i class="bi bi-clock-history"></i>
+                                                <span>@row.LatestChangeLogSummary</span>
+                                                <small>@row.ChangeLogCount</small>
+                                            </span>
                                         }
                                     </span>
                                     <span class="status-badge @TaskStatusCss(row.Status)" style="font-size:0.65rem;">@TaskStatusLabel(row.Status)</span>
@@ -357,6 +419,15 @@
             <div class="card-body p-2">
                 @foreach (var m in Model.Members)
                 {
+                    var canPromoteToManager = canManageManagers && m.Role != ProjectMemberRole.ProjectManager;
+                    var canSetStaff = m.Role != ProjectMemberRole.ProjectStaff
+                        && (m.Role != ProjectMemberRole.ProjectManager || canManageManagers);
+                    var canSetViewer = m.Role != ProjectMemberRole.ProjectViewer
+                        && (m.Role != ProjectMemberRole.ProjectManager || canManageManagers);
+                    var canRemoveMember = m.Role != ProjectMemberRole.ProjectManager || canManageManagers;
+                    var showMemberActions = canManage
+                        && m.Role != ProjectMemberRole.ProjectOwner
+                        && (canPromoteToManager || canSetStaff || canSetViewer || canRemoveMember);
                     <div class="member-row">
                         <div class="member-avatar">@(m.EmployeeName.Length > 0 ? m.EmployeeName[0].ToString().ToUpper() : "?")</div>
                         <div class="member-info">
@@ -367,14 +438,14 @@
                             }
                         </div>
                         <span class="role-badge @RoleCss(m.Role)">@RoleLabel(m.Role)</span>
-                        @if (canManage && m.Role != ProjectMemberRole.ProjectOwner)
+                        @if (showMemberActions)
                         {
                             <div class="dropdown">
                                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
                                     <i class="bi bi-three-dots"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    @if ((isOwner || isSystemAdmin) && m.Role != ProjectMemberRole.ProjectManager)
+                                    @if (canPromoteToManager)
                                     {
                                         <li>
                                             <form asp-action="ChangeMemberRole" method="post">
@@ -387,7 +458,7 @@
                                             </form>
                                         </li>
                                     }
-                                    @if ((isOwner || isSystemAdmin) && m.Role == ProjectMemberRole.ProjectManager)
+                                    @if (canSetStaff)
                                     {
                                         <li>
                                             <form asp-action="ChangeMemberRole" method="post">
@@ -395,21 +466,38 @@
                                                 <input type="hidden" name="EmployeeId" value="@m.EmployeeId" />
                                                 <input type="hidden" name="NewRole" value="@((int)ProjectMemberRole.ProjectStaff)" />
                                                 <button type="submit" class="dropdown-item text-warning">
-                                                    <i class="bi bi-arrow-down-circle me-1"></i>Thu hồi Manager
+                                                    <i class="bi bi-person-check me-1"></i>Chuyển thành Staff
                                                 </button>
                                             </form>
                                         </li>
                                     }
-                                    <li>
-                                        <form asp-action="RemoveMember" method="post"
-                                              onsubmit="return confirm('Xoá @m.EmployeeName khỏi dự án?')">
-                                            <input type="hidden" name="projectId" value="@Model.ProjectId" />
-                                            <input type="hidden" name="targetEmployeeId" value="@m.EmployeeId" />
-                                            <button type="submit" class="dropdown-item text-danger">
-                                                <i class="bi bi-person-x me-1"></i>Xoá khỏi dự án
-                                            </button>
-                                        </form>
-                                    </li>
+                                    @if (canSetViewer)
+                                    {
+                                        <li>
+                                            <form asp-action="ChangeMemberRole" method="post">
+                                                <input type="hidden" name="ProjectId" value="@Model.ProjectId" />
+                                                <input type="hidden" name="EmployeeId" value="@m.EmployeeId" />
+                                                <input type="hidden" name="NewRole" value="@((int)ProjectMemberRole.ProjectViewer)" />
+                                                <button type="submit" class="dropdown-item text-secondary">
+                                                    <i class="bi bi-eye me-1"></i>Chuyển thành Viewer
+                                                </button>
+                                            </form>
+                                        </li>
+                                    }
+                                    @if (canRemoveMember)
+                                    {
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li>
+                                            <form asp-action="RemoveMember" method="post"
+                                                  onsubmit="return confirm('Xoá @m.EmployeeName khỏi dự án?')">
+                                                <input type="hidden" name="projectId" value="@Model.ProjectId" />
+                                                <input type="hidden" name="targetEmployeeId" value="@m.EmployeeId" />
+                                                <button type="submit" class="dropdown-item text-danger">
+                                                    <i class="bi bi-person-x me-1"></i>Xoá khỏi dự án
+                                                </button>
+                                            </form>
+                                        </li>
+                                    }
                                 </ul>
                             </div>
                         }
@@ -686,6 +774,22 @@ else
         _ => "#64748b"
     };
     string GanttLevelLabel(int depth) => depth <= 0 ? "Task" : $"Sub {depth}";
+    int CountManageableTasks(IEnumerable<ProjectTaskTreeViewModel> tasks)
+    {
+        var count = 0;
+        foreach (var task in tasks)
+        {
+            if (task.CanManageTask)
+            {
+                count++;
+            }
+
+            count += CountManageableTasks(task.SubTasks);
+        }
+
+        return count;
+    }
+
     List<ProjectTaskParentOptionViewModel> FlattenTaskOptions(IEnumerable<ProjectTaskTreeViewModel> tasks, int level = 0)
     {
         var result = new List<ProjectTaskParentOptionViewModel>();

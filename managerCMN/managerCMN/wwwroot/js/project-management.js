@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function () {
             : '<i class="bi bi-caret-right-fill"></i>';
     }
 
-    window.openTaskPanel = function (taskId) {
+    window.openTaskPanel = function (taskId, targetTab) {
         currentOpenTaskId = Number(taskId);
         const content = document.getElementById('taskDetailContent');
         if (!panel || !content) {
@@ -58,6 +58,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 panel.classList.add('open');
                 overlay?.classList.add('open');
                 bindTaskPanel(content);
+                activateTaskPanelTab(content, targetTab);
                 requestAnimationFrame(() => scrollTaskUpdatesToBottom(content));
                 clearOpenTaskQueryParam();
             })
@@ -123,9 +124,10 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    const initialTaskId = new URL(window.location.href).searchParams.get('openTaskId');
+    const initialUrl = new URL(window.location.href);
+    const initialTaskId = initialUrl.searchParams.get('openTaskId');
     if (initialTaskId) {
-        window.openTaskPanel(initialTaskId);
+        window.openTaskPanel(initialTaskId, initialUrl.searchParams.get('openTaskTab'));
     }
 });
 
@@ -136,6 +138,15 @@ function bindTaskPanel(container = document) {
     bindTaskUpdateScrollHandlers(container);
     initChecklistPanel(container);
     bindTaskPanelForms(container);
+}
+
+function activateTaskPanelTab(container, targetTab) {
+    if (!container || !targetTab) return;
+
+    const tabButton = container.querySelector(`#task-${targetTab}-tab`);
+    if (tabButton) {
+        bootstrap.Tab.getOrCreateInstance(tabButton).show();
+    }
 }
 
 function bindTaskUpdateScrollHandlers(container = document) {
@@ -1150,8 +1161,9 @@ function getRequestVerificationToken() {
 
 function clearOpenTaskQueryParam() {
     const url = new URL(window.location.href);
-    if (!url.searchParams.has('openTaskId')) return;
+    if (!url.searchParams.has('openTaskId') && !url.searchParams.has('openTaskTab')) return;
     url.searchParams.delete('openTaskId');
+    url.searchParams.delete('openTaskTab');
     window.history.replaceState({}, '', url.toString());
 }
 

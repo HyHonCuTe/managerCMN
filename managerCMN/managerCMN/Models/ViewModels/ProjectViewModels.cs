@@ -97,6 +97,10 @@ public class ProjectTimelineRowViewModel
     public decimal Progress { get; set; }
     public List<int> AssigneeIds { get; set; } = new();
     public List<string> AssigneeNames { get; set; } = new();
+    public bool CanManageTask { get; set; }
+    public int ChangeLogCount { get; set; }
+    public DateTime? LatestChangeLogDate { get; set; }
+    public string? LatestChangeLogSummary { get; set; }
     public bool IsOverdue => DueDate.HasValue
         && DueDate.Value.Date < DateTime.Today
         && Status != ProjectTaskStatus.Done

@@ -45,7 +45,8 @@ public class ProjectController : Controller
 
             bool isFullView = isSysAdmin
                 || details.MyRole == ProjectMemberRole.ProjectOwner
-                || details.MyRole == ProjectMemberRole.ProjectManager;
+                || details.MyRole == ProjectMemberRole.ProjectManager
+                || details.MyRole == ProjectMemberRole.ProjectViewer;
 
             details.IsFullView = isFullView;
             details.CurrentEmployeeId = employeeId;
@@ -54,14 +55,14 @@ public class ProjectController : Controller
 
             if (isFullView)
             {
-                details.RootTasks = isSysAdmin || details.MyRole == ProjectMemberRole.ProjectOwner
-                    ? taskTree.ToList()
-                    : FilterTasksForEmployee(taskTree, employeeId, details.MyRole);
-
+                details.RootTasks = taskTree.ToList();
                 NormalizeTaskDepths(details.RootTasks, 0);
                 PopulateTimeline(details);
 
-                if (isSysAdmin || details.MyRole == ProjectMemberRole.ProjectOwner)
+                if (!details.IsArchived
+                    && (isSysAdmin
+                        || details.MyRole == ProjectMemberRole.ProjectOwner
+                        || details.MyRole == ProjectMemberRole.ProjectManager))
                 {
                     ViewBag.AllMembers = await GetMemberSelectListAsync(id, employeeId, isSysAdmin);
                     ViewBag.AllEmployees = await GetNonMemberCandidatesAsync(id, employeeId, isSysAdmin);
@@ -353,7 +354,11 @@ public class ProjectController : Controller
                 DueDate = task.DueDate,
                 Progress = task.Progress,
                 AssigneeIds = task.AssigneeIds,
-                AssigneeNames = task.AssigneeNames
+                AssigneeNames = task.AssigneeNames,
+                CanManageTask = task.CanManageTask,
+                ChangeLogCount = task.ChangeLogCount,
+                LatestChangeLogDate = task.LatestChangeLogDate,
+                LatestChangeLogSummary = task.LatestChangeLogSummary
             };
 
             foreach (var subTask in FlattenTimelineRows(task.SubTasks))

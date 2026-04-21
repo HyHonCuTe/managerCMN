@@ -14,6 +14,8 @@ namespace managerCMN.Services.Implementations;
 
 public class ProjectTaskService : IProjectTaskService
 {
+    private const string TaskChangeLogPrefix = "[TASK_CHANGE_LOG]";
+
     private readonly IUnitOfWork _unitOfWork;
     private readonly IProjectAccessService _accessService;
     private readonly IProjectProgressService _progressService;
@@ -40,16 +42,32 @@ public class ProjectTaskService : IProjectTaskService
     {
         if (!ignoreAccessCheck)
             await _accessService.EnsureIsMemberAsync(projectId, employeeId);
-        var tasks = await _context.ProjectTasks
+
+        IQueryable<ProjectTask> baseQuery = _context.ProjectTasks
             .AsNoTracking()
             .Where(t => t.ProjectId == projectId)
             .Include(t => t.CreatedByEmployee)
             .Include(t => t.Assignments)
                 .ThenInclude(a => a.Employee)
-            .Include(t => t.ChecklistItems)
-            .ToListAsync();
+            .Include(t => t.ChecklistItems);
 
-        return BuildTaskTree(tasks, null, 0);
+        List<ProjectTask> tasks;
+        try
+        {
+            tasks = await baseQuery
+                .Include(t => t.Updates)
+                .ToListAsync();
+        }
+        catch (SqlException ex) when (IsMissingWorklogSchema(ex))
+        {
+            tasks = await baseQuery.ToListAsync();
+        }
+
+        var isSystemAdmin = ignoreAccessCheck || _accessService.IsSystemAdmin();
+        var role = isSystemAdmin ? ProjectMemberRole.ProjectOwner : await _accessService.GetRoleAsync(projectId, employeeId);
+        var isArchived = await IsProjectArchivedAsync(projectId);
+
+        return BuildTaskTree(tasks, null, 0, employeeId, role, isSystemAdmin, isArchived, false);
     }
 
     public async Task<ProjectTaskTreeViewModel?> GetTaskDetailsAsync(int taskId, int employeeId)
@@ -76,7 +94,8 @@ public class ProjectTaskService : IProjectTaskService
         var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
         if (!_accessService.IsSystemAdmin()
             && role != ProjectMemberRole.ProjectOwner
-            && role != ProjectMemberRole.ProjectManager)
+            && role != ProjectMemberRole.ProjectManager
+            && role != ProjectMemberRole.ProjectViewer)
         {
             vm.SubTasks = FilterVisibleSubTasks(vm.SubTasks, employeeId);
             NormalizeTaskDepths(vm.SubTasks, 1);
@@ -87,6 +106,7 @@ public class ProjectTaskService : IProjectTaskService
         vm.CanManageTask = !isArchived && await CanManageTaskNodeAsync(task, employeeId);
         vm.CanManageMembers = vm.CanManageTask;
         vm.CanCompleteTask = !isArchived && await CanCompleteTaskAsync(task, employeeId);
+        vm.CanPostUpdate = !isArchived && await CanPostTaskUpdateAsync(task, employeeId);
         vm.WorklogAvailable = worklogAvailable;
         return vm;
     }
@@ -129,6 +149,11 @@ public class ProjectTaskService : IProjectTaskService
 
         await EnsureCanManageTaskNodeAsync(task, employeeId);
         await ValidateTaskScheduleAsync(task.ProjectId, task.ParentTaskId, vm.StartDate, vm.DueDate, task.ProjectTaskId);
+
+        var oldTitle = task.Title;
+        var oldStartDate = task.StartDate;
+        var oldDueDate = task.DueDate;
+        var changeLogContent = BuildTaskChangeLogContent(oldTitle, vm.Title, oldStartDate, vm.StartDate, oldDueDate, vm.DueDate);
 
         var wasDone = task.Status == ProjectTaskStatus.Done;
         if (wasDone && vm.Status != ProjectTaskStatus.Done)
@@ -184,6 +209,9 @@ public class ProjectTaskService : IProjectTaskService
         await _progressService.BubbleUpParentProgressAsync(task.ProjectTaskId);
         await _progressService.RecalculateProjectProgressAsync(task.ProjectId);
         await CreateSystemUpdateAsync(task.ProjectTaskId, employeeId, "Đã cập nhật thông tin task.");
+
+        if (!string.IsNullOrWhiteSpace(changeLogContent))
+            await CreateTaskChangeLogAsync(task.ProjectTaskId, employeeId, changeLogContent);
     }
 
     public async Task DeleteTaskAsync(int taskId, int employeeId)
@@ -463,6 +491,7 @@ public class ProjectTaskService : IProjectTaskService
 
         await _accessService.EnsureIsMemberAsync(task.ProjectId, employeeId);
         await EnsureCanViewTaskAsync(task, employeeId);
+        await EnsureCanPostTaskUpdateAsync(task, employeeId);
 
         var attachments = vm.Attachments?.Where(file => file is { Length: > 0 }).ToList() ?? new List<IFormFile>();
         if (string.IsNullOrWhiteSpace(vm.Content) && attachments.Count == 0)
@@ -583,12 +612,36 @@ public class ProjectTaskService : IProjectTaskService
         if (role == ProjectMemberRole.ProjectOwner)
             return;
 
-        var isAssigned = role == ProjectMemberRole.ProjectManager
-            ? await IsAssignedToTaskOrAncestorAsync(task, employeeId)
-            : await IsTaskAssigneeAsync(task.ProjectTaskId, employeeId);
+        if (role == ProjectMemberRole.ProjectManager || role == ProjectMemberRole.ProjectViewer)
+            return;
+
+        var isAssigned = await IsTaskAssigneeAsync(task.ProjectTaskId, employeeId);
 
         if (!isAssigned)
             throw new UnauthorizedAccessException("Bạn không có quyền xem task này.");
+    }
+
+    private async Task EnsureCanPostTaskUpdateAsync(ProjectTask task, int employeeId)
+    {
+        if (await CanPostTaskUpdateAsync(task, employeeId))
+            return;
+
+        throw new UnauthorizedAccessException("Bạn chỉ có quyền xem task này, không thể gửi cập nhật.");
+    }
+
+    private async Task<bool> CanPostTaskUpdateAsync(ProjectTask task, int employeeId)
+    {
+        if (_accessService.IsSystemAdmin())
+            return true;
+
+        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
+        return role switch
+        {
+            ProjectMemberRole.ProjectOwner => true,
+            ProjectMemberRole.ProjectManager => await IsAssignedToTaskOrAncestorAsync(task, employeeId),
+            ProjectMemberRole.ProjectStaff => await IsTaskAssigneeAsync(task.ProjectTaskId, employeeId),
+            _ => false
+        };
     }
 
     private async Task EnsureCanCreateTaskAsync(ProjectTaskCreateViewModel vm, int employeeId)
@@ -725,6 +778,9 @@ public class ProjectTaskService : IProjectTaskService
         var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
         if (role == ProjectMemberRole.ProjectOwner)
             return true;
+
+        if (role == ProjectMemberRole.ProjectViewer)
+            return false;
 
         return await _context.ProjectTaskAssignments
             .AsNoTracking()
@@ -1077,6 +1133,44 @@ public class ProjectTaskService : IProjectTaskService
         }
     }
 
+    private async Task CreateTaskChangeLogAsync(int taskId, int senderEmployeeId, string content)
+        => await CreateSystemUpdateAsync(taskId, senderEmployeeId, $"{TaskChangeLogPrefix}\n{content}");
+
+    private static string? BuildTaskChangeLogContent(string oldTitle, string newTitle,
+        DateTime? oldStartDate, DateTime? newStartDate, DateTime? oldDueDate, DateTime? newDueDate)
+    {
+        var changes = new List<string>();
+
+        if (!string.Equals(oldTitle.Trim(), newTitle.Trim(), StringComparison.Ordinal))
+            changes.Add($"Đổi tên task: \"{oldTitle}\" → \"{newTitle}\".");
+
+        var timelineChanges = new List<string>();
+        if (!SameDate(oldStartDate, newStartDate))
+            timelineChanges.Add($"Bắt đầu {FormatLogDate(oldStartDate)} → {FormatLogDate(newStartDate)}");
+
+        if (!SameDate(oldDueDate, newDueDate))
+            timelineChanges.Add($"Hạn {FormatLogDate(oldDueDate)} → {FormatLogDate(newDueDate)}");
+
+        if (timelineChanges.Count > 0)
+            changes.Add($"Cập nhật timeline: {string.Join("; ", timelineChanges)}.");
+
+        return changes.Count == 0 ? null : string.Join(Environment.NewLine, changes);
+    }
+
+    private static bool SameDate(DateTime? left, DateTime? right)
+    {
+        if (!left.HasValue && !right.HasValue)
+            return true;
+
+        if (!left.HasValue || !right.HasValue)
+            return false;
+
+        return left.Value.Date == right.Value.Date;
+    }
+
+    private static string FormatLogDate(DateTime? value)
+        => value.HasValue ? value.Value.ToString("dd/MM/yyyy") : "Chưa đặt";
+
     private async Task<List<string>> GetEmployeeNamesAsync(IEnumerable<int> employeeIds)
     {
         var ids = employeeIds.Distinct().ToList();
@@ -1092,6 +1186,14 @@ public class ProjectTaskService : IProjectTaskService
 
     private static ProjectTaskTreeViewModel MapToTreeViewModel(ProjectTask task, int depth, int? currentEmployeeId = null)
     {
+        var updateViewModels = task.Updates?
+            .OrderBy(u => u.CreatedDate)
+            .Select(MapProjectTaskUpdate)
+            .ToList() ?? new List<ProjectTaskUpdateViewModel>();
+        var changeLogs = updateViewModels.Where(u => u.IsChangeLog).ToList();
+        var workUpdates = updateViewModels.Where(u => !u.IsChangeLog).ToList();
+        var latestChangeLog = changeLogs.OrderByDescending(u => u.CreatedDate).FirstOrDefault();
+
         return new ProjectTaskTreeViewModel
         {
             ProjectTaskId = task.ProjectTaskId,
@@ -1132,45 +1234,96 @@ public class ProjectTaskService : IProjectTaskService
                 CompletedDate = c.CompletedDate,
                 CompletedByName = c.CompletedByEmployee?.FullName
             }).ToList() ?? new List<ChecklistItemViewModel>(),
-            Updates = task.Updates?.OrderBy(u => u.CreatedDate).Select(u => new ProjectTaskUpdateViewModel
-            {
-                ProjectTaskUpdateId = u.ProjectTaskUpdateId,
-                ProjectTaskId = u.ProjectTaskId,
-                SenderEmployeeId = u.SenderEmployeeId,
-                SenderName = u.SenderEmployee?.FullName ?? string.Empty,
-                Content = u.Content,
-                StatusSnapshot = u.StatusSnapshot,
-                ProgressSnapshot = u.ProgressSnapshot,
-                CreatedDate = u.CreatedDate,
-                Attachments = u.Attachments.Select(a => new ProjectTaskAttachmentViewModel
-                {
-                    ProjectTaskAttachmentId = a.ProjectTaskAttachmentId,
-                    FileName = a.FileName,
-                    FileSize = a.FileSize,
-                    ContentType = a.ContentType
-                }).ToList()
-            }).ToList() ?? new List<ProjectTaskUpdateViewModel>(),
+            Updates = workUpdates,
+            ChangeLogs = changeLogs,
+            ChangeLogCount = changeLogs.Count,
+            LatestChangeLogDate = latestChangeLog?.CreatedDate,
+            LatestChangeLogSummary = latestChangeLog == null ? null : BuildChangeLogSummary(latestChangeLog.Content),
             Depth = depth,
             SubTasks = OrderTasks(task.SubTasks).Select(s => MapToTreeViewModel(s, depth + 1, currentEmployeeId)).ToList()
                 ?? new List<ProjectTaskTreeViewModel>()
         };
     }
 
-    private static List<ProjectTaskTreeViewModel> BuildTaskTree(IReadOnlyCollection<ProjectTask> tasks, int? parentTaskId, int depth)
+    private static ProjectTaskUpdateViewModel MapProjectTaskUpdate(ProjectTaskUpdate update)
+    {
+        var isChangeLog = IsTaskChangeLogContent(update.Content);
+
+        return new ProjectTaskUpdateViewModel
+        {
+            ProjectTaskUpdateId = update.ProjectTaskUpdateId,
+            ProjectTaskId = update.ProjectTaskId,
+            SenderEmployeeId = update.SenderEmployeeId,
+            SenderName = update.SenderEmployee?.FullName ?? string.Empty,
+            Content = NormalizeTaskUpdateContent(update.Content),
+            StatusSnapshot = update.StatusSnapshot,
+            ProgressSnapshot = update.ProgressSnapshot,
+            CreatedDate = update.CreatedDate,
+            IsChangeLog = isChangeLog,
+            Attachments = update.Attachments.Select(a => new ProjectTaskAttachmentViewModel
+            {
+                ProjectTaskAttachmentId = a.ProjectTaskAttachmentId,
+                FileName = a.FileName,
+                FileSize = a.FileSize,
+                ContentType = a.ContentType
+            }).ToList()
+        };
+    }
+
+    private static bool IsTaskChangeLogContent(string content)
+        => content.StartsWith(TaskChangeLogPrefix, StringComparison.Ordinal);
+
+    private static string NormalizeTaskUpdateContent(string content)
+        => IsTaskChangeLogContent(content)
+            ? content[TaskChangeLogPrefix.Length..].TrimStart()
+            : content;
+
+    private static string BuildChangeLogSummary(string content)
+    {
+        var summary = content
+            .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault()?.Trim() ?? "Có thay đổi task.";
+
+        return summary.Length <= 120 ? summary : $"{summary[..117]}...";
+    }
+
+    private static List<ProjectTaskTreeViewModel> BuildTaskTree(IReadOnlyCollection<ProjectTask> tasks, int? parentTaskId,
+        int depth, int employeeId, ProjectMemberRole? role, bool isSystemAdmin, bool isArchived,
+        bool hasManagedAncestor)
         => OrderTasks(tasks.Where(task => task.ParentTaskId == parentTaskId))
             .Select(task =>
             {
-                var vm = MapTaskNode(task, depth);
-                vm.SubTasks = BuildTaskTree(tasks, task.ProjectTaskId, depth + 1);
+                var isDirectAssignee = task.Assignments?.Any(a => a.EmployeeId == employeeId) == true;
+                var isManagedBranch = hasManagedAncestor || isDirectAssignee;
+                var vm = MapTaskNode(task, depth, employeeId);
+
+                vm.CanManageTask = !isArchived
+                    && (isSystemAdmin
+                        || role == ProjectMemberRole.ProjectOwner
+                        || (role == ProjectMemberRole.ProjectManager && isManagedBranch));
+                vm.CanManageMembers = vm.CanManageTask;
+                vm.CanCompleteTask = !isArchived
+                    && (isSystemAdmin
+                        || role == ProjectMemberRole.ProjectOwner
+                        || (role != ProjectMemberRole.ProjectViewer
+                            && (task.Assignments?.Any(a => a.EmployeeId == employeeId && !a.IsCompleted) == true)));
+                vm.CanPostUpdate = !isArchived
+                    && (isSystemAdmin
+                        || role == ProjectMemberRole.ProjectOwner
+                        || (role == ProjectMemberRole.ProjectManager && isManagedBranch)
+                        || (role == ProjectMemberRole.ProjectStaff && isDirectAssignee));
+                vm.SubTasks = BuildTaskTree(tasks, task.ProjectTaskId, depth + 1, employeeId, role,
+                    isSystemAdmin, isArchived, isManagedBranch);
                 return vm;
             })
             .ToList();
 
-    private static ProjectTaskTreeViewModel MapTaskNode(ProjectTask task, int depth)
+    private static ProjectTaskTreeViewModel MapTaskNode(ProjectTask task, int depth, int employeeId)
     {
-        var vm = MapToTreeViewModel(task, depth);
+        var vm = MapToTreeViewModel(task, depth, employeeId);
         vm.SubTasks = new List<ProjectTaskTreeViewModel>();
         vm.Updates = new List<ProjectTaskUpdateViewModel>();
+        vm.ChangeLogs = new List<ProjectTaskUpdateViewModel>();
         return vm;
     }
 

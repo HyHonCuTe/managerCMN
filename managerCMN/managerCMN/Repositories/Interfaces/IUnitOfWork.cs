@@ -30,5 +30,7 @@ public interface IUnitOfWork : IDisposable
     IProjectRepository Projects { get; }
     IProjectTaskRepository ProjectTasks { get; }
     IProjectMemberRepository ProjectMembers { get; }
+    IProjectTemplateRepository ProjectTemplates { get; }
+    IProjectTemplateTaskRepository ProjectTemplateTasks { get; }
     Task<int> SaveChangesAsync();
 }

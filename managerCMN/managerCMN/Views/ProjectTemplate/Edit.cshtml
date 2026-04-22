@@ -1,0 +1,222 @@
+@model managerCMN.Models.ViewModels.ProjectTemplateEditViewModel
+@using managerCMN.Models.Enums
+@{
+    ViewData["Title"] = "Sửa template dự án";
+
+    var depthMap = new Dictionary<int, int>();
+    for (int i = 0; i < Model.Tasks.Count; i++)
+    {
+        var t = Model.Tasks[i];
+        depthMap[i] = t.ParentIndex >= 0 && depthMap.ContainsKey(t.ParentIndex)
+            ? depthMap[t.ParentIndex] + 1
+            : 0;
+    }
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/project-management.css" asp-append-version="true" />
+}
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex align-items-center mb-3">
+            <a asp-action="Index" class="btn btn-sm btn-outline-secondary me-2"><i class="bi bi-arrow-left"></i></a>
+            <h5 class="mb-0 fw-bold"><i class="bi bi-layout-text-sidebar-reverse text-danger me-2"></i>Sửa template: @Model.Name</h5>
+        </div>
+
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show py-2 small" role="alert">
+                <i class="bi bi-check-circle me-1"></i>@TempData["Success"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        }
+
+        <form asp-action="Edit" method="post" id="templateForm">
+            <input type="hidden" asp-for="ProjectTemplateId" />
+            <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2 small"></div>
+
+            <div class="card mb-3">
+                <div class="card-header fw-semibold"><i class="bi bi-info-circle me-1"></i>Thông tin template</div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label asp-for="Name" class="form-label fw-semibold"></label>
+                        <input asp-for="Name" class="form-control" placeholder="Tên template..." />
+                        <span asp-validation-for="Name" class="text-danger small"></span>
+                    </div>
+                    <div class="mb-3">
+                        <label asp-for="Description" class="form-label fw-semibold"></label>
+                        <textarea asp-for="Description" class="form-control" rows="2" placeholder="Mô tả template..."></textarea>
+                    </div>
+                    <div class="form-check">
+                        <input asp-for="IsActive" class="form-check-input" />
+                        <label asp-for="IsActive" class="form-check-label">Kích hoạt (cho phép chọn khi tạo dự án)</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-semibold"><i class="bi bi-list-task me-1"></i>Danh sách task trong template</span>
+                    <button type="button" class="btn btn-sm btn-danger" id="addParentTaskBtn">
+                        <i class="bi bi-plus-circle me-1"></i>Thêm task cha
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div id="taskList">
+                        @for (int i = 0; i < Model.Tasks.Count; i++)
+                        {
+                            var t = Model.Tasks[i];
+                            @await Html.PartialAsync("_TemplateTaskRow", t, new ViewDataDictionary(ViewData)
+                            {
+                                { "index", i },
+                                { "parentIndex", t.ParentIndex.ToString() },
+                                { "depth", depthMap[i] }
+                            })
+                        }
+                    </div>
+                    <div id="emptyTaskMsg" class="text-center text-muted py-4 small @(Model.Tasks.Any() ? "d-none" : "")">
+                        <i class="bi bi-inbox opacity-25 d-block fs-3 mb-1"></i>
+                        Nhấn "Thêm task cha" để bắt đầu.
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex gap-2 justify-content-end">
+                <a asp-action="Index" class="btn btn-outline-secondary">Huỷ</a>
+                <button type="submit" class="btn btn-danger"><i class="bi bi-check-circle me-1"></i>Lưu thay đổi</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+    (function () {
+        let taskCounter = @Model.Tasks.Count;
+        const depthColors = ['#dc3545', '#0d6efd', '#6f42c1', '#198754', '#fd7e14'];
+
+        function depthColor(d) { return depthColors[Math.min(d, depthColors.length - 1)]; }
+
+        function buildRowHtml(idx, parentIdx, depth) {
+            const color = depthColor(depth);
+            const icon = depth === 0 ? 'bi-list-task' : depth === 1 ? 'bi-arrow-return-right' : 'bi-arrow-right-short';
+            const ph = depth === 0 ? 'Tên task cha...' : 'Tên sub-task...';
+            const addLabel = depth === 0 ? 'Sub-task' : 'Sub-task';
+            const indentPx = depth * 24 + 10;
+            const rowBg = depth > 0 ? 'background:rgba(0,0,0,0.025)' : '';
+            return `
+            <div class="task-row" data-task-index="${idx}" data-parent-index="${parentIdx}" data-depth="${depth}"
+                 style="border-bottom:1px solid #e9ecef; border-left:3px solid ${color}; ${rowBg}">
+              <input type="hidden" name="Tasks[${idx}].ParentIndex" value="${parentIdx}" />
+              <input type="hidden" name="Tasks[${idx}].SortOrder" value="${idx}" />
+              <div class="d-flex align-items-start gap-2 py-2 pe-2" style="padding-left:${indentPx}px">
+                <i class="bi ${icon} mt-2 small flex-shrink-0" style="color:${color}"></i>
+                <div class="flex-grow-1">
+                  <div class="row g-2 align-items-center">
+                    <div class="col">
+                      <input type="text" name="Tasks[${idx}].Title" class="form-control form-control-sm" placeholder="${ph}" required />
+                    </div>
+                    <div class="col-auto">
+                      <select name="Tasks[${idx}].Priority" class="form-select form-select-sm" style="min-width:105px">
+                        <option value="0">Thấp</option>
+                        <option value="1" selected>Trung bình</option>
+                        <option value="2">Cao</option>
+                        <option value="3">Nghiêm trọng</option>
+                      </select>
+                    </div>
+                    <div class="col-auto">
+                      <input type="number" name="Tasks[${idx}].EstimatedHours" class="form-control form-control-sm" placeholder="Giờ" min="0" step="0.5" style="width:68px" />
+                    </div>
+                    <div class="col-auto d-flex gap-1">
+                      <button type="button" class="btn btn-sm btn-outline-secondary add-subtask-btn"
+                              data-parent-index="${idx}" data-depth="${depth}" title="Thêm ${addLabel}">
+                        <i class="bi bi-plus-lg"></i>
+                        <span class="d-none d-md-inline ms-1">${addLabel}</span>
+                      </button>
+                      <button type="button" class="btn btn-sm btn-outline-danger remove-task-btn"
+                              data-task-index="${idx}" title="Xóa">
+                        <i class="bi bi-trash3"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="mt-1">
+                    <input type="text" name="Tasks[${idx}].Description" class="form-control form-control-sm" placeholder="Mô tả (tuỳ chọn)..." />
+                  </div>
+                </div>
+              </div>
+            </div>`;
+        }
+
+        function updateEmptyMsg() {
+            const isEmpty = document.querySelectorAll('#taskList .task-row').length === 0;
+            document.getElementById('emptyTaskMsg').classList.toggle('d-none', !isEmpty);
+        }
+
+        function isDescendant(rowIdx, ancestorIdx) {
+            let cur = rowIdx;
+            const visited = new Set();
+            while (cur >= 0 && !visited.has(cur)) {
+                visited.add(cur);
+                const el = document.querySelector(`#taskList [data-task-index="${cur}"]`);
+                if (!el) return false;
+                const p = parseInt(el.dataset.parentIndex);
+                if (p === ancestorIdx) return true;
+                cur = p;
+            }
+            return false;
+        }
+
+        function getLastDescendantEl(idx) {
+            let lastEl = document.querySelector(`#taskList [data-task-index="${idx}"]`);
+            for (const row of document.querySelectorAll('#taskList .task-row')) {
+                if (isDescendant(parseInt(row.dataset.taskIndex), idx)) lastEl = row;
+            }
+            return lastEl;
+        }
+
+        function collectDescendantIdxs(idx) {
+            const result = [];
+            for (const row of document.querySelectorAll('#taskList .task-row')) {
+                if (parseInt(row.dataset.parentIndex) === idx) {
+                    const ci = parseInt(row.dataset.taskIndex);
+                    result.push(ci, ...collectDescendantIdxs(ci));
+                }
+            }
+            return result;
+        }
+
+        document.getElementById('addParentTaskBtn').addEventListener('click', function () {
+            const idx = taskCounter++;
+            document.getElementById('taskList').insertAdjacentHTML('beforeend', buildRowHtml(idx, -1, 0));
+            updateEmptyMsg();
+            bindEvents();
+        });
+
+        function bindEvents() {
+            document.querySelectorAll('.add-subtask-btn').forEach(btn => {
+                btn.onclick = function () {
+                    const parentIdx = parseInt(btn.dataset.parentIndex);
+                    const depth = parseInt(btn.dataset.depth);
+                    const idx = taskCounter++;
+                    getLastDescendantEl(parentIdx).insertAdjacentHTML('afterend', buildRowHtml(idx, parentIdx, depth + 1));
+                    bindEvents();
+                };
+            });
+
+            document.querySelectorAll('.remove-task-btn').forEach(btn => {
+                btn.onclick = function () {
+                    const idx = parseInt(btn.dataset.taskIndex);
+                    [idx, ...collectDescendantIdxs(idx)].forEach(i => {
+                        document.querySelector(`#taskList [data-task-index="${i}"]`)?.remove();
+                    });
+                    updateEmptyMsg();
+                };
+            });
+        }
+
+        bindEvents();
+    })();
+    </script>
+}

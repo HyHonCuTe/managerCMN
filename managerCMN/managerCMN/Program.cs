@@ -51,6 +51,7 @@ builder.Services.AddScoped<IProjectAccessService, ProjectAccessService>();
 builder.Services.AddScoped<IProjectProgressService, ProjectProgressService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IProjectTaskService, ProjectTaskService>();
+builder.Services.AddScoped<IProjectTemplateService, ProjectTemplateService>();
 builder.Services.AddScoped<SystemLogActionFilter>();
 
 // ── Authentication (Google OAuth + Cookie) ──

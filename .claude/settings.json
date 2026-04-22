@@ -19,7 +19,9 @@
       "Bash(cmd /c \"tasklist /FI \\\\\"PID eq 9836\\\\\" 2>&1\")",
       "Bash(cmd /c \"wmic process where ProcessId=9836 get Name,CommandLine /format:csv 2>&1\")",
       "Bash(cmd /c \"powershell -Command \\\\\"Get-Process -Id 9836 -ErrorAction SilentlyContinue | Select-Object Name, Id, Path\\\\\" 2>&1\")",
-      "Bash(cmd /c \"powershell -NoProfile -Command \\\\\"Stop-Process -Name 'managerCMN' -Force -ErrorAction SilentlyContinue; Stop-Process -Id 9836 -Force -ErrorAction SilentlyContinue; Write-Output 'done'\\\\\"\")"
+      "Bash(cmd /c \"powershell -NoProfile -Command \\\\\"Stop-Process -Name 'managerCMN' -Force -ErrorAction SilentlyContinue; Stop-Process -Id 9836 -Force -ErrorAction SilentlyContinue; Write-Output 'done'\\\\\"\")",
+      "Bash(taskkill /PID 12728 /F)",
+      "Bash(taskkill.exe //PID 12728 //F)"
     ]
   }
 }

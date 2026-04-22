@@ -1,0 +1,60 @@
+@model managerCMN.Models.ViewModels.ProjectTemplateTaskFormViewModel
+@using managerCMN.Models.Enums
+@{
+    var index = ViewData["index"]?.ToString() ?? "0";
+    var parentIdx = ViewData["parentIndex"]?.ToString() ?? "-1";
+    var depth = ViewData["depth"] as int? ?? 0;
+    var priorityVal = (int)Model.Priority;
+
+    var depthColors = new[] { "#dc3545", "#0d6efd", "#6f42c1", "#198754", "#fd7e14" };
+    var color = depthColors[Math.Min(depth, depthColors.Length - 1)];
+    var icon = depth == 0 ? "bi-list-task" : depth == 1 ? "bi-arrow-return-right" : "bi-arrow-right-short";
+    var ph = depth == 0 ? "Tên task cha..." : "Tên sub-task...";
+    var addLabel = depth == 0 ? "Sub-task" : "Sub task";
+    var indentPx = depth * 24 + 10;
+    var rowBg = depth > 0 ? "background:rgba(0,0,0,0.025)" : "";
+}
+
+<div class="task-row" data-task-index="@index" data-parent-index="@parentIdx" data-depth="@depth"
+     style="border-bottom:1px solid #e9ecef; border-left:3px solid @color; @rowBg">
+    <input type="hidden" name="Tasks[@index].ParentIndex" value="@parentIdx" />
+    <input type="hidden" name="Tasks[@index].SortOrder" value="@index" />
+    <div class="d-flex align-items-start gap-2 py-2 pe-2" style="padding-left:@(indentPx)px">
+        <i class="bi @icon mt-2 small flex-shrink-0" style="color:@color"></i>
+        <div class="flex-grow-1">
+            <div class="row g-2 align-items-center">
+                <div class="col">
+                    <input type="text" name="Tasks[@index].Title" value="@Model.Title"
+                           class="form-control form-control-sm" placeholder="@ph" required />
+                </div>
+                <div class="col-auto">
+                    <select name="Tasks[@index].Priority" class="form-select form-select-sm" style="min-width:105px">
+                        <option value="0" selected="@(priorityVal == 0 ? "selected" : null)">Thấp</option>
+                        <option value="1" selected="@(priorityVal == 1 ? "selected" : null)">Trung bình</option>
+                        <option value="2" selected="@(priorityVal == 2 ? "selected" : null)">Cao</option>
+                        <option value="3" selected="@(priorityVal == 3 ? "selected" : null)">Nghiêm trọng</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <input type="number" name="Tasks[@index].EstimatedHours" value="@Model.EstimatedHours"
+                           class="form-control form-control-sm" placeholder="Giờ" min="0" step="0.5" style="width:68px" />
+                </div>
+                <div class="col-auto d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary add-subtask-btn"
+                            data-parent-index="@index" data-depth="@depth" title="Thêm @addLabel">
+                        <i class="bi bi-plus-lg"></i>
+                        <span class="d-none d-md-inline ms-1">@addLabel</span>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-task-btn"
+                            data-task-index="@index" title="Xóa">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="mt-1">
+                <input type="text" name="Tasks[@index].Description" value="@Model.Description"
+                       class="form-control form-control-sm" placeholder="Mô tả (tuỳ chọn)..." />
+            </div>
+        </div>
+    </div>
+</div>

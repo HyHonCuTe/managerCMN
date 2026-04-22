@@ -18,4 +18,5 @@ public interface IProjectTaskService
     Task<int> DeleteChecklistItemAsync(int checklistItemId, int employeeId);
     Task AddTaskUpdateAsync(PostTaskUpdateViewModel vm, int employeeId);
     Task<ProjectTaskAttachment?> GetAttachmentAsync(int attachmentId, int employeeId);
+    Task<(DateTime? EffectiveMin, DateTime? EffectiveMax, DateTime? ChildMinStart, DateTime? ChildMaxDue)> GetDateConstraintsForEditAsync(int projectId, int? parentTaskId, int taskId);
 }

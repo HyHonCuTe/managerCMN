@@ -1,6 +1,8 @@
 @model managerCMN.Models.ViewModels.ProjectCreateViewModel
+@using managerCMN.Models.ViewModels
 @{
     ViewData["Title"] = "Tạo dự án mới";
+    var templates = ViewBag.Templates as List<ProjectTemplateListViewModel> ?? new();
 }
 
 @section Styles {
@@ -26,12 +28,14 @@
                     <div class="mb-3">
                         <label asp-for="Description" class="form-label fw-semibold"></label>
                         <textarea asp-for="Description" class="form-control" rows="3" placeholder="Mô tả ngắn về dự án..."></textarea>
+                        <span asp-validation-for="Description" class="text-danger small"></span>
                     </div>
 
                     <div class="row g-2 mb-3">
                         <div class="col-6">
                             <label asp-for="StartDate" class="form-label fw-semibold"></label>
                             <input asp-for="StartDate" type="date" class="form-control" />
+                            <span asp-validation-for="StartDate" class="text-danger small"></span>
                         </div>
                         <div class="col-6">
                             <label asp-for="EndDate" class="form-label fw-semibold"></label>
@@ -39,6 +43,32 @@
                             <span asp-validation-for="EndDate" class="text-danger small"></span>
                         </div>
                     </div>
+
+                    @if (templates.Any())
+                    {
+                        <div class="mb-3">
+                            <label asp-for="TemplateId" class="form-label fw-semibold">
+                                <i class="bi bi-layout-text-sidebar-reverse me-1 text-muted"></i>Template dự án
+                                <span class="text-muted fw-normal small">(tuỳ chọn)</span>
+                            </label>
+                            <select asp-for="TemplateId" class="form-select" id="templateSelect">
+                                <option value="">-- Không dùng template --</option>
+                                @foreach (var t in templates)
+                                {
+                                    <option value="@t.ProjectTemplateId" data-desc="@t.Description" data-count="@t.TaskCount">
+                                        @t.Name (@t.TaskCount task)
+                                    </option>
+                                }
+                            </select>
+                            <div id="templatePreview" class="mt-2 d-none">
+                                <div class="alert alert-info py-2 small mb-0">
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    <span id="templateDesc"></span>
+                                    <span class="ms-1 text-muted">— Sẽ tạo <strong id="templateCount"></strong> task cha tự động.</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
 
                     <div class="d-flex gap-2 justify-content-end">
                         <a asp-action="Index" class="btn btn-outline-secondary">Huỷ</a>
@@ -52,4 +82,26 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    @if (templates.Any())
+    {
+        <script>
+            const sel = document.getElementById('templateSelect');
+            const preview = document.getElementById('templatePreview');
+            const descEl = document.getElementById('templateDesc');
+            const countEl = document.getElementById('templateCount');
+
+            sel.addEventListener('change', function () {
+                const opt = sel.options[sel.selectedIndex];
+                const desc = opt.getAttribute('data-desc') || '';
+                const count = opt.getAttribute('data-count');
+                if (sel.value && count) {
+                    descEl.textContent = desc;
+                    countEl.textContent = count;
+                    preview.classList.remove('d-none');
+                } else {
+                    preview.classList.add('d-none');
+                }
+            });
+        </script>
+    }
 }

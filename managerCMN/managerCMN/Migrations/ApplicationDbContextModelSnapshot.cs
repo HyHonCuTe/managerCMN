@@ -1712,6 +1712,85 @@ namespace managerCMN.Migrations
                     b.ToTable("ProjectTaskUpdates");
                 });
 
+            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTemplate", b =>
+                {
+                    b.Property<int>("ProjectTemplateId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProjectTemplateId"));
+
+                    b.Property<int>("CreatedByEmployeeId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ModifiedDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.HasKey("ProjectTemplateId");
+
+                    b.HasIndex("CreatedByEmployeeId");
+
+                    b.HasIndex("IsActive");
+
+                    b.ToTable("ProjectTemplates");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTemplateTask", b =>
+                {
+                    b.Property<int>("ProjectTemplateTaskId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ProjectTemplateTaskId"));
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<decimal?>("EstimatedHours")
+                        .HasColumnType("decimal(7,2)");
+
+                    b.Property<int?>("ParentTemplateTaskId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ProjectTemplateId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.HasKey("ProjectTemplateTaskId");
+
+                    b.HasIndex("ParentTemplateTaskId");
+
+                    b.HasIndex("ProjectTemplateId", "SortOrder");
+
+                    b.ToTable("ProjectTemplateTasks");
+                });
+
             modelBuilder.Entity("managerCMN.Models.Entities.PunchRecord", b =>
                 {
                     b.Property<int>("PunchRecordId")
@@ -3057,6 +3136,35 @@ namespace managerCMN.Migrations
                     b.Navigation("SenderEmployee");
                 });
 
+            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTemplate", b =>
+                {
+                    b.HasOne("managerCMN.Models.Entities.Employee", "CreatedByEmployee")
+                        .WithMany()
+                        .HasForeignKey("CreatedByEmployeeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedByEmployee");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTemplateTask", b =>
+                {
+                    b.HasOne("managerCMN.Models.Entities.ProjectTemplateTask", "ParentTask")
+                        .WithMany("SubTasks")
+                        .HasForeignKey("ParentTemplateTaskId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("managerCMN.Models.Entities.ProjectTemplate", "ProjectTemplate")
+                        .WithMany("Tasks")
+                        .HasForeignKey("ProjectTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ParentTask");
+
+                    b.Navigation("ProjectTemplate");
+                });
+
             modelBuilder.Entity("managerCMN.Models.Entities.PunchRecord", b =>
                 {
                     b.HasOne("managerCMN.Models.Entities.Employee", "Employee")
@@ -3365,6 +3473,16 @@ namespace managerCMN.Migrations
             modelBuilder.Entity("managerCMN.Models.Entities.ProjectTaskUpdate", b =>
                 {
                     b.Navigation("Attachments");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTemplate", b =>
+                {
+                    b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("managerCMN.Models.Entities.ProjectTemplateTask", b =>
+                {
+                    b.Navigation("SubTasks");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Request", b =>

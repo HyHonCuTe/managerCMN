@@ -38,6 +38,8 @@ public class UnitOfWork : IUnitOfWork
         Projects = new ProjectRepository(context);
         ProjectTasks = new ProjectTaskRepository(context);
         ProjectMembers = new ProjectMemberRepository(context);
+        ProjectTemplates = new ProjectTemplateRepository(context);
+        ProjectTemplateTasks = new ProjectTemplateTaskRepository(context);
     }
 
     public IEmployeeRepository Employees { get; }
@@ -68,6 +70,8 @@ public class UnitOfWork : IUnitOfWork
     public IProjectRepository Projects { get; }
     public IProjectTaskRepository ProjectTasks { get; }
     public IProjectMemberRepository ProjectMembers { get; }
+    public IProjectTemplateRepository ProjectTemplates { get; }
+    public IProjectTemplateTaskRepository ProjectTemplateTasks { get; }
 
     public async Task<int> SaveChangesAsync() => await _context.SaveChangesAsync();
 

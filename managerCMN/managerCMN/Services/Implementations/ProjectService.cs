@@ -173,6 +173,46 @@ public class ProjectService : IProjectService
         await _unitOfWork.ProjectMembers.AddAsync(ownerMember);
         await _unitOfWork.SaveChangesAsync();
 
+        if (vm.TemplateId.HasValue)
+        {
+            var template = await _unitOfWork.ProjectTemplates.GetWithTasksAsync(vm.TemplateId.Value);
+            if (template != null && template.Tasks.Any())
+            {
+                var allTemplateTasks = template.Tasks.ToList();
+                var templateIdToProjectTaskId = new Dictionary<int, int>();
+                var processed = new HashSet<int>();
+
+                // BFS level-by-level: each batch contains tasks whose parents are already created.
+                // After SaveChanges the entity IDs are populated, then used for the next level.
+                while (processed.Count < allTemplateTasks.Count)
+                {
+                    var batch = allTemplateTasks
+                        .Where(t => !processed.Contains(t.ProjectTemplateTaskId) &&
+                                    (t.ParentTemplateTaskId == null ||
+                                     templateIdToProjectTaskId.ContainsKey(t.ParentTemplateTaskId.Value)))
+                        .OrderBy(t => t.SortOrder)
+                        .ToList();
+                    if (!batch.Any()) break;
+
+                    var batchEntities = new List<(int TemplateTaskId, ProjectTask Entity)>();
+                    foreach (var tt in batch)
+                    {
+                        int? parentProjectTaskId = tt.ParentTemplateTaskId.HasValue
+                            && templateIdToProjectTaskId.TryGetValue(tt.ParentTemplateTaskId.Value, out var pid)
+                                ? pid : null;
+                        var ptask = BuildProjectTaskFromTemplate(tt, project.ProjectId, parentProjectTaskId, creatorEmployeeId);
+                        await _unitOfWork.ProjectTasks.AddAsync(ptask);
+                        batchEntities.Add((tt.ProjectTemplateTaskId, ptask));
+                        processed.Add(tt.ProjectTemplateTaskId);
+                    }
+                    await _unitOfWork.SaveChangesAsync();
+
+                    foreach (var (tid, pt) in batchEntities)
+                        templateIdToProjectTaskId[tid] = pt.ProjectTaskId;
+                }
+            }
+        }
+
         await _logService.LogAsync(null, "Create", "Project", null, new { project.ProjectId, project.Name }, null);
 
         return project.ProjectId;
@@ -453,6 +493,22 @@ public class ProjectService : IProjectService
             JoinedDate = m.JoinedDate
         });
     }
+
+    private static ProjectTask BuildProjectTaskFromTemplate(
+        ProjectTemplateTask tt, int projectId, int? parentTaskId, int creatorEmployeeId) => new()
+    {
+        ProjectId = projectId,
+        ParentTaskId = parentTaskId,
+        Title = tt.Title,
+        Description = tt.Description,
+        Priority = tt.Priority,
+        EstimatedHours = tt.EstimatedHours,
+        Status = ProjectTaskStatus.Todo,
+        ProgressMode = ProgressMode.Auto,
+        Progress = 0,
+        CreatedByEmployeeId = creatorEmployeeId,
+        CreatedDate = DateTime.Now
+    };
 
     private void DeleteAttachmentFiles(IEnumerable<string> filePaths)
     {

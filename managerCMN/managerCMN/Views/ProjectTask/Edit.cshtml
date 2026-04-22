@@ -5,6 +5,14 @@
     var members = ViewBag.Members as IEnumerable<managerCMN.Models.ViewModels.ProjectMemberViewModel>;
     var canCompleteTask = ViewBag.CanCompleteTask as bool? ?? false;
     var isTaskDone = ViewBag.IsTaskDone as bool? ?? Model.Status == ProjectTaskStatus.Done;
+    var dateMin = ViewBag.DateMin as string;
+    var dateMax = ViewBag.DateMax as string;
+    var dateMinDisplay = ViewBag.DateMinDisplay as string;
+    var dateMaxDisplay = ViewBag.DateMaxDisplay as string;
+    var childMinStart = ViewBag.ChildMinStart as string;
+    var childMaxDue = ViewBag.ChildMaxDue as string;
+    var childMinStartDisplay = ViewBag.ChildMinStartDisplay as string;
+    var childMaxDueDisplay = ViewBag.ChildMaxDueDisplay as string;
 }
 
 @section Styles {
@@ -90,20 +98,44 @@
                         </div>
                     </div>
 
-                    <div class="row g-2 mb-3">
+                    <div class="row g-2 mb-1">
                         <div class="col-md-4">
                             <label asp-for="StartDate" class="form-label fw-semibold"></label>
-                            <input asp-for="StartDate" type="date" class="form-control" />
+                            <input asp-for="StartDate" type="date" class="form-control"
+                                   min="@dateMin" max="@dateMax" />
                         </div>
                         <div class="col-md-4">
                             <label asp-for="DueDate" class="form-label fw-semibold"></label>
-                            <input asp-for="DueDate" type="date" class="form-control" />
+                            <input asp-for="DueDate" type="date" class="form-control"
+                                   min="@dateMin" max="@dateMax" />
                         </div>
                         <div class="col-md-4" id="manualProgressGroup" style="display:none;">
                             <label asp-for="Progress" class="form-label fw-semibold"></label>
                             <input asp-for="Progress" type="number" class="form-control" min="0" max="100" step="1" />
                         </div>
                     </div>
+
+                    @if (dateMinDisplay != null || dateMaxDisplay != null || childMinStartDisplay != null || childMaxDueDisplay != null)
+                    {
+                        <div class="mb-3 px-1">
+                            @if (dateMinDisplay != null || dateMaxDisplay != null)
+                            {
+                                <small class="text-muted d-block">
+                                    <i class="bi bi-calendar-range me-1"></i>Phạm vi cho phép:
+                                    @(dateMinDisplay ?? "–") — @(dateMaxDisplay ?? "–")
+                                </small>
+                            }
+                            @if (childMinStartDisplay != null || childMaxDueDisplay != null)
+                            {
+                                <small class="text-warning d-block">
+                                    <i class="bi bi-diagram-3 me-1"></i>Giới hạn do task con:
+                                    @if (childMinStartDisplay != null) { <span>Bắt đầu ≤ @childMinStartDisplay</span> }
+                                    @if (childMinStartDisplay != null && childMaxDueDisplay != null) { <span class="mx-1">·</span> }
+                                    @if (childMaxDueDisplay != null) { <span>Kết thúc ≥ @childMaxDueDisplay</span> }
+                                </small>
+                            }
+                        </div>
+                    }
 
                     <div class="row g-2 mb-3">
                         <div class="col-md-6">

@@ -29,15 +29,21 @@ public class ProjectCreateViewModel
     [Display(Name = "Tên dự án")]
     public string Name { get; set; } = string.Empty;
 
+    [Required(ErrorMessage = "Mô tả dự án không được để trống")]
     [MaxLength(2000)]
     [Display(Name = "Mô tả")]
     public string? Description { get; set; }
 
+    [Required(ErrorMessage = "Ngày bắt đầu không được để trống")]
     [Display(Name = "Ngày bắt đầu")]
     public DateTime? StartDate { get; set; }
 
+    [Required(ErrorMessage = "Ngày kết thúc không được để trống")]
     [Display(Name = "Ngày kết thúc")]
     public DateTime? EndDate { get; set; }
+
+    [Display(Name = "Template dự án")]
+    public int? TemplateId { get; set; }
 }
 
 public class ProjectEditViewModel : ProjectCreateViewModel

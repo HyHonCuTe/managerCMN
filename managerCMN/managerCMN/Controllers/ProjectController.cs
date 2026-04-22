@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
+using System.Security.Claims;
 
 namespace managerCMN.Controllers;
 
@@ -13,13 +14,15 @@ public class ProjectController : Controller
     private readonly IProjectService _projectService;
     private readonly IProjectTaskService _taskService;
     private readonly IEmployeeService _employeeService;
+    private readonly IProjectTemplateService _templateService;
 
     public ProjectController(IProjectService projectService, IProjectTaskService taskService,
-        IEmployeeService employeeService)
+        IEmployeeService employeeService, IProjectTemplateService templateService)
     {
         _projectService = projectService;
         _taskService = taskService;
         _employeeService = employeeService;
+        _templateService = templateService;
     }
 
     public async Task<IActionResult> Index()
@@ -82,8 +85,10 @@ public class ProjectController : Controller
         }
     }
 
-    public IActionResult Create()
+    public async Task<IActionResult> Create()
     {
+        var templates = await _templateService.GetAllActiveAsync();
+        ViewBag.Templates = templates.ToList();
         return View(new ProjectCreateViewModel());
     }
 
@@ -93,11 +98,16 @@ public class ProjectController : Controller
         var employeeId = GetCurrentEmployeeId();
         if (employeeId == 0) return Forbid();
 
-        if (!ModelState.IsValid) return View(vm);
+        if (!ModelState.IsValid)
+        {
+            ViewBag.Templates = (await _templateService.GetAllActiveAsync()).ToList();
+            return View(vm);
+        }
 
         if (vm.StartDate.HasValue && vm.EndDate.HasValue && vm.EndDate < vm.StartDate)
         {
             ModelState.AddModelError("EndDate", "Ngày kết thúc phải sau ngày bắt đầu.");
+            ViewBag.Templates = (await _templateService.GetAllActiveAsync()).ToList();
             return View(vm);
         }
 

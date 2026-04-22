@@ -182,6 +182,22 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvamVjdFRhc2tcX1Rhc2tEZXRhaWwuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
+[E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/ProjectTemplate/Create.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvamVjdFRlbXBsYXRlXENyZWF0ZS5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/ProjectTemplate/Edit.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvamVjdFRlbXBsYXRlXEVkaXQuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/ProjectTemplate/Index.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvamVjdFRlbXBsYXRlXEluZGV4LmNzaHRtbA==
+build_metadata.AdditionalFiles.CssScope = 
+
+[E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/ProjectTemplate/_TemplateTaskRow.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvamVjdFRlbXBsYXRlXF9UZW1wbGF0ZVRhc2tSb3cuY3NodG1s
+build_metadata.AdditionalFiles.CssScope = 
+
 [E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/Project/Create.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvamVjdFxDcmVhdGUuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 

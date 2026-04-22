@@ -1068,6 +1068,42 @@ public class ProjectTaskService : IProjectTaskService
         return depth;
     }
 
+    public async Task<(DateTime? EffectiveMin, DateTime? EffectiveMax, DateTime? ChildMinStart, DateTime? ChildMaxDue)> GetDateConstraintsForEditAsync(int projectId, int? parentTaskId, int taskId)
+    {
+        var project = await _unitOfWork.Projects.GetByIdAsync(projectId);
+        DateTime? effectiveMin = project?.StartDate;
+        DateTime? effectiveMax = project?.EndDate;
+
+        if (parentTaskId.HasValue)
+        {
+            var parent = await _unitOfWork.ProjectTasks.GetByIdAsync(parentTaskId.Value);
+            if (parent != null)
+            {
+                if (parent.StartDate.HasValue)
+                    effectiveMin = effectiveMin.HasValue
+                        ? (DateTime?)new[] { effectiveMin.Value.Date, parent.StartDate.Value.Date }.Max()
+                        : parent.StartDate;
+                if (parent.DueDate.HasValue)
+                    effectiveMax = effectiveMax.HasValue
+                        ? (DateTime?)new[] { effectiveMax.Value.Date, parent.DueDate.Value.Date }.Min()
+                        : parent.DueDate;
+            }
+        }
+
+        var childDates = await _context.ProjectTasks
+            .AsNoTracking()
+            .Where(t => t.ParentTaskId == taskId)
+            .Select(t => new { t.StartDate, t.DueDate })
+            .ToListAsync();
+
+        var childStarts = childDates.Where(c => c.StartDate.HasValue).Select(c => c.StartDate!.Value).ToList();
+        var childDues = childDates.Where(c => c.DueDate.HasValue).Select(c => c.DueDate!.Value).ToList();
+        DateTime? childMinStart = childStarts.Any() ? childStarts.Min() : null;
+        DateTime? childMaxDue = childDues.Any() ? childDues.Max() : null;
+
+        return (effectiveMin, effectiveMax, childMinStart, childMaxDue);
+    }
+
     private async Task ValidateTaskScheduleAsync(int projectId, int? parentTaskId, DateTime? startDate, DateTime? dueDate, int? currentTaskId = null)
     {
         if (startDate.HasValue && dueDate.HasValue && dueDate.Value.Date < startDate.Value.Date)
@@ -1396,10 +1432,12 @@ public class ProjectTaskService : IProjectTaskService
             changes.Add($"Đổi tên task: \"{oldTitle}\" → \"{newTitle}\".");
 
         var timelineChanges = new List<string>();
-        if (!SameDate(oldStartDate, newStartDate))
+
+        // Only log date changes when there was a previous value (skip first-time date assignment)
+        if (oldStartDate.HasValue && !SameDate(oldStartDate, newStartDate))
             timelineChanges.Add($"Bắt đầu {FormatLogDate(oldStartDate)} → {FormatLogDate(newStartDate)}");
 
-        if (!SameDate(oldDueDate, newDueDate))
+        if (oldDueDate.HasValue && !SameDate(oldDueDate, newDueDate))
             timelineChanges.Add($"Hạn {FormatLogDate(oldDueDate)} → {FormatLogDate(newDueDate)}");
 
         if (timelineChanges.Count > 0)

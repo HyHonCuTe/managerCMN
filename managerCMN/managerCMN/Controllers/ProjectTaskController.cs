@@ -148,6 +148,17 @@ public class ProjectTaskController : Controller
             ViewBag.Members = members;
             ViewBag.CanCompleteTask = task.CanCompleteTask;
             ViewBag.IsTaskDone = task.Status == ProjectTaskStatus.Done;
+
+            var (effMin, effMax, childMinStart, childMaxDue) = await _taskService.GetDateConstraintsForEditAsync(task.ProjectId, task.ParentTaskId, task.ProjectTaskId);
+            ViewBag.DateMin = effMin?.ToString("yyyy-MM-dd");
+            ViewBag.DateMax = effMax?.ToString("yyyy-MM-dd");
+            ViewBag.DateMinDisplay = effMin?.ToString("dd/MM/yyyy");
+            ViewBag.DateMaxDisplay = effMax?.ToString("dd/MM/yyyy");
+            ViewBag.ChildMinStart = childMinStart?.ToString("yyyy-MM-dd");
+            ViewBag.ChildMaxDue = childMaxDue?.ToString("yyyy-MM-dd");
+            ViewBag.ChildMinStartDisplay = childMinStart?.ToString("dd/MM/yyyy");
+            ViewBag.ChildMaxDueDisplay = childMaxDue?.ToString("dd/MM/yyyy");
+
             return View(vm);
         }
         catch (UnauthorizedAccessException)

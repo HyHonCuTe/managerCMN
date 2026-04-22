@@ -74,6 +74,8 @@ public class ApplicationDbContext : DbContext
     public DbSet<ProjectTaskUpdate> ProjectTaskUpdates => Set<ProjectTaskUpdate>();
     public DbSet<ProjectTaskAttachment> ProjectTaskAttachments => Set<ProjectTaskAttachment>();
     public DbSet<ProjectTaskDependency> ProjectTaskDependencies => Set<ProjectTaskDependency>();
+    public DbSet<ProjectTemplate> ProjectTemplates => Set<ProjectTemplate>();
+    public DbSet<ProjectTemplateTask> ProjectTemplateTasks => Set<ProjectTemplateTask>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -747,6 +749,36 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ProjectTaskDependency>()
             .HasIndex(d => new { d.PredecessorTaskId, d.SuccessorTaskId })
             .IsUnique();
+
+        // ProjectTemplate
+        modelBuilder.Entity<ProjectTemplate>()
+            .HasOne(t => t.CreatedByEmployee)
+            .WithMany()
+            .HasForeignKey(t => t.CreatedByEmployeeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProjectTemplate>()
+            .HasIndex(t => t.IsActive);
+
+        // ProjectTemplateTask
+        modelBuilder.Entity<ProjectTemplateTask>()
+            .HasOne(tt => tt.ProjectTemplate)
+            .WithMany(t => t.Tasks)
+            .HasForeignKey(tt => tt.ProjectTemplateId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ProjectTemplateTask>()
+            .HasOne(tt => tt.ParentTask)
+            .WithMany(tt => tt.SubTasks)
+            .HasForeignKey(tt => tt.ParentTemplateTaskId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<ProjectTemplateTask>()
+            .Property(tt => tt.EstimatedHours)
+            .HasColumnType("decimal(7,2)");
+
+        modelBuilder.Entity<ProjectTemplateTask>()
+            .HasIndex(tt => new { tt.ProjectTemplateId, tt.SortOrder });
 
         // Seed Project permissions (PermissionId 26-32)
         modelBuilder.Entity<Permission>().HasData(

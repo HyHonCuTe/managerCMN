@@ -14,9 +14,17 @@
         <h4 class="mb-0 fw-bold"><i class="bi bi-kanban text-danger me-2"></i>@(isSystemAdmin ? "Tất cả dự án" : "Dự án của tôi")</h4>
         <small class="text-muted">@(isSystemAdmin ? "Admin hệ thống có quyền xem toàn bộ dự án" : "Danh sách các dự án bạn đang tham gia")</small>
     </div>
-    <a asp-action="Create" class="btn btn-danger btn-sm">
-        <i class="bi bi-plus-circle me-1"></i>Tạo dự án
-    </a>
+    <div class="d-flex gap-2">
+        @if (isSystemAdmin)
+        {
+            <a asp-controller="ProjectTemplate" asp-action="Index" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-layout-text-sidebar-reverse me-1"></i>Template
+            </a>
+        }
+        <a asp-action="Create" class="btn btn-danger btn-sm">
+            <i class="bi bi-plus-circle me-1"></i>Tạo dự án
+        </a>
+    </div>
 </div>
 
 @{

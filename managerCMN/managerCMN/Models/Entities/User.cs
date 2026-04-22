@@ -29,6 +29,8 @@ public class User
     [MaxLength(50)]
     public string? TelegramChatId { get; set; }
 
+    public bool TelegramMuteBroadcast { get; set; } = false;
+
     // Navigation
     public int? EmployeeId { get; set; }
     public Employee? Employee { get; set; }

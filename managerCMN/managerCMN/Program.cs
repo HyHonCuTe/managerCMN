@@ -158,6 +158,12 @@ builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 
+// ── Auto-apply pending EF migrations on startup ──
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await db.Database.MigrateAsync();
+}
 
 // ── Configure Forwarded Headers for Nginx proxy ──
 app.UseForwardedHeaders(new ForwardedHeadersOptions

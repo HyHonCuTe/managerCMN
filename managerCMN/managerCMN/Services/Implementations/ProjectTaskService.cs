@@ -140,9 +140,16 @@ public class ProjectTaskService : IProjectTaskService
         await _unitOfWork.ProjectTasks.AddAsync(task);
         await _unitOfWork.SaveChangesAsync();
 
-        await SyncAssignmentsAsync(task, vm.AssigneeIds, creatorEmployeeId);
+        var newAssignees = await SyncAssignmentsAsync(task, vm.AssigneeIds, creatorEmployeeId);
         await CreateSystemUpdateAsync(task.ProjectTaskId, creatorEmployeeId,
             task.ParentTaskId.HasValue ? "Đã tạo subtask." : "Đã tạo task.");
+
+        if (newAssignees.Count > 0)
+        {
+            var creatorName = await GetSingleEmployeeNameAsync(creatorEmployeeId);
+            foreach (var empId in newAssignees.Where(id => id != creatorEmployeeId))
+                await NotifyTaskAssignedAsync(empId, creatorName, task);
+        }
 
         return task.ProjectTaskId;
     }
@@ -294,6 +301,9 @@ public class ProjectTaskService : IProjectTaskService
                 {
                     await CreateSystemUpdateAsync(task.ProjectTaskId, employeeId,
                         "Đã xác nhận hoàn thành phần việc của bạn.");
+
+                    if (task.Status == ProjectTaskStatus.Done)
+                        await NotifyTaskDoneAsync(task, employeeId);
                 }
 
                 return;
@@ -325,6 +335,9 @@ public class ProjectTaskService : IProjectTaskService
         await _progressService.RecalculateProjectProgressAsync(task.ProjectId);
         await CreateSystemUpdateAsync(task.ProjectTaskId, employeeId,
             $"Đã cập nhật trạng thái thành {TaskStatusLabel(task.Status)}.");
+
+        if (vm.Status == ProjectTaskStatus.Done)
+            await NotifyTaskDoneAsync(task, employeeId);
     }
 
     public async Task UpdateProgressAsync(UpdateTaskProgressViewModel vm, int employeeId)
@@ -401,7 +414,7 @@ public class ProjectTaskService : IProjectTaskService
 
         await EnsureCanManageTaskNodeAsync(task, actorEmployeeId);
 
-        await SyncAssignmentsAsync(task, employeeIds, actorEmployeeId);
+        var newAssignees = await SyncAssignmentsAsync(task, employeeIds, actorEmployeeId);
         await SyncTaskProgressFromAssignmentsOrEngineAsync(task.ProjectTaskId);
         await _progressService.BubbleUpParentProgressAsync(task.ProjectTaskId);
         await _progressService.RecalculateProjectProgressAsync(task.ProjectId);
@@ -411,6 +424,13 @@ public class ProjectTaskService : IProjectTaskService
             ? $"Đã phân công thực hiện cho: {string.Join(", ", assigneeNames)}."
             : "Đã xoá toàn bộ người thực hiện khỏi task.";
         await CreateSystemUpdateAsync(task.ProjectTaskId, actorEmployeeId, updateContent);
+
+        if (newAssignees.Count > 0)
+        {
+            var actorName = await GetSingleEmployeeNameAsync(actorEmployeeId);
+            foreach (var empId in newAssignees.Where(id => id != actorEmployeeId))
+                await NotifyTaskAssignedAsync(empId, actorName, task);
+        }
     }
 
     public async Task<ChecklistItemViewModel> AddChecklistItemAsync(AddChecklistItemViewModel vm, int employeeId)
@@ -1220,7 +1240,7 @@ public class ProjectTaskService : IProjectTaskService
             .Include(t => t.ParentTask)
             .FirstOrDefaultAsync(t => t.ProjectTaskId == taskId);
 
-    private async Task SyncAssignmentsAsync(ProjectTask task, IEnumerable<int>? employeeIds, int actorEmployeeId)
+    private async Task<List<int>> SyncAssignmentsAsync(ProjectTask task, IEnumerable<int>? employeeIds, int actorEmployeeId)
     {
         var targetIds = (employeeIds ?? Enumerable.Empty<int>())
             .Distinct()
@@ -1241,6 +1261,7 @@ public class ProjectTaskService : IProjectTaskService
             .Select(a => a.EmployeeId)
             .ToHashSet();
 
+        var newlyAddedIds = new List<int>();
         foreach (var empId in targetIds)
         {
             if (keptEmployeeIds.Contains(empId))
@@ -1258,9 +1279,11 @@ public class ProjectTaskService : IProjectTaskService
                 IsCompleted = false,
                 CompletedDate = null
             });
+            newlyAddedIds.Add(empId);
         }
 
         await _context.SaveChangesAsync();
+        return newlyAddedIds;
     }
 
     private async Task SyncTaskProgressFromAssignmentsOrEngineAsync(int taskId)
@@ -1459,6 +1482,45 @@ public class ProjectTaskService : IProjectTaskService
 
     private static string FormatLogDate(DateTime? value)
         => value.HasValue ? value.Value.ToString("dd/MM/yyyy") : "Chưa đặt";
+
+    private async Task<string> GetSingleEmployeeNameAsync(int employeeId)
+        => await _context.Employees
+            .Where(e => e.EmployeeId == employeeId)
+            .Select(e => e.FullName)
+            .FirstOrDefaultAsync() ?? "Một thành viên";
+
+    private async Task NotifyTaskAssignedAsync(int assigneeEmployeeId, string actorName, ProjectTask task)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.EmployeeId == assigneeEmployeeId);
+        if (user == null) return;
+
+        var title = $"Bạn được giao task: {task.Title}";
+        var message = $"{actorName} đã giao task này cho bạn.";
+        var targetUrl = $"/Project/Details/{task.ProjectId}?openTaskId={task.ProjectTaskId}";
+        await _notificationService.CreateAsync(user.UserId, title, message, targetUrl);
+    }
+
+    private async Task NotifyTaskDoneAsync(ProjectTask task, int completingEmployeeId)
+    {
+        var completingName = await GetSingleEmployeeNameAsync(completingEmployeeId);
+        var title = $"Task hoàn thành: {task.Title}";
+        var message = $"{completingName} đã hoàn thành task.";
+        var targetUrl = $"/Project/Details/{task.ProjectId}?openTaskId={task.ProjectTaskId}";
+
+        var managerUserIds = await _context.ProjectMembers
+            .AsNoTracking()
+            .Where(pm => pm.ProjectId == task.ProjectId
+                && pm.EmployeeId != completingEmployeeId
+                && (pm.Role == ProjectMemberRole.ProjectOwner || pm.Role == ProjectMemberRole.ProjectManager))
+            .Join(_context.Users.AsNoTracking(), pm => pm.EmployeeId, u => u.EmployeeId, (pm, u) => u.UserId)
+            .Distinct()
+            .ToListAsync();
+
+        foreach (var userId in managerUserIds)
+            await _notificationService.CreateAsync(userId, title, message, targetUrl);
+    }
 
     private async Task<List<string>> GetEmployeeNamesAsync(IEnumerable<int> employeeIds)
     {

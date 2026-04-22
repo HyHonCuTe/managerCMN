@@ -32,7 +32,7 @@ public class NotificationService : INotificationService
     public async Task<IEnumerable<Notification>> GetAllAsync()
         => await _unitOfWork.Notifications.GetAllAsync();
 
-    public async Task CreateAsync(int userId, string title, string message, string? targetUrl = null)
+    public async Task CreateAsync(int userId, string title, string message, string? targetUrl = null, bool isPersonal = true)
     {
         var notification = new Notification
         {
@@ -53,6 +53,10 @@ public class NotificationService : INotificationService
                 var user = await _unitOfWork.Users.GetByIdAsync(userId);
                 if (!string.IsNullOrWhiteSpace(user?.TelegramChatId))
                 {
+                    // Broadcast notifications respect the user's mute setting
+                    if (!isPersonal && user.TelegramMuteBroadcast)
+                        return;
+
                     var text = $"<b>{EscapeHtml(title)}</b>\n{EscapeHtml(message)}";
                     await _telegram.SendMessageAsync(user.TelegramChatId, text);
                 }

@@ -64,6 +64,7 @@ public class ProfileController : Controller
         if (user == null) return RedirectToAction("Index", "Dashboard");
 
         ViewBag.AlreadyLinked = !string.IsNullOrWhiteSpace(user.TelegramChatId);
+        ViewBag.MuteBroadcast = user.TelegramMuteBroadcast;
         ViewBag.BotConfigured = _telegram.IsConfigured;
         ViewBag.BotUsername = _telegram.BotUsername;
 
@@ -76,6 +77,26 @@ public class ProfileController : Controller
         }
 
         return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> TelegramToggleMute()
+    {
+        var userId = GetUserId();
+        if (userId == null) return RedirectToAction("Index", "Dashboard");
+
+        var user = await _db.Users.FindAsync(userId.Value);
+        if (user != null)
+        {
+            user.TelegramMuteBroadcast = !user.TelegramMuteBroadcast;
+            await _db.SaveChangesAsync();
+            TempData["Success"] = user.TelegramMuteBroadcast
+                ? "Đã tắt Telegram cho thông báo hệ thống đại trà."
+                : "Đã bật lại Telegram cho tất cả thông báo.";
+        }
+
+        return RedirectToAction(nameof(TelegramLink));
     }
 
     [HttpPost]
@@ -407,7 +428,7 @@ public class ProfileController : Controller
 
             foreach (var uid in adminManagerUserIds)
             {
-                await _notificationService.CreateAsync(uid, title, message);
+                await _notificationService.CreateAsync(uid, title, message, isPersonal: false);
             }
         }
 

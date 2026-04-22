@@ -37,6 +37,16 @@ public class EmployeeController : Controller
         ViewBag.LeaveSummaries = await _leaveService.GetBalanceSummariesAsync(employees.Select(e => e.EmployeeId));
         ViewBag.Departments = (await _departmentService.GetAllAsync())
             .Select(d => d.DepartmentName).OrderBy(n => n).ToList();
+
+        var employeeIds = employees.Select(e => e.EmployeeId).ToList();
+        ViewBag.TelegramLinkedEmployeeIds = await _db.Users
+            .AsNoTracking()
+            .Where(u => u.EmployeeId != null
+                && employeeIds.Contains(u.EmployeeId!.Value)
+                && u.TelegramChatId != null && u.TelegramChatId != "")
+            .Select(u => u.EmployeeId!.Value)
+            .ToHashSetAsync();
+
         return View(employees);
     }
 

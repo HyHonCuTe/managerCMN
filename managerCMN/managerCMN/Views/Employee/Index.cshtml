@@ -85,6 +85,9 @@
                 </tr>
             </thead>
             <tbody>
+                @{
+                    var telegramLinked = ViewBag.TelegramLinkedEmployeeIds as HashSet<int> ?? new HashSet<int>();
+                }
                 @foreach (var emp in Model)
                 {
                     var leave = leaveSummaries != null && leaveSummaries.TryGetValue(emp.EmployeeId, out var summary)
@@ -93,7 +96,13 @@
                 <tr data-dept="@emp.Department?.DepartmentName" data-status="@statusText">
                     <td><strong>@emp.EmployeeCode</strong></td>
                     <td>@emp.AttendanceCode</td>
-                    <td>@emp.FullName</td>
+                    <td>
+                        @emp.FullName
+                        @if (telegramLinked.Contains(emp.EmployeeId))
+                        {
+                            <i class="bi bi-telegram text-primary ms-1" title="Đã kết nối Telegram" style="font-size:.8rem;"></i>
+                        }
+                    </td>
                     <td>@emp.Department?.DepartmentName</td>
                     <td>@emp.JobTitle?.JobTitleName</td>
                     <td>@emp.Position?.PositionName</td>

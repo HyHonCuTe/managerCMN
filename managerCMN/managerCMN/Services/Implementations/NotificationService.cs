@@ -7,8 +7,15 @@ namespace managerCMN.Services.Implementations;
 public class NotificationService : INotificationService
 {
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ITelegramService _telegram;
+    private readonly ILogger<NotificationService> _logger;
 
-    public NotificationService(IUnitOfWork unitOfWork) => _unitOfWork = unitOfWork;
+    public NotificationService(IUnitOfWork unitOfWork, ITelegramService telegram, ILogger<NotificationService> logger)
+    {
+        _unitOfWork = unitOfWork;
+        _telegram = telegram;
+        _logger = logger;
+    }
 
     public async Task<IEnumerable<Notification>> GetByUserAsync(int userId)
         => await _unitOfWork.Notifications.GetByUserAsync(userId);
@@ -38,7 +45,27 @@ public class NotificationService : INotificationService
         };
         await _unitOfWork.Notifications.AddAsync(notification);
         await _unitOfWork.SaveChangesAsync();
+
+        if (_telegram.IsConfigured)
+        {
+            try
+            {
+                var user = await _unitOfWork.Users.GetByIdAsync(userId);
+                if (!string.IsNullOrWhiteSpace(user?.TelegramChatId))
+                {
+                    var text = $"<b>{EscapeHtml(title)}</b>\n{EscapeHtml(message)}";
+                    await _telegram.SendMessageAsync(user.TelegramChatId, text);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Telegram notification failed for user {UserId}", userId);
+            }
+        }
     }
+
+    private static string EscapeHtml(string text)
+        => text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 
     public async Task<string?> TryOpenAsync(int notificationId, int currentUserId, bool canViewAll)
     {

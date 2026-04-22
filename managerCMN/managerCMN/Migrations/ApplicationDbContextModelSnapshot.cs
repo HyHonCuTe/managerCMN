@@ -2714,6 +2714,10 @@ namespace managerCMN.Migrations
                     b.Property<DateTime?>("LastLogin")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("TelegramChatId")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.HasKey("UserId");
 
                     b.HasIndex("Email")

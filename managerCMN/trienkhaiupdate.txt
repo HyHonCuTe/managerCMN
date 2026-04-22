@@ -2,7 +2,7 @@
 # lấy file data về máy
 scp root@Ip server:/var/opt/mssql/backup/managerCMN_Prod_2026-04-15.bak D:\
 
-
+##############################################################################
 # Vào thư mục project
 cd /var/www/cmnmanager-src/managerCMN/managerCMN/managerCMN
 
@@ -13,8 +13,18 @@ git reset --hard origin/main
 # Chạy deploy script
 chmod +x deploy.sh
 ./deploy.sh
+##############################################################################
 
+##############################################################################
+Cập nhật EF tool (hết cảnh báo 9.0.9 < 9.0.15)
+dotnet tool update --global dotnet-ef --version 9.0.15
 
+Tạo migration mới cho thay đổi model đang pending
+dotnet ef migrations add TenMigrationMoi --context ApplicationDbContext
+
+Update database
+dotnet ef database update --context ApplicationDbContext
+##############################################################################
 
 
 

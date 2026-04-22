@@ -26,6 +26,10 @@ public class User
     public DateTime? LastLogin { get; set; }
 
     // Navigation
+    [MaxLength(50)]
+    public string? TelegramChatId { get; set; }
+
+    // Navigation
     public int? EmployeeId { get; set; }
     public Employee? Employee { get; set; }
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();

@@ -147,6 +147,12 @@ builder.Services.Configure<RequestLocalizationOptions>(options =>
     options.SupportedUICultures = supportedCultures;
 });
 
+// ── Telegram Bot ──
+builder.Services.AddHttpClient("Telegram");
+builder.Services.AddSingleton<managerCMN.Services.Interfaces.ITelegramService,
+    managerCMN.Services.Implementations.TelegramService>();
+builder.Services.AddMemoryCache();
+
 // ── HttpContextAccessor for Service logging ──
 builder.Services.AddHttpContextAccessor();
 

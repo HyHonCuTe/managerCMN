@@ -1,7 +1,9 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using managerCMN.Data;
 using managerCMN.Services.Interfaces;
 using managerCMN.Models.Entities;
@@ -23,12 +25,21 @@ public class ProfileController : Controller
     private readonly ApplicationDbContext _db;
     private readonly ILeaveService _leaveService;
     private readonly INotificationService _notificationService;
+    private readonly ITelegramService _telegram;
+    private readonly IMemoryCache _cache;
 
-    public ProfileController(ApplicationDbContext db, ILeaveService leaveService, INotificationService notificationService)
+    public ProfileController(
+        ApplicationDbContext db,
+        ILeaveService leaveService,
+        INotificationService notificationService,
+        ITelegramService telegram,
+        IMemoryCache cache)
     {
         _db = db;
         _leaveService = leaveService;
         _notificationService = notificationService;
+        _telegram = telegram;
+        _cache = cache;
     }
 
     private int? GetEmployeeId()
@@ -41,6 +52,55 @@ public class ProfileController : Controller
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier);
         return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> TelegramLink()
+    {
+        var userId = GetUserId();
+        if (userId == null) return RedirectToAction("Index", "Dashboard");
+
+        var user = await _db.Users.FindAsync(userId.Value);
+        if (user == null) return RedirectToAction("Index", "Dashboard");
+
+        ViewBag.AlreadyLinked = !string.IsNullOrWhiteSpace(user.TelegramChatId);
+        ViewBag.BotConfigured = _telegram.IsConfigured;
+        ViewBag.BotUsername = _telegram.BotUsername;
+
+        if (_telegram.IsConfigured)
+        {
+            var token = GenerateLinkToken();
+            _cache.Set($"tg_link:{token}", userId.Value, TimeSpan.FromMinutes(15));
+            ViewBag.Token = token;
+            ViewBag.DeepLink = _telegram.GetLinkDeepLink(token);
+        }
+
+        return View();
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> TelegramUnlink()
+    {
+        var userId = GetUserId();
+        if (userId == null) return RedirectToAction("Index", "Dashboard");
+
+        var user = await _db.Users.FindAsync(userId.Value);
+        if (user != null)
+        {
+            user.TelegramChatId = null;
+            await _db.SaveChangesAsync();
+        }
+
+        TempData["Success"] = "Đã hủy kết nối Telegram.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    private static string GenerateLinkToken()
+    {
+        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        var bytes = RandomNumberGenerator.GetBytes(8);
+        return new string(bytes.Select(b => chars[b % chars.Length]).ToArray());
     }
 
     public async Task<IActionResult> Index()
@@ -67,6 +127,13 @@ public class ProfileController : Controller
         }
 
         ViewBag.LeaveSummary = await _leaveService.GetBalanceSummaryAsync(employee.EmployeeId);
+
+        var userId = GetUserId();
+        if (userId != null)
+        {
+            var user = await _db.Users.FindAsync(userId.Value);
+            ViewBag.TelegramLinked = !string.IsNullOrWhiteSpace(user?.TelegramChatId);
+        }
 
         return View(employee);
     }

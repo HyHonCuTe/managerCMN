@@ -125,8 +125,13 @@ public class RequestService : IRequestService
         var employee = await _unitOfWork.Employees.GetByIdAsync(request.EmployeeId);
         var empName = employee?.FullName ?? "Nhân viên";
         var typeText = GetRequestTypeText(request.RequestType);
-        await NotifyApprover(approver1Id, $"Đơn từ mới cần duyệt", $"{empName} đã gửi {typeText}: {request.Title}");
-        await NotifyApprover(approver2Id, $"Đơn từ mới cần duyệt", $"{empName} đã gửi {typeText}: {request.Title}");
+        var newRequestTg =
+            $"📋 <b>Đơn từ mới cần duyệt</b>\n" +
+            $"👤 Người gửi: {H(empName)}\n" +
+            $"📝 Loại: {typeText}\n" +
+            $"🔖 Tiêu đề: {H(request.Title)}";
+        await NotifyApprover(approver1Id, "Đơn từ mới cần duyệt", $"{empName} đã gửi {typeText}: {request.Title}", newRequestTg);
+        await NotifyApprover(approver2Id, "Đơn từ mới cần duyệt", $"{empName} đã gửi {typeText}: {request.Title}", newRequestTg);
 
         // Audit log
         await _logService.LogAsync(
@@ -190,9 +195,15 @@ public class RequestService : IRequestService
         // Notify employee
         var approver = await _unitOfWork.Employees.GetByIdAsync(approverEmployeeId);
         var approverName = approver?.FullName ?? "Người duyệt";
+        var approvedTg =
+            $"✅ <b>Đơn được duyệt</b>\n" +
+            $"👤 Người duyệt: {H(approverName)}\n" +
+            $"🔖 Tiêu đề: {H(request.Title)}" +
+            (allApproved ? "\nℹ️ Đã duyệt hoàn tất" : "");
         await NotifyEmployee(request.EmployeeId,
             "Đơn đã được duyệt",
-            $"{approverName} đã duyệt đơn: {request.Title}" + (allApproved ? " (Đã duyệt hoàn tất)" : ""));
+            $"{approverName} đã duyệt đơn: {request.Title}" + (allApproved ? " (Đã duyệt hoàn tất)" : ""),
+            approvedTg);
 
         // Audit log
         await _logService.LogAsync(
@@ -243,9 +254,15 @@ public class RequestService : IRequestService
         // Notify employee
         var approver = await _unitOfWork.Employees.GetByIdAsync(approverEmployeeId);
         var approverName = approver?.FullName ?? "Người duyệt";
+        var rejectedTg =
+            $"❌ <b>Đơn bị từ chối</b>\n" +
+            $"👤 Người từ chối: {H(approverName)}\n" +
+            $"🔖 Tiêu đề: {H(request.Title)}" +
+            (!string.IsNullOrEmpty(comment) ? $"\nℹ️ Lý do: {H(comment)}" : "");
         await NotifyEmployee(request.EmployeeId,
             "Đơn bị từ chối",
-            $"{approverName} đã từ chối đơn: {request.Title}" + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""));
+            $"{approverName} đã từ chối đơn: {request.Title}" + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""),
+            rejectedTg);
 
         // Audit log
         await _logService.LogAsync(
@@ -282,8 +299,14 @@ public class RequestService : IRequestService
 
         var approver = await _unitOfWork.Employees.GetByIdAsync(adminEmployeeId);
         var approverName = approver?.FullName ?? "Admin";
+        var forceApproveTg =
+            $"✅ <b>Đơn được duyệt</b>\n" +
+            $"👤 Người duyệt: {H(approverName)}\n" +
+            $"🔖 Tiêu đề: {H(request.Title)}\n" +
+            $"ℹ️ Đã duyệt hoàn tất";
         await NotifyEmployee(request.EmployeeId, "Đơn đã được duyệt",
-            $"{approverName} đã duyệt đơn: {request.Title} (Đã duyệt hoàn tất)");
+            $"{approverName} đã duyệt đơn: {request.Title} (Đã duyệt hoàn tất)",
+            forceApproveTg);
 
         // Audit log
         await _logService.LogAsync(
@@ -329,9 +352,15 @@ public class RequestService : IRequestService
 
         var approver = await _unitOfWork.Employees.GetByIdAsync(adminEmployeeId);
         var approverName = approver?.FullName ?? "Admin";
+        var forceRejectTg =
+            $"❌ <b>Đơn bị từ chối</b>\n" +
+            $"👤 Người từ chối: {H(approverName)}\n" +
+            $"🔖 Tiêu đề: {H(request.Title)}" +
+            (!string.IsNullOrEmpty(comment) ? $"\nℹ️ Lý do: {H(comment)}" : "");
         await NotifyEmployee(request.EmployeeId, "Đơn bị từ chối",
             $"{approverName} đã từ chối đơn: {request.Title}"
-            + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""));
+            + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""),
+            forceRejectTg);
 
         // Audit log
         await _logService.LogAsync(
@@ -391,10 +420,16 @@ public class RequestService : IRequestService
         // Notify employee
         var admin = await _unitOfWork.Employees.GetByIdAsync(adminEmployeeId);
         var adminName = admin?.FullName ?? "Admin";
+        var revertTg =
+            $"↩️ <b>Đơn đã được hoàn duyệt</b>\n" +
+            $"👤 Người hoàn duyệt: {H(adminName)}\n" +
+            $"🔖 Tiêu đề: {H(request.Title)}" +
+            (!string.IsNullOrEmpty(comment) ? $"\nℹ️ Lý do: {H(comment)}" : "");
         await NotifyEmployee(request.EmployeeId,
             "Đơn đã được hoàn duyệt",
             $"{adminName} đã hoàn duyệt đơn: {request.Title}"
-            + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""));
+            + (!string.IsNullOrEmpty(comment) ? $". Lý do: {comment}" : ""),
+            revertTg);
 
         // Audit log
         await _logService.LogAsync(
@@ -552,18 +587,20 @@ public class RequestService : IRequestService
         return Math.Max(totalDays, 0m);
     }
 
-    private async Task NotifyApprover(int approverEmployeeId, string title, string message)
+    private static string H(string s) => s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
+    private async Task NotifyApprover(int approverEmployeeId, string title, string message, string? telegramText = null)
     {
         var user = (await _unitOfWork.Users.FindAsync(u => u.EmployeeId == approverEmployeeId)).FirstOrDefault();
         if (user != null)
-            await _notificationService.CreateAsync(user.UserId, title, message);
+            await _notificationService.CreateAsync(user.UserId, title, message, telegramText: telegramText);
     }
 
-    private async Task NotifyEmployee(int employeeId, string title, string message)
+    private async Task NotifyEmployee(int employeeId, string title, string message, string? telegramText = null)
     {
         var user = (await _unitOfWork.Users.FindAsync(u => u.EmployeeId == employeeId)).FirstOrDefault();
         if (user != null)
-            await _notificationService.CreateAsync(user.UserId, title, message);
+            await _notificationService.CreateAsync(user.UserId, title, message, telegramText: telegramText);
     }
 
     public async Task<int> CountAbsenceRequestsInMonthAsync(int employeeId, DateTime date)

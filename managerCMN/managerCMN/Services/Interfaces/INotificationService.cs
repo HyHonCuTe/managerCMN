@@ -9,7 +9,7 @@ public interface INotificationService
     Task<int> GetUnreadCountAsync(int userId);
     Task<int> GetAllUnreadCountAsync();
     Task<IEnumerable<Notification>> GetAllAsync();
-    Task CreateAsync(int userId, string title, string message, string? targetUrl = null, bool isPersonal = true);
+    Task CreateAsync(int userId, string title, string message, string? targetUrl = null, bool isPersonal = true, string? telegramText = null);
     Task<string?> TryOpenAsync(int notificationId, int currentUserId, bool canViewAll);
     Task<bool> TryMarkAsReadAsync(int notificationId, int currentUserId, bool canViewAll);
     Task MarkAllAsReadAsync(int userId);

@@ -211,7 +211,10 @@ public class TicketService : ITicketService
         var creatorName = creator?.FullName ?? "Ai đó";
         foreach (var recipientId in recipientIds.Distinct())
         {
-            await NotifyEmployeeAsync(recipientId, "Ticket mới", $"{creatorName} đã gửi ticket cho bạn: {ticket.Title}");
+            var tg = $"📨 <b>Ticket mới</b>\n" +
+                     $"👤 Người gửi: {H(creatorName)}\n" +
+                     $"📌 Tiêu đề: {H(ticket.Title)}";
+            await NotifyEmployeeAsync(recipientId, "Ticket mới", $"{creatorName} đã gửi ticket cho bạn: {ticket.Title}", tg);
         }
     }
 
@@ -279,17 +282,20 @@ public class TicketService : ITicketService
         // Notify relevant parties
         var sender = await _unitOfWork.Employees.GetByIdAsync(senderId);
         var senderName = sender?.FullName ?? "Ai đó";
+        var replyTg = $"💬 <b>Phản hồi ticket</b>\n" +
+                      $"👤 Người phản hồi: {H(senderName)}\n" +
+                      $"📌 Tiêu đề: {H(ticket.Title)}";
 
         // Notify creator if sender is not creator
         if (ticket.CreatedBy != senderId)
         {
-            await NotifyEmployeeAsync(ticket.CreatedBy, "Phản hồi ticket", $"{senderName} đã phản hồi ticket: {ticket.Title}");
+            await NotifyEmployeeAsync(ticket.CreatedBy, "Phản hồi ticket", $"{senderName} đã phản hồi ticket: {ticket.Title}", replyTg);
         }
 
         // Notify other recipients
         foreach (var recipient in ticket.Recipients.Where(r => r.EmployeeId != senderId))
         {
-            await NotifyEmployeeAsync(recipient.EmployeeId, "Phản hồi ticket", $"{senderName} đã phản hồi ticket: {ticket.Title}");
+            await NotifyEmployeeAsync(recipient.EmployeeId, "Phản hồi ticket", $"{senderName} đã phản hồi ticket: {ticket.Title}", replyTg);
         }
     }
 
@@ -372,15 +378,21 @@ public class TicketService : ITicketService
         // Notify new recipients
         var forwarder = await _unitOfWork.Employees.GetByIdAsync(forwarderId);
         var forwarderName = forwarder?.FullName ?? "Ai đó";
+        var fwdToTg = $"📤 <b>Ticket được chuyển tiếp</b>\n" +
+                      $"👤 Người chuyển: {H(forwarderName)}\n" +
+                      $"📌 Tiêu đề: {H(ticket.Title)}";
         foreach (var recipientId in newRecipientIds)
         {
-            await NotifyEmployeeAsync(recipientId, "Ticket được chuyển tiếp", $"{forwarderName} đã chuyển tiếp ticket cho bạn: {ticket.Title}");
+            await NotifyEmployeeAsync(recipientId, "Ticket được chuyển tiếp", $"{forwarderName} đã chuyển tiếp ticket cho bạn: {ticket.Title}", fwdToTg);
         }
 
         // Notify creator
         if (ticket.CreatedBy != forwarderId)
         {
-            await NotifyEmployeeAsync(ticket.CreatedBy, "Ticket đã chuyển tiếp", $"{forwarderName} đã chuyển tiếp ticket: {ticket.Title}");
+            var fwdCreatorTg = $"📤 <b>Ticket đã chuyển tiếp</b>\n" +
+                               $"👤 Người chuyển: {H(forwarderName)}\n" +
+                               $"📌 Tiêu đề: {H(ticket.Title)}";
+            await NotifyEmployeeAsync(ticket.CreatedBy, "Ticket đã chuyển tiếp", $"{forwarderName} đã chuyển tiếp ticket: {ticket.Title}", fwdCreatorTg);
         }
     }
 
@@ -421,7 +433,11 @@ public class TicketService : ITicketService
                 TicketRecipientStatus.Completed => "đã hoàn thành",
                 _ => "đã cập nhật trạng thái"
             };
-            await NotifyEmployeeAsync(ticket.CreatedBy, "Cập nhật ticket", $"{employeeName} {statusText} ticket: {ticket.Title}");
+            var statusTg = $"🔄 <b>Cập nhật trạng thái ticket</b>\n" +
+                           $"👤 Người cập nhật: {H(employeeName)}\n" +
+                           $"📌 Tiêu đề: {H(ticket.Title)}\n" +
+                           $"ℹ️ Trạng thái: {statusText}";
+            await NotifyEmployeeAsync(ticket.CreatedBy, "Cập nhật ticket", $"{employeeName} {statusText} ticket: {ticket.Title}", statusTg);
         }
     }
 
@@ -554,12 +570,14 @@ public class TicketService : ITicketService
         }
     }
 
-    private async Task NotifyEmployeeAsync(int employeeId, string title, string message)
+    private static string H(string s) => s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
+    private async Task NotifyEmployeeAsync(int employeeId, string title, string message, string? telegramText = null)
     {
         var user = (await _unitOfWork.Users.FindAsync(u => u.EmployeeId == employeeId)).FirstOrDefault();
         if (user != null)
         {
-            await _notificationService.CreateAsync(user.UserId, title, message);
+            await _notificationService.CreateAsync(user.UserId, title, message, telegramText: telegramText);
         }
     }
 

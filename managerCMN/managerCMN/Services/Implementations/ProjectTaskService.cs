@@ -608,6 +608,8 @@ public class ProjectTaskService : IProjectTaskService
             .Select(e => e.FullName)
             .FirstOrDefaultAsync() ?? "Một thành viên";
 
+        var projectName = await GetProjectNameAsync(task.ProjectId);
+
         var shortContent = string.IsNullOrWhiteSpace(updateContent)
             ? "Có cập nhật nhật ký công việc mới."
             : updateContent.Length > 140
@@ -617,9 +619,15 @@ public class ProjectTaskService : IProjectTaskService
         var title = $"Task cập nhật: {task.Title}";
         var message = $"{senderName} vừa cập nhật nhật ký công việc. {shortContent}";
         var targetUrl = $"/Project/Details/{task.ProjectId}?openTaskId={task.ProjectTaskId}";
+        var telegramText =
+            $"📝 <b>Nhật ký task cập nhật</b>\n" +
+            $"👤 Người cập nhật: {H(senderName)}\n" +
+            $"📁 Dự án: {H(projectName)}\n" +
+            $"🔖 Task: {H(task.Title)}\n" +
+            $"💬 {H(shortContent)}";
 
         foreach (var userId in targetUserIds)
-            await _notificationService.CreateAsync(userId, title, message, targetUrl);
+            await _notificationService.CreateAsync(userId, title, message, targetUrl, telegramText: telegramText);
     }
 
     public async Task<ProjectTaskAttachment?> GetAttachmentAsync(int attachmentId, int employeeId)
@@ -1489,6 +1497,15 @@ public class ProjectTaskService : IProjectTaskService
             .Select(e => e.FullName)
             .FirstOrDefaultAsync() ?? "Một thành viên";
 
+    private async Task<string> GetProjectNameAsync(int projectId)
+        => await _context.Projects
+            .AsNoTracking()
+            .Where(p => p.ProjectId == projectId)
+            .Select(p => p.Name)
+            .FirstOrDefaultAsync() ?? "Dự án";
+
+    private static string H(string s) => s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
     private async Task NotifyTaskAssignedAsync(int assigneeEmployeeId, string actorName, ProjectTask task)
     {
         var user = await _context.Users
@@ -1496,18 +1513,31 @@ public class ProjectTaskService : IProjectTaskService
             .FirstOrDefaultAsync(u => u.EmployeeId == assigneeEmployeeId);
         if (user == null) return;
 
+        var projectName = await GetProjectNameAsync(task.ProjectId);
         var title = $"Bạn được giao task: {task.Title}";
         var message = $"{actorName} đã giao task này cho bạn.";
         var targetUrl = $"/Project/Details/{task.ProjectId}?openTaskId={task.ProjectTaskId}";
-        await _notificationService.CreateAsync(user.UserId, title, message, targetUrl);
+        var telegramText =
+            $"📋 <b>Giao việc mới</b>\n" +
+            $"👤 Người giao: {H(actorName)}\n" +
+            $"📁 Dự án: {H(projectName)}\n" +
+            $"🔖 Task: {H(task.Title)}";
+        await _notificationService.CreateAsync(user.UserId, title, message, targetUrl, telegramText: telegramText);
     }
 
     private async Task NotifyTaskDoneAsync(ProjectTask task, int completingEmployeeId)
     {
         var completingName = await GetSingleEmployeeNameAsync(completingEmployeeId);
+        var projectName = await GetProjectNameAsync(task.ProjectId);
         var title = $"Task hoàn thành: {task.Title}";
         var message = $"{completingName} đã hoàn thành task.";
         var targetUrl = $"/Project/Details/{task.ProjectId}?openTaskId={task.ProjectTaskId}";
+
+        var telegramText =
+            $"✅ <b>Task hoàn thành</b>\n" +
+            $"👤 Người thực hiện: {H(completingName)}\n" +
+            $"📁 Dự án: {H(projectName)}\n" +
+            $"🔖 Task: {H(task.Title)}";
 
         var managerUserIds = await _context.ProjectMembers
             .AsNoTracking()
@@ -1519,7 +1549,7 @@ public class ProjectTaskService : IProjectTaskService
             .ToListAsync();
 
         foreach (var userId in managerUserIds)
-            await _notificationService.CreateAsync(userId, title, message, targetUrl);
+            await _notificationService.CreateAsync(userId, title, message, targetUrl, telegramText: telegramText);
     }
 
     private async Task<List<string>> GetEmployeeNamesAsync(IEnumerable<int> employeeIds)

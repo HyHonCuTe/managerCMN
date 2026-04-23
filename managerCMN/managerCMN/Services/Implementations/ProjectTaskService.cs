@@ -681,6 +681,9 @@ public class ProjectTaskService : IProjectTaskService
 
     private async Task<bool> CanPostTaskUpdateAsync(ProjectTask task, int employeeId)
     {
+        if (task.Status == ProjectTaskStatus.Done)
+            return false;
+
         if (_accessService.IsSystemAdmin())
             return true;
 
@@ -1733,6 +1736,7 @@ public class ProjectTaskService : IProjectTaskService
                         || role == ProjectMemberRole.ProjectOwner
                         || (role == ProjectMemberRole.ProjectManager && isManagedBranch));
                 vm.CanPostUpdate = !isArchived
+                    && task.Status != ProjectTaskStatus.Done
                     && (isSystemAdmin
                         || role == ProjectMemberRole.ProjectOwner
                         || (role == ProjectMemberRole.ProjectManager && isManagedBranch)

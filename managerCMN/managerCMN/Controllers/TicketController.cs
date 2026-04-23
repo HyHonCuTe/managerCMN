@@ -180,7 +180,10 @@ public class TicketController : Controller
             IsCreator = isCreator,
             IsRecipient = isRecipient,
             CurrentRecipient = currentRecipient,
-            CanReply = isCreator || isRecipient,
+            CanReply = (isCreator || isRecipient)
+                       && !ticket.IsExpired()
+                       && !ticket.Status.IsTerminal()
+                       && (isCreator || currentRecipient?.Status != TicketRecipientStatus.Completed),
             CanForward = isRecipient || isAdmin,
             CanUpdateStatus = isRecipient
                               && currentRecipient?.Status != TicketRecipientStatus.Completed

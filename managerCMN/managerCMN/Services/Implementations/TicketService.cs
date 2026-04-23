@@ -594,9 +594,17 @@ public class TicketService : ITicketService
     }
 
     private static bool CanReplyToTicket(Ticket ticket, int employeeId, bool isAdmin)
-        => isAdmin
-            || ticket.CreatedBy == employeeId
-            || ticket.Recipients.Any(recipient => recipient.EmployeeId == employeeId);
+    {
+        if (ticket.IsExpired() || ticket.Status.IsTerminal())
+            return false;
+
+        if (isAdmin || ticket.CreatedBy == employeeId)
+            return true;
+
+        // Recipient can reply only if they haven't completed their part
+        return ticket.Recipients.Any(r => r.EmployeeId == employeeId
+                                          && r.Status != TicketRecipientStatus.Completed);
+    }
 
     private static bool CanForwardTicket(Ticket ticket, int employeeId, bool isAdmin)
         => isAdmin

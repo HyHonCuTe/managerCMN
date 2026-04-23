@@ -48,6 +48,8 @@ public class ProfileController : Controller
         return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
     }
 
+    private static string HE(string s) => s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
     private int? GetUserId()
     {
         var claim = User.FindFirst(ClaimTypes.NameIdentifier);
@@ -426,9 +428,13 @@ public class ProfileController : Controller
                 .Distinct()
                 .ToListAsync();
 
+            var tg =
+                $"📢 <b>Cập nhật hồ sơ nhân viên</b>\n" +
+                $"👤 {HE(employee.FullName)} ({HE(employee.EmployeeCode ?? "")})\n" +
+                $"📝 {HE(message)}";
             foreach (var uid in adminManagerUserIds)
             {
-                await _notificationService.CreateAsync(uid, title, message, isPersonal: false);
+                await _notificationService.CreateAsync(uid, title, message, isPersonal: false, telegramText: tg);
             }
         }
 

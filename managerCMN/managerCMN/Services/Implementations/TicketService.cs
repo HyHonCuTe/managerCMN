@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
@@ -378,12 +379,12 @@ public class TicketService : ITicketService
         // Notify new recipients
         var forwarder = await _unitOfWork.Employees.GetByIdAsync(forwarderId);
         var forwarderName = forwarder?.FullName ?? "Ai đó";
-        var fwdToTg = $"📤 <b>Ticket được chuyển tiếp</b>\n" +
+        var fwdToTg = $"📤 <b>Yêu cầu được chuyển tiếp</b>\n" +
                       $"👤 Người chuyển: {H(forwarderName)}\n" +
                       $"📌 Tiêu đề: {H(ticket.Title)}";
         foreach (var recipientId in newRecipientIds)
         {
-            await NotifyEmployeeAsync(recipientId, "Ticket được chuyển tiếp", $"{forwarderName} đã chuyển tiếp ticket cho bạn: {ticket.Title}", fwdToTg);
+            await NotifyEmployeeAsync(recipientId, "Yêu cầu được chuyển tiếp", $"{forwarderName} đã chuyển tiếp yêu cầu cho bạn: {ticket.Title}", fwdToTg);
         }
 
         // Notify creator
@@ -401,12 +402,27 @@ public class TicketService : ITicketService
         var recipient = await _unitOfWork.TicketRecipients.GetByIdAsync(ticketRecipientId);
         if (recipient == null) return;
 
+        var ticket = await _unitOfWork.Tickets.GetWithFullDetailsAsync(recipient.TicketId);
+        if (ticket == null) return;
+
+        if (ticket.IsExpired())
+            throw new InvalidOperationException("Ticket đã hết hạn, không thể cập nhật trạng thái.");
+
         var dataBefore = new { recipient.TicketRecipientId, recipient.TicketId, recipient.EmployeeId, recipient.Status };
 
         recipient.Status = status;
         if (status == TicketRecipientStatus.Completed)
         {
             recipient.CompletedDate = DateTime.UtcNow;
+            ticket.Status = TicketStatus.Resolved;
+            ticket.ResolvedDate ??= DateTime.UtcNow;
+            _unitOfWork.Tickets.Update(ticket);
+        }
+        else if (status == TicketRecipientStatus.InProgress
+                 && ticket.Status is TicketStatus.Open or TicketStatus.Reopened or TicketStatus.Forwarded)
+        {
+            ticket.Status = TicketStatus.InProgress;
+            _unitOfWork.Tickets.Update(ticket);
         }
 
         _unitOfWork.TicketRecipients.Update(recipient);
@@ -422,23 +438,19 @@ public class TicketService : ITicketService
         );
 
         // Notify creator about status change
-        var ticket = await _unitOfWork.Tickets.GetWithFullDetailsAsync(recipient.TicketId);
-        if (ticket != null)
+        var employee = await _unitOfWork.Employees.GetByIdAsync(recipient.EmployeeId);
+        var employeeName = employee?.FullName ?? "Ai đó";
+        var statusText = status switch
         {
-            var employee = await _unitOfWork.Employees.GetByIdAsync(recipient.EmployeeId);
-            var employeeName = employee?.FullName ?? "Ai đó";
-            var statusText = status switch
-            {
-                TicketRecipientStatus.InProgress => "đang xử lý",
-                TicketRecipientStatus.Completed => "đã hoàn thành",
-                _ => "đã cập nhật trạng thái"
-            };
-            var statusTg = $"🔄 <b>Cập nhật trạng thái ticket</b>\n" +
-                           $"👤 Người cập nhật: {H(employeeName)}\n" +
-                           $"📌 Tiêu đề: {H(ticket.Title)}\n" +
-                           $"ℹ️ Trạng thái: {statusText}";
-            await NotifyEmployeeAsync(ticket.CreatedBy, "Cập nhật ticket", $"{employeeName} {statusText} ticket: {ticket.Title}", statusTg);
-        }
+            TicketRecipientStatus.InProgress => "đang xử lý",
+            TicketRecipientStatus.Completed => "đã hoàn thành",
+            _ => "đã cập nhật trạng thái"
+        };
+        var statusTg = $"🔄 <b>Cập nhật trạng thái yêu cầu</b>\n" +
+                       $"👤 Người cập nhật: {H(employeeName)}\n" +
+                       $"📌 Tiêu đề: {H(ticket.Title)}\n" +
+                       $"ℹ️ Trạng thái: {statusText}";
+        await NotifyEmployeeAsync(ticket.CreatedBy, "Cập nhật yêu cầu", $"{employeeName} {statusText} yêu cầu: {ticket.Title}", statusTg);
     }
 
     public async Task MarkAsReadAsync(int ticketId, int employeeId)

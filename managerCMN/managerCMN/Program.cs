@@ -152,6 +152,7 @@ builder.Services.AddHttpClient("Telegram");
 builder.Services.AddSingleton<managerCMN.Services.Interfaces.ITelegramService,
     managerCMN.Services.Implementations.TelegramService>();
 builder.Services.AddMemoryCache();
+builder.Services.AddHostedService<TaskDeadlineReminderService>();
 
 // ── HttpContextAccessor for Service logging ──
 builder.Services.AddHttpContextAccessor();

@@ -195,15 +195,38 @@ public class RequestService : IRequestService
         // Notify employee
         var approver = await _unitOfWork.Employees.GetByIdAsync(approverEmployeeId);
         var approverName = approver?.FullName ?? "Người duyệt";
-        var approvedTg =
-            $"✅ <b>Đơn được duyệt</b>\n" +
-            $"👤 Người duyệt: {H(approverName)}\n" +
-            $"🔖 Tiêu đề: {H(request.Title)}" +
-            (allApproved ? "\nℹ️ Đã duyệt hoàn tất" : "");
-        await NotifyEmployee(request.EmployeeId,
-            "Đơn đã được duyệt",
-            $"{approverName} đã duyệt đơn: {request.Title}" + (allApproved ? " (Đã duyệt hoàn tất)" : ""),
-            approvedTg);
+        string notifTitle, notifMessage, approvedTg;
+        if (allApproved)
+        {
+            notifTitle = "Đơn đã được duyệt hoàn tất";
+            notifMessage = $"{approverName} (người duyệt {approval.ApproverOrder}) đã duyệt - đơn đã được cả 2 người duyệt xác nhận: {request.Title}";
+            approvedTg =
+                $"✅ <b>Đơn duyệt hoàn tất</b>\n" +
+                $"👤 Người duyệt {approval.ApproverOrder}: {H(approverName)}\n" +
+                $"🔖 Tiêu đề: {H(request.Title)}\n" +
+                $"ℹ️ Đã được cả 2 người duyệt xác nhận";
+        }
+        else if (approval.ApproverOrder == 1)
+        {
+            notifTitle = "Đơn được người duyệt 1 xác nhận";
+            notifMessage = $"{approverName} (người duyệt 1) đã duyệt đơn: {request.Title}. Đang chờ người duyệt 2.";
+            approvedTg =
+                $"⏳ <b>Đơn được người duyệt 1 xác nhận</b>\n" +
+                $"👤 Người duyệt 1: {H(approverName)}\n" +
+                $"🔖 Tiêu đề: {H(request.Title)}\n" +
+                $"ℹ️ Đang chờ người duyệt 2 xác nhận";
+        }
+        else
+        {
+            notifTitle = "Đơn được người duyệt 2 xác nhận";
+            notifMessage = $"{approverName} (người duyệt 2) đã duyệt đơn: {request.Title}. Đang chờ người duyệt 1.";
+            approvedTg =
+                $"⏳ <b>Đơn được người duyệt 2 xác nhận</b>\n" +
+                $"👤 Người duyệt 2: {H(approverName)}\n" +
+                $"🔖 Tiêu đề: {H(request.Title)}\n" +
+                $"ℹ️ Đang chờ người duyệt 1 xác nhận";
+        }
+        await NotifyEmployee(request.EmployeeId, notifTitle, notifMessage, approvedTg);
 
         // Audit log
         await _logService.LogAsync(

@@ -182,7 +182,10 @@ public class TicketController : Controller
             CurrentRecipient = currentRecipient,
             CanReply = isCreator || isRecipient,
             CanForward = isRecipient || isAdmin,
-            CanUpdateStatus = isRecipient && currentRecipient?.Status != TicketRecipientStatus.Completed,
+            CanUpdateStatus = isRecipient
+                              && currentRecipient?.Status != TicketRecipientStatus.Completed
+                              && !ticket.IsExpired()
+                              && !ticket.Status.IsTerminal(),
             AvailableRecipients = (await _ticketService.GetAvailableRecipientsAsync())
                 .Where(e => !existingRecipientIds.Contains(e.EmployeeId))
                 .Select(e => new SelectListItem(e.FullName, e.EmployeeId.ToString()))
@@ -283,10 +286,31 @@ public class TicketController : Controller
         var ticket = await _ticketService.GetTicketDetailAsync(ticketId);
         if (ticket == null) return NotFound();
 
+        if (ticket.IsExpired())
+        {
+            TempData["Error"] = "Ticket đã hết hạn nên không thể cập nhật trạng thái.";
+            return RedirectToAction(nameof(Details), new { id = ticketId });
+        }
+
+        if (ticket.Status.IsTerminal())
+        {
+            TempData["Error"] = "Ticket đã hoàn thành/đóng nên không thể cập nhật trạng thái nữa.";
+            return RedirectToAction(nameof(Details), new { id = ticketId });
+        }
+
         var recipient = ticket.Recipients.FirstOrDefault(r => r.EmployeeId == GetCurrentEmployeeId());
         if (recipient == null) return Forbid();
 
-        await _ticketService.UpdateRecipientStatusAsync(recipient.TicketRecipientId, status);
+        try
+        {
+            await _ticketService.UpdateRecipientStatusAsync(recipient.TicketRecipientId, status);
+        }
+        catch (InvalidOperationException)
+        {
+            TempData["Error"] = "Ticket đã hết hạn nên không thể cập nhật trạng thái.";
+            return RedirectToAction(nameof(Details), new { id = ticketId });
+        }
+
         TempData["Success"] = "Đã cập nhật trạng thái!";
         return RedirectToAction(nameof(Details), new { id = ticketId });
     }

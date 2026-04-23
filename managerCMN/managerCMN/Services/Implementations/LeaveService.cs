@@ -619,7 +619,12 @@ public class LeaveService : ILeaveService
 
             var message =
                 $"{dedupeKey} Hệ thống đã cộng {grantedEvent.Days:0.#} ngày phép ({grantedEvent.Label}) vào ngày {grantedEvent.GrantDate:dd/MM/yyyy}.";
-            await _notificationService.CreateAsync(user.UserId, LeaveGrantNotificationTitle, message);
+            var tg =
+                $"🎉 <b>Cộng phép đợt mới</b>\n" +
+                $"📅 Đã cộng {grantedEvent.Days:0.#} ngày phép\n" +
+                $"🏷️ Loại: {grantedEvent.Label}\n" +
+                $"📆 Ngày áp dụng: {grantedEvent.GrantDate:dd/MM/yyyy}";
+            await _notificationService.CreateAsync(user.UserId, LeaveGrantNotificationTitle, message, telegramText: tg);
         }
     }
 

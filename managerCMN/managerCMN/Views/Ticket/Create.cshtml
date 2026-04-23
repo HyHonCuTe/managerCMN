@@ -326,8 +326,9 @@
                     </select>
                 </div>
                 <div class="col-md-4">
-                    <label asp-for="Deadline" class="form-label">Deadline</label>
-                    <input asp-for="Deadline" type="date" class="form-control" />
+                    <label asp-for="Deadline" class="form-label">Deadline <span class="text-danger">*</span></label>
+                    <input asp-for="Deadline" type="date" class="form-control" required />
+                    <span asp-validation-for="Deadline" class="text-danger"></span>
                 </div>
 
                 <!-- Description -->
@@ -482,6 +483,14 @@
 
             // Form validation
             document.getElementById('ticketForm').addEventListener('submit', function(e) {
+                const deadlineInput = document.getElementById('Deadline');
+                if (!deadlineInput || !deadlineInput.value) {
+                    e.preventDefault();
+                    showNotification('Vui lòng nhập deadline!', 'warning');
+                    deadlineInput?.focus();
+                    return;
+                }
+
                 if (selectedRecipients.size === 0) {
                     e.preventDefault();
                     showNotification('Vui lòng chọn ít nhất một người nhận!', 'warning');

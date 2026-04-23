@@ -22,6 +22,7 @@ public class TicketCreateViewModel
     [Display(Name = "Độ khẩn")]
     public TicketUrgency Urgency { get; set; } = TicketUrgency.Normal;
 
+    [Required(ErrorMessage = "Vui lòng nhập deadline")]
     [DataType(DataType.Date)]
     [Display(Name = "Deadline")]
     public DateTime? Deadline { get; set; }

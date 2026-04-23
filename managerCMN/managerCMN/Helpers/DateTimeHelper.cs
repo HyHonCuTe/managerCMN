@@ -2,9 +2,18 @@ namespace managerCMN.Helpers;
 
 public static class DateTimeHelper
 {
-    // Vietnam timezone (UTC+7)
-    private static readonly TimeZoneInfo VietnamTimeZone =
-        TimeZoneInfo.FindSystemTimeZoneById("SE Asia Standard Time");
+    // Vietnam timezone (UTC+7) — tries Windows ID first, then Linux/macOS IANA ID
+    private static readonly TimeZoneInfo VietnamTimeZone = LoadVietnamTz();
+
+    private static TimeZoneInfo LoadVietnamTz()
+    {
+        foreach (var id in new[] { "SE Asia Standard Time", "Asia/Ho_Chi_Minh" })
+        {
+            try { return TimeZoneInfo.FindSystemTimeZoneById(id); }
+            catch { }
+        }
+        return TimeZoneInfo.Utc;
+    }
 
     /// <summary>
     /// Convert UTC DateTime to Vietnam timezone (UTC+7)

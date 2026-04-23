@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
+using managerCMN.Helpers;
 using managerCMN.Models.Enums;
 using managerCMN.Services.Interfaces;
 
@@ -20,7 +21,7 @@ public class TaskDeadlineReminderService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var delay = NextRunTime() - DateTime.Now;
+            var delay = NextRunTime() - DateTimeHelper.VietnamNow;
             if (delay > TimeSpan.Zero)
                 await Task.Delay(delay, stoppingToken);
 
@@ -39,8 +40,8 @@ public class TaskDeadlineReminderService : BackgroundService
 
     private static DateTime NextRunTime()
     {
-        var now = DateTime.Now;
-        var target = DateTime.Today.AddHours(10).AddMinutes(10);
+        var now = DateTimeHelper.VietnamNow;
+        var target = DateTimeHelper.VietnamToday.AddHours(10).AddMinutes(10);
         return now < target ? target : target.AddDays(1);
     }
 
@@ -50,7 +51,7 @@ public class TaskDeadlineReminderService : BackgroundService
         var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-        var now = DateTime.Now;
+        var now = DateTimeHelper.VietnamNow;
         var today = now.Date;
         var d1 = today.AddDays(1);
         var d3 = today.AddDays(3);
@@ -174,9 +175,11 @@ public class TaskDeadlineReminderService : BackgroundService
 
         foreach (var ticket in tickets)
         {
-            var remaining = ticket.Deadline!.Value - now;
+            // Deadline is date-only (stored as 00:00:00). Actual deadline = 23:59:59 of that day.
+            var endOfDeadline = ticket.Deadline!.Value.Date.AddDays(1).AddTicks(-1);
+            var remaining = endOfDeadline - now;
             var timeLeft = FormatTimeLeft(remaining);
-            var deadlineStr = ticket.Deadline.Value.ToString("dd/MM/yyyy HH:mm");
+            var deadlineStr = ticket.Deadline.Value.ToString("dd/MM/yyyy") + " (hết ngày)";
             var targetUrl = $"/Ticket/Details/{ticket.TicketId}";
 
             var title = $"Sắp hết hạn yêu cầu: {ticket.Title}";

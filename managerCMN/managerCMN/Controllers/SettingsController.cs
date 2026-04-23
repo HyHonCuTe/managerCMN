@@ -1,12 +1,15 @@
+using System.Security.Claims;
+using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
+using managerCMN.Models.Enums;
 using managerCMN.Services.Interfaces;
-using System.Security.Claims;
 
 namespace managerCMN.Controllers;
 
@@ -131,6 +134,18 @@ public class SettingsController : Controller
             ViewBag.Roles = await _db.Roles.OrderBy(r => r.RoleName).ToListAsync();
             ViewBag.PermissionsByCategory = await _permissionService.GetAllPermissionsGroupedByCategoryAsync();
         }
+
+        // Announcements tab
+        ViewBag.Announcements = await _db.ScheduledAnnouncements
+            .Include(a => a.FilterDepartment)
+            .OrderByDescending(a => a.ScheduledAt)
+            .Take(50)
+            .ToListAsync();
+        ViewBag.ActiveEmployees = employees
+            .Where(e => e.Status == Models.Enums.EmployeeStatus.Active)
+            .OrderBy(e => e.Department?.DepartmentName)
+            .ThenBy(e => e.FullName)
+            .ToList();
 
         return View();
     }
@@ -743,5 +758,104 @@ public class SettingsController : Controller
             TempData["Error"] = "Có lỗi xảy ra: " + ex.Message;
             return RedirectToAction(nameof(Index), new { tab = "fullattendance" });
         }
+    }
+
+    // === SCHEDULED ANNOUNCEMENTS ===
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> CreateAnnouncement(
+        string title, string content, DateTime scheduledAt,
+        string targetMode, int? filterDepartmentId, int? filterGender, string? filterEmployeeIds)
+    {
+        if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content))
+        {
+            TempData["Error"] = "Tiêu đề và nội dung không được để trống.";
+            return RedirectToAction(nameof(Index), new { tab = "announcements" });
+        }
+
+        if (scheduledAt <= DateTimeHelper.VietnamNow)
+        {
+            TempData["Error"] = "Thời gian gửi phải là thời gian trong tương lai.";
+            return RedirectToAction(nameof(Index), new { tab = "announcements" });
+        }
+
+        var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
+        _ = int.TryParse(employeeIdClaim, out var creatorEmployeeId);
+
+        string? resolvedFilterEmployeeIds = null;
+        if (targetMode == "specific" && !string.IsNullOrWhiteSpace(filterEmployeeIds))
+        {
+            // Validate the JSON list
+            try
+            {
+                var ids = JsonSerializer.Deserialize<List<int>>(filterEmployeeIds);
+                if (ids == null || ids.Count == 0)
+                {
+                    TempData["Error"] = "Vui lòng chọn ít nhất một người nhận.";
+                    return RedirectToAction(nameof(Index), new { tab = "announcements" });
+                }
+                resolvedFilterEmployeeIds = JsonSerializer.Serialize(ids);
+            }
+            catch
+            {
+                TempData["Error"] = "Dữ liệu người nhận không hợp lệ.";
+                return RedirectToAction(nameof(Index), new { tab = "announcements" });
+            }
+        }
+
+        var ann = new ScheduledAnnouncement
+        {
+            Title = title.Trim(),
+            Content = content.Trim(),
+            ScheduledAt = scheduledAt,
+            CreatedByEmployeeId = creatorEmployeeId,
+            FilterDepartmentId = targetMode == "filter" ? filterDepartmentId : null,
+            FilterGender = targetMode == "filter" ? filterGender : null,
+            FilterEmployeeIds = resolvedFilterEmployeeIds
+        };
+
+        _db.ScheduledAnnouncements.Add(ann);
+        await _db.SaveChangesAsync();
+
+        TempData["Success"] = $"Đã lên lịch thông báo \"{ann.Title}\" vào {scheduledAt:dd/MM/yyyy HH:mm}.";
+        return RedirectToAction(nameof(Index), new { tab = "announcements" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> CancelAnnouncement(int id)
+    {
+        var ann = await _db.ScheduledAnnouncements.FindAsync(id);
+        if (ann == null) return NotFound();
+
+        if (ann.Status != AnnouncementStatus.Pending)
+        {
+            TempData["Error"] = "Chỉ có thể huỷ thông báo đang chờ gửi.";
+            return RedirectToAction(nameof(Index), new { tab = "announcements" });
+        }
+
+        ann.Status = AnnouncementStatus.Cancelled;
+        await _db.SaveChangesAsync();
+
+        TempData["Success"] = "Đã huỷ thông báo.";
+        return RedirectToAction(nameof(Index), new { tab = "announcements" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAnnouncement(int id)
+    {
+        var ann = await _db.ScheduledAnnouncements.FindAsync(id);
+        if (ann == null) return NotFound();
+
+        if (ann.Status == AnnouncementStatus.Pending)
+        {
+            TempData["Error"] = "Không thể xóa thông báo đang chờ gửi. Hãy huỷ trước.";
+            return RedirectToAction(nameof(Index), new { tab = "announcements" });
+        }
+
+        _db.ScheduledAnnouncements.Remove(ann);
+        await _db.SaveChangesAsync();
+
+        TempData["Success"] = "Đã xóa thông báo.";
+        return RedirectToAction(nameof(Index), new { tab = "announcements" });
     }
 }

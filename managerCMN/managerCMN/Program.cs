@@ -153,6 +153,7 @@ builder.Services.AddSingleton<managerCMN.Services.Interfaces.ITelegramService,
     managerCMN.Services.Implementations.TelegramService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddHostedService<TaskDeadlineReminderService>();
+builder.Services.AddHostedService<AnnouncementDispatchService>();
 builder.Services.AddHostedService<SystemLifecycleNotificationService>();
 
 // ── HttpContextAccessor for Service logging ──

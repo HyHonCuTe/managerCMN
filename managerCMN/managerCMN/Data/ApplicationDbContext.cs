@@ -64,6 +64,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<SystemLog> SystemLogs => Set<SystemLog>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<PostHistory> PostHistories => Set<PostHistory>();
+    public DbSet<ScheduledAnnouncement> ScheduledAnnouncements => Set<ScheduledAnnouncement>();
 
     // Project Management
     public DbSet<Project> Projects => Set<Project>();

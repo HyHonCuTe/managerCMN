@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using managerCMN.Data;
 
@@ -11,9 +12,11 @@ using managerCMN.Data;
 namespace managerCMN.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260423094323_AddScheduledAnnouncements")]
+    partial class AddScheduledAnnouncements
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2398,55 +2401,6 @@ namespace managerCMN.Migrations
                         });
                 });
 
-            modelBuilder.Entity("managerCMN.Models.Entities.ScheduledAnnouncement", b =>
-                {
-                    b.Property<int>("AnnouncementId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AnnouncementId"));
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("CreatedByEmployeeId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("FilterDepartmentId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("FilterEmployeeIds")
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.Property<int?>("FilterGender")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("ScheduledAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("SentAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Title")
-                        .IsRequired()
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.HasKey("AnnouncementId");
-
-                    b.HasIndex("FilterDepartmentId");
-
-                    b.ToTable("ScheduledAnnouncements");
-                });
-
             modelBuilder.Entity("managerCMN.Models.Entities.Supplier", b =>
                 {
                     b.Property<int>("SupplierId")
@@ -3290,15 +3244,6 @@ namespace managerCMN.Migrations
                     b.Navigation("Permission");
 
                     b.Navigation("Role");
-                });
-
-            modelBuilder.Entity("managerCMN.Models.Entities.ScheduledAnnouncement", b =>
-                {
-                    b.HasOne("managerCMN.Models.Entities.Department", "FilterDepartment")
-                        .WithMany()
-                        .HasForeignKey("FilterDepartmentId");
-
-                    b.Navigation("FilterDepartment");
                 });
 
             modelBuilder.Entity("managerCMN.Models.Entities.Ticket", b =>

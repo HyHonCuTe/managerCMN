@@ -334,7 +334,7 @@ public class AccountController : Controller
                 if (!string.IsNullOrWhiteSpace(employee.EmployeeCode))
                     claims.Add(new Claim("EmployeeCode", employee.EmployeeCode));
 
-                bool isApprover = employee.IsApprover;
+                bool isApprover = employee.IsApprover || employee.IsApprover1;
                 // Check if employee is "Trưởng phòng" (JobTitleId = 2)
                 if (!isApprover)
                     isApprover = employee.JobTitleId == 2;

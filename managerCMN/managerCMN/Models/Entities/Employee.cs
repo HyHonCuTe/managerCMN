@@ -91,6 +91,8 @@ public class Employee
 
     public bool IsApprover { get; set; }
 
+    public bool IsApprover1 { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation

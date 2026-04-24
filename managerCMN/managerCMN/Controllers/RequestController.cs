@@ -88,6 +88,7 @@ public class RequestController : Controller
         {
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
+        await ValidateApproverSelectionsAsync(model, employeeId);
 
         // Validate monthly request limits
         var today = DateTimeHelper.VietnamToday;
@@ -560,6 +561,7 @@ public class RequestController : Controller
         {
             ModelState.AddModelError("Approver1Id", "Vui lòng chọn người duyệt 1.");
         }
+        await ValidateApproverSelectionsAsync(model, request.EmployeeId);
 
         if (model.RequestType == RequestType.Absence)
         {
@@ -761,6 +763,38 @@ public class RequestController : Controller
         model.AvailableReasons = LeaveReasonHelper.GetReasonsForType(model.RequestType)
             .Select(r => new SelectListItem($"{r.DisplayName} → {(r.CountsAsWork ? "Tính công" : "Không tính công")}", ((int)r.Reason).ToString()))
             .ToList();
+    }
+
+    private async Task ValidateApproverSelectionsAsync(RequestCreateViewModel model, int employeeId)
+    {
+        if (!HasValidationError(nameof(RequestCreateViewModel.Approver1Id))
+            && model.Approver1Id.HasValue
+            && model.Approver1Id.Value > 0)
+        {
+            var approver1Candidates = (await _requestService.GetDepartmentManagersAsync(employeeId)).ToList();
+            if (!approver1Candidates.Any())
+            {
+                approver1Candidates = (await _requestService.GetAvailableApprover2ListAsync())
+                    .Where(a => a.EmployeeId != employeeId)
+                    .ToList();
+            }
+
+            if (!approver1Candidates.Any(a => a.EmployeeId == model.Approver1Id.Value))
+            {
+                ModelState.AddModelError(nameof(RequestCreateViewModel.Approver1Id), "Người duyệt 1 không hợp lệ hoặc đã bị bỏ khỏi danh sách duyệt.");
+            }
+        }
+
+        if (!HasValidationError(nameof(RequestCreateViewModel.Approver2Id))
+            && model.Approver2Id.HasValue
+            && model.Approver2Id.Value > 0)
+        {
+            var approver2Candidates = await _requestService.GetAvailableApprover2ListAsync();
+            if (!approver2Candidates.Any(a => a.EmployeeId != employeeId && a.EmployeeId == model.Approver2Id.Value))
+            {
+                ModelState.AddModelError(nameof(RequestCreateViewModel.Approver2Id), "Người duyệt 2 không hợp lệ hoặc đã bị bỏ khỏi danh sách duyệt.");
+            }
+        }
     }
 
     private bool IsPrivileged()

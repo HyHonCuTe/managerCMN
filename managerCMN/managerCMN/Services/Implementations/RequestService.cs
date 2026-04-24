@@ -529,23 +529,23 @@ public class RequestService : IRequestService
 
         if (isLowLevelPosition)
         {
-            // Low-level: Get all "Trưởng phòng" (JobTitleId = 2) in the same department
+            // Low-level: Get configured approver-1 employees in the same department.
             var allEmployees = await _unitOfWork.Employees.GetAllAsync();
 
-            var departmentManagers = allEmployees
+            var departmentApprovers = allEmployees
                 .Where(e => e.DepartmentId == employee.DepartmentId &&
-                           e.EmployeeId != employeeId &&
-                           e.Status == EmployeeStatus.Active &&
-                           e.JobTitleId == 2) // Trưởng phòng
+                            e.EmployeeId != employeeId &&
+                            e.Status == EmployeeStatus.Active &&
+                            e.IsApprover1)
                 .OrderBy(e => e.FullName);
 
-            // If no "Trưởng phòng" found, fallback to Approver2 list (return empty to trigger fallback)
-            if (!departmentManagers.Any())
+            // If none configured, return empty to trigger fallback to approver-2 list.
+            if (!departmentApprovers.Any())
             {
                 return Enumerable.Empty<Employee>();
             }
 
-            return departmentManagers;
+            return departmentApprovers;
         }
         else
         {

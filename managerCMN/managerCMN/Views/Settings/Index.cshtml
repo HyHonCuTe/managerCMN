@@ -11,6 +11,7 @@
     var holidays = ViewBag.Holidays as IEnumerable<Holiday> ?? Enumerable.Empty<Holiday>();
     var approvers = ViewBag.Approvers as List<Employee> ?? new List<Employee>();
     var nonApprovers = ViewBag.NonApprovers as List<Employee> ?? new List<Employee>();
+    var approver1Departments = ViewBag.Approver1Departments as List<DepartmentApprover1SettingsViewModel> ?? new List<DepartmentApprover1SettingsViewModel>();
     var fullAttendanceEmployees = ViewBag.FullAttendanceEmployees as IEnumerable<FullAttendanceEmployee> ?? Enumerable.Empty<FullAttendanceEmployee>();
     var availableEmployeesForFullAttendance = ViewBag.AvailableEmployeesForFullAttendance as List<Employee> ?? new List<Employee>();
     var fullAttendanceFeatureAvailable = ViewBag.FullAttendanceFeatureAvailable as bool? ?? true;
@@ -921,11 +922,88 @@
 @* ========== APPROVERS TAB (Người duyệt đơn) ========== *@
 @if (activeTab == "approvers")
 {
+<div class="card mb-3">
+    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+        <span class="fw-semibold"><i class="bi bi-person-vcard text-primary"></i> Người duyệt 1 theo phòng ban</span>
+        <span class="badge bg-primary rounded-pill">@approver1Departments.Sum(d => d.ApproverCount) người</span>
+    </div>
+    <div class="card-body">
+        <div class="accordion" id="approver1Accordion">
+            @foreach (var dept in approver1Departments)
+            {
+                var collapseId = $"approver1Dept{dept.DepartmentId}";
+                <div class="accordion-item">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@collapseId">
+                            <span class="me-2 fw-semibold">@dept.DepartmentName</span>
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis me-2">@dept.ApproverCount người duyệt 1</span>
+                            <small class="text-muted text-truncate">@dept.CurrentApproverNames</small>
+                        </button>
+                    </h2>
+                    <div id="@collapseId" class="accordion-collapse collapse" data-bs-parent="#approver1Accordion">
+                        <div class="accordion-body">
+                            @if (dept.Employees.Any())
+                            {
+                                <form asp-action="UpdateApprover1ByDepartment" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="departmentId" value="@dept.DepartmentId" />
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th class="text-center" style="width:70px">Duyệt 1</th>
+                                                    <th>Mã NV</th>
+                                                    <th>Họ tên</th>
+                                                    <th>Chức vụ</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var emp in dept.Employees)
+                                                {
+                                                    <tr>
+                                                        <td class="text-center">
+                                                            <input class="form-check-input"
+                                                                   type="checkbox"
+                                                                   name="approver1EmployeeIds"
+                                                                   value="@emp.EmployeeId"
+                                                                   @(emp.IsApprover1 ? "checked" : "") />
+                                                        </td>
+                                                        <td><code>@emp.EmployeeCode</code></td>
+                                                        <td class="fw-semibold">@emp.FullName</td>
+                                                        <td><small class="text-muted">@emp.JobTitleName</small></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <div class="d-flex justify-content-end mt-3">
+                                        <button type="submit" class="btn btn-primary btn-sm">
+                                            <i class="bi bi-check2-circle"></i> Lưu phòng ban này
+                                        </button>
+                                    </div>
+                                </form>
+                            }
+                            else
+                            {
+                                <div class="text-muted small">Phòng ban này chưa có nhân viên đang hoạt động.</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+            @if (!approver1Departments.Any())
+            {
+                <div class="text-center text-muted py-4">Chưa có phòng ban nào.</div>
+            }
+        </div>
+    </div>
+</div>
+
 <div class="row g-3">
     <div class="col-lg-7">
         <div class="card">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
-                <span class="fw-semibold"><i class="bi bi-person-check text-primary"></i> Danh sách người duyệt đơn</span>
+                <span class="fw-semibold"><i class="bi bi-person-check text-primary"></i> Danh sách người duyệt 2</span>
                 <span class="badge bg-primary rounded-pill">@approvers.Count người</span>
             </div>
             <div class="card-body p-0">
@@ -984,7 +1062,7 @@
     <div class="col-lg-5">
         <div class="card mb-3">
             <div class="card-header bg-white fw-semibold">
-                <i class="bi bi-person-plus text-primary"></i> Thêm người duyệt
+                <i class="bi bi-person-plus text-primary"></i> Thêm người duyệt 2
             </div>
             <div class="card-body">
                 <form asp-action="AddApprover" method="post">
@@ -1000,7 +1078,7 @@
                         </select>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-person-plus"></i> Thêm vào danh sách
+                        <i class="bi bi-person-plus"></i> Thêm vào danh sách duyệt 2
                     </button>
                 </form>
             </div>
@@ -1009,7 +1087,7 @@
             <div class="card-body">
                 <h6 class="fw-semibold"><i class="bi bi-info-circle text-primary"></i> Hướng dẫn</h6>
                 <ul class="small text-muted mb-0">
-                    <li class="mb-1"><strong>Người duyệt 1</strong> (tự động): Trưởng phòng / Quản lý của phòng ban nhân viên tạo đơn.</li>
+                    <li class="mb-1"><strong>Người duyệt 1</strong>: nhân viên tạo đơn sẽ chọn từ danh sách được tick trong phòng ban của họ.</li>
                     <li class="mb-1"><strong>Người duyệt 2</strong> (chọn): Nhân viên tạo đơn sẽ chọn từ danh sách này khi tạo đơn.</li>
                     <li>Thêm nhân viên vào đây để họ xuất hiện trong dropdown "Người duyệt 2" khi tạo đơn.</li>
                 </ul>

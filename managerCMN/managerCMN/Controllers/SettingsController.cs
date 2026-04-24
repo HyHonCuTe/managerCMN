@@ -9,6 +9,7 @@ using managerCMN.Data;
 using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
+using managerCMN.Models.ViewModels;
 using managerCMN.Services.Interfaces;
 
 namespace managerCMN.Controllers;
@@ -97,11 +98,43 @@ public class SettingsController : Controller
         }
     }
 
+    private static List<DepartmentApprover1SettingsViewModel> BuildApprover1Settings(
+        IEnumerable<Department> departments,
+        IEnumerable<Employee> employees)
+    {
+        var activeEmployees = employees
+            .Where(e => e.Status == EmployeeStatus.Active && e.DepartmentId.HasValue)
+            .OrderBy(e => e.FullName)
+            .ToList();
+
+        return departments
+            .OrderBy(d => d.DepartmentName)
+            .Select(d => new DepartmentApprover1SettingsViewModel
+            {
+                DepartmentId = d.DepartmentId,
+                DepartmentName = d.DepartmentName,
+                Employees = activeEmployees
+                    .Where(e => e.DepartmentId == d.DepartmentId)
+                    .Select(e => new Approver1EmployeeOptionViewModel
+                    {
+                        EmployeeId = e.EmployeeId,
+                        EmployeeCode = e.EmployeeCode,
+                        FullName = e.FullName,
+                        JobTitleName = e.JobTitle?.JobTitleName,
+                        Status = e.Status,
+                        IsApprover1 = e.IsApprover1
+                    })
+                    .ToList()
+            })
+            .ToList();
+    }
+
     public async Task<IActionResult> Index(string tab = "departments")
     {
         tab = string.IsNullOrWhiteSpace(tab) ? "departments" : tab.Trim().ToLowerInvariant();
         ViewBag.ActiveTab = tab;
-        ViewBag.Departments = await _departmentService.GetAllAsync();
+        var departments = await _departmentService.GetAllAsync();
+        ViewBag.Departments = departments;
         ViewBag.Positions = await _db.Positions.OrderBy(p => p.SortOrder).ToListAsync();
         ViewBag.JobTitles = await _db.JobTitles.OrderBy(j => j.SortOrder).ToListAsync();
         ViewBag.AssetCategories = await _db.AssetCategories.OrderBy(c => c.CategoryName).ToListAsync();
@@ -116,6 +149,7 @@ public class SettingsController : Controller
         ViewBag.Approvers = employees.Where(e => e.IsApprover).OrderBy(e => e.FullName).ToList();
         ViewBag.NonApprovers = employees.Where(e => !e.IsApprover && e.Status == Models.Enums.EmployeeStatus.Active)
             .OrderBy(e => e.FullName).ToList();
+        ViewBag.Approver1Departments = BuildApprover1Settings(departments, employees);
 
         // Full Attendance tab
         await LoadFullAttendanceViewDataAsync(employees);
@@ -522,6 +556,51 @@ public class SettingsController : Controller
         emp.IsApprover = false;
         await _db.SaveChangesAsync();
         TempData["Success"] = $"Đã xóa {emp.FullName} khỏi danh sách người duyệt!";
+        return RedirectToAction(nameof(Index), new { tab = "approvers" });
+    }
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> UpdateApprover1ByDepartment(int departmentId, int[]? approver1EmployeeIds)
+    {
+        var department = await _db.Departments.FindAsync(departmentId);
+        if (department == null) return NotFound();
+
+        var selectedIds = (approver1EmployeeIds ?? Array.Empty<int>()).ToHashSet();
+        var departmentEmployees = await _db.Employees
+            .Where(e => e.DepartmentId == departmentId && e.Status == EmployeeStatus.Active)
+            .ToListAsync();
+
+        var validIds = departmentEmployees.Select(e => e.EmployeeId).ToHashSet();
+        selectedIds.IntersectWith(validIds);
+
+        var before = departmentEmployees
+            .Where(e => e.IsApprover1)
+            .Select(e => new { e.EmployeeId, e.EmployeeCode, e.FullName })
+            .OrderBy(e => e.FullName)
+            .ToArray();
+
+        foreach (var employee in departmentEmployees)
+        {
+            employee.IsApprover1 = selectedIds.Contains(employee.EmployeeId);
+        }
+
+        await _db.SaveChangesAsync();
+
+        var after = departmentEmployees
+            .Where(e => e.IsApprover1)
+            .Select(e => new { e.EmployeeId, e.EmployeeCode, e.FullName })
+            .OrderBy(e => e.FullName)
+            .ToArray();
+
+        await _systemLogService.LogAsync(
+            GetCurrentUserId(),
+            "Cap nhat nguoi duyet 1 theo phong ban",
+            "Employee",
+            new { department.DepartmentId, department.DepartmentName, Approver1 = before },
+            new { department.DepartmentId, department.DepartmentName, Approver1 = after },
+            GetClientIP());
+
+        TempData["Success"] = $"Đã cập nhật người duyệt 1 cho phòng ban {department.DepartmentName}.";
         return RedirectToAction(nameof(Index), new { tab = "approvers" });
     }
 

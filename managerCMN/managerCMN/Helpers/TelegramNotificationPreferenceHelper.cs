@@ -47,35 +47,35 @@ public static class TelegramNotificationPreferenceHelper
             Category = TelegramNotificationCategory.Request,
             Title = "Đơn từ",
             Description = "Đơn mới cần duyệt, duyệt/từ chối đơn và hoàn duyệt.",
-            IsMandatory = true
+            IsMandatory = false
         },
         new()
         {
             Category = TelegramNotificationCategory.LeaveGrant,
             Title = "Cộng phép",
             Description = "Thông báo hệ thống cộng thêm phép cho tài khoản của bạn.",
-            IsMandatory = true
+            IsMandatory = false
         },
         new()
         {
             Category = TelegramNotificationCategory.Announcement,
             Title = "Thông báo nội bộ",
             Description = "Thông báo nội bộ hoặc thông báo đại trà được lên lịch gửi qua Telegram.",
-            IsMandatory = true
+            IsMandatory = false
         },
         new()
         {
             Category = TelegramNotificationCategory.SystemLifecycle,
             Title = "Trạng thái hệ thống",
             Description = "Thông báo hệ thống đang cập nhật hoặc đã sẵn sàng trở lại.",
-            IsMandatory = true
+            IsMandatory = false
         },
         new()
         {
             Category = TelegramNotificationCategory.EmployeeProfileUpdate,
             Title = "Cập nhật hồ sơ nhân viên",
             Description = "Thông báo khi nhân viên chỉnh sửa thông tin hồ sơ cá nhân.",
-            IsMandatory = true
+            IsMandatory = false
         }
     ];
 

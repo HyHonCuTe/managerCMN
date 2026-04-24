@@ -468,6 +468,9 @@ namespace managerCMN.Migrations
                     b.Property<bool>("IsApprover")
                         .HasColumnType("bit");
 
+                    b.Property<bool>("IsApprover1")
+                        .HasColumnType("bit");
+
                     b.Property<int?>("JobTitleId")
                         .HasColumnType("int");
 

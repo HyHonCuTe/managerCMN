@@ -123,6 +123,17 @@
     color: #9ca3af; font-size: 0.85rem; transition: color 0.15s;
 }
 .task-expand-btn:hover { color: #374151; }
+.task-section-caret-btn {
+    background: none;
+    border: none;
+    padding: 0 0.2rem;
+    cursor: pointer;
+    color: #9ca3af;
+    font-size: 0.85rem;
+    transition: color 0.15s;
+    line-height: 1;
+}
+.task-section-caret-btn:hover { color: #374151; }
 .task-title {
     font-size: 0.88rem;
     font-weight: 600;
@@ -427,6 +438,29 @@ button.task-change-mini:hover,
     align-items: center;
     gap: 0.45rem;
     min-width: 0;
+}
+.gantt-expand-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    color: #9ca3af;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: color 0.15s;
+}
+
+.gantt-expand-btn:hover,
+.gantt-expand-btn:focus-visible {
+    color: #374151;
+    outline: none;
+}
+
+.gantt-expand-placeholder {
+    width: 16px;
+    height: 16px;
+    display: inline-block;
 }
 
 .gantt-task-level {

@@ -1,87 +1,555 @@
 ﻿@model IEnumerable<Notification>
 @{
     ViewData["Title"] = "Thông báo";
+    var announcements = (List<ScheduledAnnouncement>)(ViewBag.Announcements ?? new List<ScheduledAnnouncement>());
+    var announcementAudiences = (List<ScheduledAnnouncementAudienceViewModel>)(ViewBag.AnnouncementAudiences ?? new List<ScheduledAnnouncementAudienceViewModel>());
+    var audienceMap = announcementAudiences.ToDictionary(x => x.AnnouncementId);
+    var canViewAllNotifications = (bool?)ViewBag.CanViewAllNotifications ?? false;
 }
 
-<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
-    <h4 class="mb-0 d-flex align-items-center flex-wrap gap-2">
-        <span><i class="bi bi-bell"></i> Thông báo</span>
-        @if (ViewBag.CanViewAllNotifications == true)
-        {
-            <span class="badge bg-warning text-dark"><i class="bi bi-shield-check"></i> Chế độ Admin</span>
-        }
-    </h4>
-    <form asp-action="MarkAllRead" method="post" class="flex-shrink-0">
-        @Html.AntiForgeryToken()
-        <button type="submit" class="btn btn-outline-primary btn-sm">
-            <i class="bi bi-check-all"></i>
-            <span class="d-none d-sm-inline">Đánh dấu tất cả đã đọc</span>
-            <span class="d-sm-none">Đánh dấu tất cả</span>
-        </button>
-    </form>
-</div>
+@* ========== SCHEDULED ANNOUNCEMENTS SECTION (Admin Only) - TOP ========== *@
+@if (canViewAllNotifications)
+{
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-light rounded border border-info">
+            <h4 class="mb-0 d-flex align-items-center gap-2">
+                <i class="bi bi-megaphone text-info"></i> Thông báo lên lịch
+                <span class="badge bg-info text-dark rounded-pill">@announcements.Count mục</span>
+            </h4>
+            <button type="button" id="toggleAnnouncements" class="btn btn-sm btn-outline-info" title="Thu gọn/Mở rộng">
+                <i class="bi bi-caret-down-fill"></i>
+            </button>
+        </div>
 
-<div class="list-group">
-    @foreach (var n in Model)
-    {
-        <div class="list-group-item @(n.IsRead ? "bg-light" : "border-start border-primary border-4 bg-white")">
-            <div class="d-flex justify-content-between align-items-start">
-                <div class="flex-grow-1">
+        <div id="announcementsSection" class="row g-3">
+            @* ── Create Form ── *@
+            <div class="col-lg-5">
+                <div class="card">
+                    <div class="card-header bg-white fw-semibold">
+                        <i class="bi bi-megaphone text-primary"></i> Tạo thông báo mới
+                    </div>
+                    <div class="card-body">
+                        <form asp-controller="Settings" asp-action="CreateAnnouncement" method="post" id="announcementForm">
+                            @Html.AntiForgeryToken()
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Tiêu đề <span class="text-danger">*</span></label>
+                                <input name="title" class="form-control" placeholder="VD: Thông báo nghỉ lễ 30/4..." maxlength="200" required />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Nội dung <span class="text-danger">*</span></label>
+                                <textarea name="content" class="form-control" rows="4"
+                                          placeholder="Nhập nội dung thông báo..." required></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold">Thời gian gửi <span class="text-danger">*</span></label>
+                                <input name="scheduledAt" type="datetime-local" class="form-control" required
+                                       min="@DateTimeHelper.VietnamNow.ToString("yyyy-MM-ddTHH:mm")" />
+                                <small class="text-muted">Giờ Việt Nam (GMT+7) — phải là thời gian trong tương lai</small>
+                            </div>
+
+                            @* ── Target mode ── *@
+                            <div class="mb-2">
+                                <label class="form-label fw-semibold">Đối tượng nhận</label>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="targetMode" id="tm-all" value="all" checked />
+                                        <label class="form-check-label" for="tm-all">
+                                            <i class="bi bi-people"></i> Tất cả
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="targetMode" id="tm-filter" value="filter" />
+                                        <label class="form-check-label" for="tm-filter">
+                                            <i class="bi bi-funnel"></i> Lọc
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="targetMode" id="tm-specific" value="specific" />
+                                        <label class="form-check-label" for="tm-specific">
+                                            <i class="bi bi-person-check"></i> Chọn cụ thể
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            @* Filter by criteria *@
+                            @{
+                                var departments = (List<Department>)(ViewBag.Departments ?? new List<Department>());
+                            }
+                            <div id="filterSection" class="d-none border rounded p-3 bg-light mb-3">
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold">Phòng ban</label>
+                                        <select name="filterDepartmentId" class="form-select form-select-sm">
+                                            <option value="">Tất cả phòng ban</option>
+                                            @foreach (var dept in departments)
+                                            {
+                                                <option value="@dept.DepartmentId">@dept.DepartmentName</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small fw-semibold">Giới tính</label>
+                                        <select name="filterGender" class="form-select form-select-sm">
+                                            <option value="">Tất cả giới tính</option>
+                                            <option value="0">Nam</option>
+                                            <option value="1">Nữ</option>
+                                            <option value="2">Khác</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <small class="text-muted mt-1 d-block">Có thể kết hợp cả hai tiêu chí</small>
+                            </div>
+
+                            @* Specific employees — searchable checkbox list *@
+                            @{
+                                var activeEmployees = (List<Employee>)(ViewBag.ActiveEmployees ?? new List<Employee>());
+                            }
+                            <div id="specificSection" class="d-none mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <label class="form-label fw-semibold mb-0">Chọn nhân viên <span class="text-danger">*</span></label>
+                                    <span id="empSelectedCount" class="badge bg-primary">0 đã chọn</span>
+                                </div>
+                                <input type="text" id="empSearch" class="form-control form-control-sm mb-1"
+                                       placeholder="🔍 Tìm theo tên..." autocomplete="off" />
+                                <div id="empCheckboxList" class="border rounded bg-white"
+                                     style="max-height:200px;overflow-y:auto;padding:6px 10px">
+                                    @{
+                                        var lastDept = "";
+                                    }
+                                    @foreach (var emp in activeEmployees)
+                                    {
+                                        var deptName = emp.Department?.DepartmentName ?? "Chưa phân phòng ban";
+                                        if (deptName != lastDept)
+                                        {
+                                            <div class="text-muted small fw-semibold mt-2 mb-1 emp-dept-header"
+                                                 style="border-bottom:1px solid #dee2e6">@deptName</div>
+                                            lastDept = deptName;
+                                        }
+                                        <div class="form-check emp-item py-0" data-name="@emp.FullName.ToLower()" data-dept="@deptName.ToLower()">
+                                            <input class="form-check-input emp-check" type="checkbox"
+                                                   value="@emp.EmployeeId" id="ec-@emp.EmployeeId" />
+                                            <label class="form-check-label" for="ec-@emp.EmployeeId" style="cursor:pointer">
+                                                @emp.FullName
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                                <div class="d-flex gap-2 mt-1">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="empSelectAll">Chọn tất cả</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="empClearAll">Bỏ chọn</button>
+                                </div>
+                                <input type="hidden" name="filterEmployeeIds" id="filterEmployeeIdsInput" />
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="bi bi-clock"></i> Lên lịch gửi thông báo
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            @* ── List ── *@
+            <div class="col-lg-7">
+                <div class="card">
+                    <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                        <span class="fw-semibold"><i class="bi bi-list-ul text-primary"></i> Danh sách thông báo</span>
+                        <span class="badge bg-secondary rounded-pill">@announcements.Count mục</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive announcement-list-scroll">
+                            <table class="table table-hover align-middle mb-0 table-sm">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th>Tiêu đề / Nội dung</th>
+                                        <th style="width:150px">Thời gian gửi</th>
+                                        <th style="width:110px">Đối tượng</th>
+                                        <th style="width:105px">Trạng thái</th>
+                                        <th style="width:80px" class="text-center">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var ann in announcements)
+                                    {
+                                        var statusBadge = ann.Status switch {
+                                            AnnouncementStatus.Pending   => ("warning text-dark", "⏳ Chờ gửi"),
+                                            AnnouncementStatus.Sent      => ("success", "✅ Đã gửi"),
+                                            AnnouncementStatus.Cancelled => ("secondary", "❌ Đã huỷ"),
+                                            _ => ("secondary", "—")
+                                        };
+                                        audienceMap.TryGetValue(ann.AnnouncementId, out var audience);
+                                        int empCount = 0;
+                                        if (!string.IsNullOrWhiteSpace(ann.FilterEmployeeIds))
+                                        {
+                                            try {
+                                                var ids = System.Text.Json.JsonSerializer.Deserialize<List<int>>(ann.FilterEmployeeIds);
+                                                empCount = ids?.Count ?? 0;
+                                            } catch { }
+                                        }
+                                    <tr>
+                                        <td style="max-width:200px">
+                                            <div class="fw-semibold text-truncate" title="@ann.Title">@ann.Title</div>
+                                            <small class="text-muted text-truncate d-block" title="@ann.Content">@ann.Content</small>
+                                        </td>
+                                        <td>
+                                            <small class="fw-semibold">@ann.ScheduledAt.ToString("dd/MM HH:mm")</small>
+                                            <br /><small class="text-muted">@ann.ScheduledAt.Year</small>
+                                            @if (ann.SentAt.HasValue)
+                                            {
+                                                <br /><small class="text-success">✓ @ann.SentAt.Value.ToString("HH:mm")</small>
+                                            }
+                                        </td>
+                                        <td>
+                                            <button type="button"
+                                                    class="btn btn-link p-0 text-start announcement-audience-trigger"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#announcementAudienceModal"
+                                                    data-announcement-id="@ann.AnnouncementId"
+                                                    data-announcement-title="@ann.Title"
+                                                    data-announcement-time="@ann.ScheduledAt.ToString("dd/MM/yyyy HH:mm")"
+                                                    data-announcement-status="@statusBadge.Item2">
+                                                <span class="badge bg-info text-dark d-inline-flex align-items-center gap-1">
+                                                    <i class="bi bi-people"></i> @(audience?.RecipientCount ?? empCount) người
+                                                </span>
+                                            </button>
+                                            <small class="text-muted d-block mt-1">Bấm để xem chi tiết</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-@statusBadge.Item1">@statusBadge.Item2</span>
+                                        </td>
+                                        <td class="text-center">
+                                            @if (ann.Status == AnnouncementStatus.Pending)
+                                            {
+                                                <form asp-controller="Settings" asp-action="CancelAnnouncement" method="post" class="d-inline"
+                                                      onsubmit="return confirm('Huỷ thông báo này?')">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@ann.AnnouncementId" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Huỷ gửi">
+                                                        <i class="bi bi-x-circle"></i>
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <form asp-controller="Settings" asp-action="DeleteAnnouncement" method="post" class="d-inline"
+                                                      onsubmit="return confirm('Xóa thông báo này?')">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@ann.AnnouncementId" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                </form>
+                                            }
+                                        </td>
+                                    </tr>
+                                    }
+                                    @if (!announcements.Any())
+                                    {
+                                    <tr>
+                                        <td colspan="5" class="text-center py-4 text-muted">
+                                            <i class="bi bi-megaphone fs-3 d-block mb-1"></i>
+                                            Chưa có thông báo nào. Tạo thông báo đầu tiên từ form bên trái.
+                                        </td>
+                                    </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+        (function() {
+            const radios = document.querySelectorAll('input[name="targetMode"]');
+            const filterSection = document.getElementById('filterSection');
+            const specificSection = document.getElementById('specificSection');
+            const empSearch = document.getElementById('empSearch');
+            const empItems = document.querySelectorAll('.emp-item');
+            const deptHeaders = document.querySelectorAll('.emp-dept-header');
+            const hiddenInput = document.getElementById('filterEmployeeIdsInput');
+            const countBadge = document.getElementById('empSelectedCount');
+            const audienceMap = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(audienceMap));
+            document.addEventListener('DOMContentLoaded', () => {
+                const audienceModal = document.getElementById('announcementAudienceModal');
+                const audienceTitle = document.getElementById('announcementAudienceTitle');
+                const audienceTime = document.getElementById('announcementAudienceTime');
+                const audienceStatus = document.getElementById('announcementAudienceStatus');
+                const audienceSummary = document.getElementById('announcementAudienceSummary');
+                const audienceCount = document.getElementById('announcementAudienceCount');
+                const audienceList = document.getElementById('announcementAudienceList');
+
+                function renderRecipients(names) {
+                    if (!audienceList) return;
+
+                    audienceList.innerHTML = '';
+
+                    if (!names || names.length === 0) {
+                        const empty = document.createElement('div');
+                        empty.className = 'text-muted';
+                        empty.textContent = 'Không xác định được danh sách người nhận từ dữ liệu hiện có.';
+                        audienceList.appendChild(empty);
+                        return;
+                    }
+
+                    names.forEach(name => {
+                        const badge = document.createElement('span');
+                        badge.className = 'badge bg-light text-dark border recipient-badge';
+                        badge.textContent = name;
+                        audienceList.appendChild(badge);
+                    });
+                }
+
+                audienceModal?.addEventListener('show.bs.modal', event => {
+                    const button = event.relatedTarget;
+                    const announcementId = button?.getAttribute('data-announcement-id');
+                    const info = announcementId ? audienceMap[announcementId] : null;
+
+                    if (audienceTitle) audienceTitle.textContent = button?.getAttribute('data-announcement-title') ?? 'Chi tiết người nhận';
+                    if (audienceTime) audienceTime.textContent = button?.getAttribute('data-announcement-time') ?? '';
+                    if (audienceStatus) audienceStatus.textContent = button?.getAttribute('data-announcement-status') ?? '';
+                    if (audienceSummary) audienceSummary.textContent = info?.TargetSummary ?? 'Không có thông tin';
+                    if (audienceCount) audienceCount.textContent = `${info?.RecipientCount ?? 0} người`;
+
+                    renderRecipients(info?.RecipientNames ?? []);
+                });
+            });
+
+            function updateSections() {
+                const mode = document.querySelector('input[name="targetMode"]:checked')?.value;
+                filterSection.classList.toggle('d-none', mode !== 'filter');
+                specificSection.classList.toggle('d-none', mode !== 'specific');
+            }
+
+            radios.forEach(r => r.addEventListener('change', updateSections));
+
+            // Live search filter
+            if (empSearch) {
+                empSearch.addEventListener('input', function() {
+                    const q = this.value.trim().toLowerCase();
+                    const visibleDepts = new Set();
+                    empItems.forEach(item => {
+                        const name = item.dataset.name || '';
+                        const dept = item.dataset.dept || '';
+                        const show = !q || name.includes(q) || dept.includes(q);
+                        item.style.display = show ? '' : 'none';
+                        if (show) visibleDepts.add(item.dataset.dept);
+                    });
+                    deptHeaders.forEach(h => {
+                        const dname = h.textContent.trim().toLowerCase();
+                        h.style.display = visibleDepts.has(dname) ? '' : 'none';
+                    });
+                });
+            }
+
+            // Update selected count badge
+            function updateCount() {
+                const n = document.querySelectorAll('.emp-check:checked').length;
+                if (countBadge) countBadge.textContent = n + ' đã chọn';
+            }
+            document.querySelectorAll('.emp-check').forEach(cb => cb.addEventListener('change', updateCount));
+
+            // Select / clear all visible
+            document.getElementById('empSelectAll')?.addEventListener('click', function() {
+                empItems.forEach(item => {
+                    if (item.style.display !== 'none') {
+                        const cb = item.querySelector('.emp-check');
+                        if (cb) cb.checked = true;
+                    }
+                });
+                updateCount();
+            });
+            document.getElementById('empClearAll')?.addEventListener('click', function() {
+                document.querySelectorAll('.emp-check').forEach(cb => cb.checked = false);
+                updateCount();
+            });
+
+            // Collect selected IDs on submit
+            document.getElementById('announcementForm')?.addEventListener('submit', function(e) {
+                const mode = document.querySelector('input[name="targetMode"]:checked')?.value;
+                if (mode === 'specific') {
+                    const ids = Array.from(document.querySelectorAll('.emp-check:checked')).map(cb => parseInt(cb.value));
+                    if (ids.length === 0) {
+                        e.preventDefault();
+                        alert('Vui lòng chọn ít nhất một nhân viên.');
+                        return;
+                    }
+                    if (hiddenInput) hiddenInput.value = JSON.stringify(ids);
+                }
+            });
+
+            // Collapse/expand announcements section
+            const toggleBtn = document.getElementById('toggleAnnouncements');
+            const announcementsSection = document.getElementById('announcementsSection');
+            const toggleIcon = toggleBtn?.querySelector('i');
+            const storageKey = 'notification-announcements-collapsed';
+
+            function applyCollapse(collapsed) {
+                announcementsSection.style.display = collapsed ? 'none' : '';
+                if (toggleIcon) {
+                    toggleIcon.classList.toggle('bi-caret-right-fill', collapsed);
+                    toggleIcon.classList.toggle('bi-caret-down-fill', !collapsed);
+                }
+                localStorage.setItem(storageKey, collapsed ? 'true' : 'false');
+            }
+
+            // Load saved state
+            const savedState = localStorage.getItem(storageKey) === 'true';
+            applyCollapse(savedState);
+
+            // Toggle on button click
+            toggleBtn?.addEventListener('click', () => {
+                const isCollapsed = announcementsSection.style.display === 'none';
+                applyCollapse(!isCollapsed);
+            });
+        })();
+        </script>
+        <div class="modal fade" id="announcementAudienceModal" tabindex="-1" aria-labelledby="announcementAudienceModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div>
+                            <h5 class="modal-title mb-1" id="announcementAudienceModalLabel">
+                                <i class="bi bi-people text-primary"></i>
+                                <span id="announcementAudienceTitle">Chi tiết người nhận</span>
+                            </h5>
+                            <div class="small text-muted">
+                                <span id="announcementAudienceTime"></span>
+                                <span class="mx-2">•</span>
+                                <span id="announcementAudienceStatus"></span>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="d-flex flex-wrap gap-3 mb-3">
+                            <div class="px-3 py-2 border rounded bg-light">
+                                <div class="text-muted small">Tóm tắt</div>
+                                <div class="fw-semibold" id="announcementAudienceSummary"></div>
+                            </div>
+                            <div class="px-3 py-2 border rounded bg-light">
+                                <div class="text-muted small">Số người nhận</div>
+                                <div class="fw-semibold" id="announcementAudienceCount"></div>
+                            </div>
+                        </div>
+
+                        <div class="mb-2 fw-semibold">Danh sách người nhận</div>
+                        <div id="announcementAudienceList" class="d-flex flex-wrap gap-2 audience-recipient-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <hr class="my-4" />
+}
+
+@* ========== NOTIFICATIONS SECTION ========== *@
+<div class="mb-4">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+        <h4 class="mb-0 d-flex align-items-center flex-wrap gap-2">
+            <span><i class="bi bi-bell"></i> Thông báo</span>
+            @if (canViewAllNotifications)
+            {
+                <span class="badge bg-warning text-dark"><i class="bi bi-shield-check"></i> Chế độ Admin</span>
+            }
+        </h4>
+        <form asp-action="MarkAllRead" method="post" class="flex-shrink-0">
+            @Html.AntiForgeryToken()
+            <button type="submit" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-check-all"></i>
+                <span class="d-none d-sm-inline">Đánh dấu tất cả đã đọc</span>
+                <span class="d-sm-none">Đánh dấu tất cả</span>
+            </button>
+        </form>
+    </div>
+
+    <div class="list-group">
+        @foreach (var n in Model)
+        {
+            <div class="list-group-item notification-item @(n.IsRead ? "notification-read" : "notification-unread")">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="flex-grow-1">
+                        @if (!n.IsRead)
+                        {
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="badge bg-primary rounded-pill"><i class="bi bi-bell-fill"></i> Mới</span>
+                                <h6 class="mb-0 fw-bold notification-title-unread">@n.Title</h6>
+                            </div>
+                            <p class="mb-1 notification-message-unread">@n.Message</p>
+                        }
+                        else
+                        {
+                            <h6 class="mb-1 notification-title-read">@n.Title</h6>
+                            <p class="mb-1 notification-message-read">@n.Message</p>
+                        }
+
+                        @if (canViewAllNotifications)
+                        {
+                            <div class="mb-2">
+                                <small class="text-info">
+                                    <i class="bi bi-person"></i>
+                                    <strong>Người nhận:</strong> @(n.User?.FullName ?? "N/A")
+                                    <span class="text-muted">(ID: @n.UserId)</span>
+                                </small>
+                            </div>
+                        }
+
+                        <small class="text-muted"><i class="bi bi-clock"></i> @n.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</small>
+
+                        @if (!string.IsNullOrWhiteSpace(n.TargetUrl))
+                        {
+                            <div class="mt-2">
+                                <a asp-action="Open" asp-route-id="@n.NotificationId" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-box-arrow-up-right"></i> Mở task liên quan
+                                </a>
+                            </div>
+                        }
+                    </div>
+
                     @if (!n.IsRead)
                     {
-                        <div class="d-flex align-items-center gap-2 mb-1">
-                            <span class="badge bg-primary rounded-pill"><i class="bi bi-bell-fill"></i> Mới</span>
-                            <h6 class="mb-0 fw-bold">@n.Title</h6>
-                        </div>
-                        <p class="mb-1">@n.Message</p>
-                    }
-                    else
-                    {
-                        <h6 class="mb-1 text-muted">@n.Title</h6>
-                        <p class="mb-1 text-muted small">@n.Message</p>
-                    }
-
-                    @if (ViewBag.CanViewAllNotifications == true)
-                    {
-                        <div class="mb-2">
-                            <small class="text-info">
-                                <i class="bi bi-person"></i>
-                                <strong>Người nhận:</strong> @(n.User?.FullName ?? "N/A")
-                                <span class="text-muted">(ID: @n.UserId)</span>
-                            </small>
-                        </div>
-                    }
-
-                    <small class="text-muted"><i class="bi bi-clock"></i> @n.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</small>
-
-                    @if (!string.IsNullOrWhiteSpace(n.TargetUrl))
-                    {
-                        <div class="mt-2">
-                            <a asp-action="Open" asp-route-id="@n.NotificationId" class="btn btn-sm btn-outline-primary">
-                                <i class="bi bi-box-arrow-up-right"></i> Mở task liên quan
-                            </a>
-                        </div>
+                        <form asp-action="MarkAsRead" asp-route-id="@n.NotificationId" method="post">
+                            @Html.AntiForgeryToken()
+                            <button type="submit" class="btn btn-sm btn-outline-primary" title="Đánh dấu đã đọc">
+                                <i class="bi bi-check"></i>
+                            </button>
+                        </form>
                     }
                 </div>
-
-                @if (!n.IsRead)
-                {
-                    <form asp-action="MarkAsRead" asp-route-id="@n.NotificationId" method="post">
-                        @Html.AntiForgeryToken()
-                        <button type="submit" class="btn btn-sm btn-outline-primary" title="Đánh dấu đã đọc">
-                            <i class="bi bi-check"></i>
-                        </button>
-                    </form>
-                }
             </div>
+
+            <style>
+            .announcement-list-scroll {
+                max-height: 320px;
+                overflow-y: auto;
+                scrollbar-gutter: stable;
+            }
+
+            .audience-recipient-list {
+                min-height: 48px;
+                max-height: 280px;
+                overflow-y: auto;
+            }
+
+            .recipient-badge {
+                white-space: normal;
+                text-align: left;
+                line-height: 1.35;
+            }
+            </style>
+        }
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-bell-slash fs-1"></i>
+            <p>Không có thông báo nào.</p>
         </div>
     }
 </div>
-
-@if (!Model.Any())
-{
-    <div class="text-center text-muted py-5">
-        <i class="bi bi-bell-slash fs-1"></i>
-        <p>Không có thông báo nào.</p>
-    </div>
-}

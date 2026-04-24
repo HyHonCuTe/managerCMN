@@ -25,10 +25,15 @@
         .OrderBy(g => g.Key.DepartmentName)
         .ToList();
     var parentTaskOptions = FlattenTaskOptions(Model.RootTasks).ToList();
-    var scheduledTimelineRows = Model.TimelineRows
+    var timelineRows = MergeTimelineRows(Model.TimelineRows, Model.RootTasks);
+    var scheduledTimelineRows = timelineRows
         .Where(row => row.StartDate.HasValue || row.DueDate.HasValue)
         .ToList();
-    var unscheduledTimelineRows = Model.TimelineRows
+    var scheduledParentTaskIds = scheduledTimelineRows
+        .Where(row => row.ParentTaskId.HasValue)
+        .Select(row => row.ParentTaskId!.Value)
+        .ToHashSet();
+    var unscheduledTimelineRows = timelineRows
         .Where(row => !row.StartDate.HasValue && !row.DueDate.HasValue)
         .ToList();
     var timelineDays = Model.TimelineStart.HasValue && Model.TimelineEnd.HasValue
@@ -230,8 +235,23 @@ else if (isProjectViewer && !isSystemAdmin)
         }
         else
         {
-            <div class="task-tree-container" id="taskTree">
-                @await Html.PartialAsync("_TaskTree", Model.RootTasks)
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-list-task me-1"></i>Danh sách công việc</h6>
+                <button type="button"
+                        class="task-section-caret-btn"
+                        data-section-toggle
+                        data-section-key="project-@Model.ProjectId-task-list"
+                        data-section-target="taskListSectionBody"
+                        aria-label="Thu gọn danh sách công việc"
+                        title="Thu gọn danh sách công việc">
+                    <i class="bi bi-caret-down-fill"></i>
+                </button>
+            </div>
+
+            <div id="taskListSectionBody" data-section-body>
+                <div class="task-tree-container" id="taskTree">
+                    @await Html.PartialAsync("_TaskTree", Model.RootTasks)
+                </div>
             </div>
 
             <div class="task-gantt-card mt-3">
@@ -248,19 +268,29 @@ else if (isProjectViewer && !isSystemAdmin)
                             @Model.TimelineStart.Value.ToString("dd/MM/yyyy") → @Model.TimelineEnd.Value.ToString("dd/MM/yyyy")
                         </span>
                     }
+                    <button type="button"
+                            class="task-section-caret-btn ms-2"
+                            data-section-toggle
+                            data-section-key="project-@Model.ProjectId-timeline"
+                            data-section-target="timelineSectionBody"
+                            aria-label="Thu gọn timeline công việc"
+                            title="Thu gọn timeline công việc">
+                        <i class="bi bi-caret-down-fill"></i>
+                    </button>
                 </div>
 
-                @if (!scheduledTimelineRows.Any())
-                {
-                    <div class="empty-state py-4">
-                        <i class="bi bi-calendar3"></i>
-                        <p>Chưa có task nào được đặt ngày để hiển thị trên timeline.</p>
-                    </div>
-                }
-                else
-                {
-                    <div class="gantt-scroll">
-                        <div class="gantt-board">
+                <div id="timelineSectionBody" data-section-body>
+                    @if (!scheduledTimelineRows.Any())
+                    {
+                        <div class="empty-state py-4">
+                            <i class="bi bi-calendar3"></i>
+                            <p>Chưa có task nào được đặt ngày để hiển thị trên timeline.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="gantt-scroll">
+                            <div class="gantt-board">
                             <div class="gantt-header-row">
                                 <div class="gantt-task-col">Công việc</div>
                                 <div class="gantt-scale-col">
@@ -294,14 +324,32 @@ else if (isProjectViewer && !isSystemAdmin)
                                 var depthLevel = Math.Min(row.Depth, 5);
                                 var progressWidth = Math.Max(0, Math.Min(100, row.Progress));
                                 var canHighlightEdit = showEditableTaskMarkers && row.CanManageTask;
+                                var hasTimelineChildren = scheduledParentTaskIds.Contains(row.ProjectTaskId);
 
                                 <div class="gantt-row @rowClasses depth-@depthLevel @(canHighlightEdit ? "can-edit" : "")"
                                      style="--gantt-depth:@depthLevel;--gantt-accent:@GanttDepthAccent(row.Depth);"
                                       data-task-id="@row.ProjectTaskId"
+                                     data-parent-task-id="@(row.ParentTaskId?.ToString() ?? string.Empty)"
                                      data-status="@((int)row.Status)"
                                      data-assignees="@string.Join(",", row.AssigneeIds)">
                                     <button type="button" class="gantt-task-col gantt-task-button depth-@row.Depth @(canHighlightEdit ? "can-edit" : "")" onclick="openTaskPanel(@row.ProjectTaskId)">
                                         <span class="gantt-task-heading">
+                                            @if (hasTimelineChildren)
+                                            {
+                                                <span class="gantt-expand-btn"
+                                                      data-task-id="@row.ProjectTaskId"
+                                                      data-expanded="true"
+                                                      role="button"
+                                                      tabindex="0"
+                                                      aria-label="Thu gọn task con"
+                                                      title="Thu gọn task con">
+                                                    <i class="bi bi-caret-down-fill"></i>
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="gantt-expand-placeholder"></span>
+                                            }
                                             <span class="gantt-task-level">@GanttLevelLabel(row.Depth)</span>
                                             <span class="gantt-task-name">@row.Title</span>
                                             @if (canHighlightEdit)
@@ -313,6 +361,10 @@ else if (isProjectViewer && !isSystemAdmin)
                                         </span>
                                         <span class="gantt-task-meta">
                                             <span class="status-badge @TaskStatusCss(row.Status)" style="font-size:0.65rem;">@TaskStatusLabel(row.Status)</span>
+                                            @if (row.IsOverdue)
+                                            {
+                                                <span class="overdue-badge"><i class="bi bi-alarm me-1"></i>Quá hạn</span>
+                                            }
                                             <span>@dateLabel</span>
                                             <span class="gantt-progress-value">@row.Progress.ToString("0")%</span>
                                             @if (!string.IsNullOrWhiteSpace(row.ParentTaskTitle))
@@ -363,61 +415,62 @@ else if (isProjectViewer && !isSystemAdmin)
                             }
                         </div>
                     </div>
-                }
+                    }
 
-                @if (unscheduledTimelineRows.Any())
-                {
-                    <div class="gantt-unscheduled mt-3">
-                        <div class="fw-semibold mb-2">Task chưa đặt mốc thời gian</div>
-                        <div class="gantt-unscheduled-list">
-                            @foreach (var row in unscheduledTimelineRows)
-                            {
-                                var canHighlightEdit = showEditableTaskMarkers && row.CanManageTask;
-                                <button type="button"
-                                        class="gantt-unscheduled-item @(canHighlightEdit ? "can-edit" : "")"
-                                        style="--gantt-depth:@Math.Min(row.Depth, 5);--gantt-accent:@GanttDepthAccent(row.Depth);"
-                                    data-task-id="@row.ProjectTaskId"
-                                        data-status="@((int)row.Status)"
-                                        data-assignees="@string.Join(",", row.AssigneeIds)"
-                                        onclick="openTaskPanel(@row.ProjectTaskId)">
-                                    <span class="gantt-unscheduled-name depth-@row.Depth">
-                                        <span class="gantt-task-level">@GanttLevelLabel(row.Depth)</span>
-                                        <span>@row.Title</span>
-                                        @if (!string.IsNullOrWhiteSpace(row.ParentTaskTitle))
-                                        {
-                                            <small>Thuộc: @row.ParentTaskTitle</small>
-                                        }
-                                        @if (canHighlightEdit)
-                                        {
-                                            <span class="editable-mini-badge" title="Có quyền chỉnh sửa" aria-label="Có quyền chỉnh sửa">
-                                                <i class="bi bi-pencil-square"></i>
-                                            </span>
-                                        }
-                                        @if (row.ChangeLogCount > 0)
-                                        {
-                                            <span class="task-change-mini is-inline" title="@row.LatestChangeLogSummary"
-                                                  role="button" tabindex="0"
-                                                  onclick="event.stopPropagation(); openTaskPanel(@row.ProjectTaskId, 'log')">
-                                                <i class="bi bi-clock-history"></i>
-                                                @if (string.Equals(row.LatestChangeLogKind, "rejected", StringComparison.OrdinalIgnoreCase))
-                                                {
-                                                    <span class="task-change-kind-badge rejected">Rejected</span>
-                                                }
-                                                else if (string.Equals(row.LatestChangeLogKind, "undo", StringComparison.OrdinalIgnoreCase))
-                                                {
-                                                    <span class="task-change-kind-badge undo">Undo</span>
-                                                }
-                                                <span>@row.LatestChangeLogSummary</span>
-                                                <small>@row.ChangeLogCount</small>
-                                            </span>
-                                        }
-                                    </span>
-                                    <span class="status-badge @TaskStatusCss(row.Status)" style="font-size:0.65rem;">@TaskStatusLabel(row.Status)</span>
-                                </button>
-                            }
+                    @if (unscheduledTimelineRows.Any())
+                    {
+                        <div class="gantt-unscheduled mt-3">
+                            <div class="fw-semibold mb-2">Task chưa đặt mốc thời gian</div>
+                            <div class="gantt-unscheduled-list">
+                                @foreach (var row in unscheduledTimelineRows)
+                                {
+                                    var canHighlightEdit = showEditableTaskMarkers && row.CanManageTask;
+                                    <button type="button"
+                                            class="gantt-unscheduled-item @(canHighlightEdit ? "can-edit" : "")"
+                                            style="--gantt-depth:@Math.Min(row.Depth, 5);--gantt-accent:@GanttDepthAccent(row.Depth);"
+                                        data-task-id="@row.ProjectTaskId"
+                                            data-status="@((int)row.Status)"
+                                            data-assignees="@string.Join(",", row.AssigneeIds)"
+                                            onclick="openTaskPanel(@row.ProjectTaskId)">
+                                        <span class="gantt-unscheduled-name depth-@row.Depth">
+                                            <span class="gantt-task-level">@GanttLevelLabel(row.Depth)</span>
+                                            <span>@row.Title</span>
+                                            @if (!string.IsNullOrWhiteSpace(row.ParentTaskTitle))
+                                            {
+                                                <small>Thuộc: @row.ParentTaskTitle</small>
+                                            }
+                                            @if (canHighlightEdit)
+                                            {
+                                                <span class="editable-mini-badge" title="Có quyền chỉnh sửa" aria-label="Có quyền chỉnh sửa">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </span>
+                                            }
+                                            @if (row.ChangeLogCount > 0)
+                                            {
+                                                <span class="task-change-mini is-inline" title="@row.LatestChangeLogSummary"
+                                                      role="button" tabindex="0"
+                                                      onclick="event.stopPropagation(); openTaskPanel(@row.ProjectTaskId, 'log')">
+                                                    <i class="bi bi-clock-history"></i>
+                                                    @if (string.Equals(row.LatestChangeLogKind, "rejected", StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        <span class="task-change-kind-badge rejected">Rejected</span>
+                                                    }
+                                                    else if (string.Equals(row.LatestChangeLogKind, "undo", StringComparison.OrdinalIgnoreCase))
+                                                    {
+                                                        <span class="task-change-kind-badge undo">Undo</span>
+                                                    }
+                                                    <span>@row.LatestChangeLogSummary</span>
+                                                    <small>@row.ChangeLogCount</small>
+                                                </span>
+                                            }
+                                        </span>
+                                        <span class="status-badge @TaskStatusCss(row.Status)" style="font-size:0.65rem;">@TaskStatusLabel(row.Status)</span>
+                                    </button>
+                                }
+                            </div>
                         </div>
-                    </div>
-                }
+                    }
+                </div>
             </div>
         }
     </div>
@@ -774,15 +827,20 @@ else
     };
     string ProgressColor(decimal p) => p >= 100 ? "bg-success" : p >= 60 ? "bg-info" : p >= 30 ? "bg-warning" : "bg-danger";
     string PercentCss(decimal p) => $"{Math.Clamp(p, 0, 100).ToString("0.##", CultureInfo.InvariantCulture)}%";
-    string GanttBarCss(ProjectTimelineRowViewModel row) => row.Status switch {
-        ProjectTaskStatus.Done       => "is-done",
-        ProjectTaskStatus.InProgress => "is-inprogress",
-        ProjectTaskStatus.Review     => "is-review",
-        ProjectTaskStatus.Cancelled  => "is-cancelled",
-        _ when row.IsOverdue         => "is-overdue",
-        _ when row.IsNearDeadline    => "is-near",
-        _                            => "is-todo"
-    };
+    string GanttBarCss(ProjectTimelineRowViewModel row)
+    {
+        if (row.IsOverdue)
+            return "is-overdue";
+
+        return row.Status switch {
+            ProjectTaskStatus.Done       => "is-done",
+            ProjectTaskStatus.InProgress => "is-inprogress",
+            ProjectTaskStatus.Review     => "is-review",
+            ProjectTaskStatus.Cancelled  => "is-cancelled",
+            _ when row.IsNearDeadline    => "is-near",
+            _                            => "is-todo"
+        };
+    }
     string GanttDepthAccent(int depth) => depth switch {
         0 => "#c83200",
         1 => "#2563eb",
@@ -830,6 +888,65 @@ else
 
         return result;
     }
+
+    List<ProjectTimelineRowViewModel> MergeTimelineRows(
+        IEnumerable<ProjectTimelineRowViewModel> existingRows,
+        IEnumerable<ProjectTaskTreeViewModel> rootTasks)
+    {
+        var merged = existingRows
+            .GroupBy(row => row.ProjectTaskId)
+            .Select(group => group.First())
+            .ToList();
+
+        var existingIds = merged
+            .Select(row => row.ProjectTaskId)
+            .ToHashSet();
+
+        foreach (var fallback in FlattenTimelineRowsFromTasks(rootTasks))
+        {
+            if (!existingIds.Add(fallback.ProjectTaskId))
+                continue;
+
+            merged.Add(fallback);
+        }
+
+        return merged
+            .OrderBy(row => row.StartDate ?? row.DueDate ?? DateTime.MaxValue)
+            .ThenBy(row => row.DueDate ?? DateTime.MaxValue)
+            .ThenBy(row => row.Depth)
+            .ThenBy(row => row.Title)
+            .ToList();
+    }
+
+    IEnumerable<ProjectTimelineRowViewModel> FlattenTimelineRowsFromTasks(IEnumerable<ProjectTaskTreeViewModel> tasks)
+    {
+        foreach (var task in tasks.OrderBy(t => t.StartDate ?? t.DueDate ?? DateTime.MaxValue).ThenBy(t => t.Title))
+        {
+            yield return new ProjectTimelineRowViewModel
+            {
+                ProjectTaskId = task.ProjectTaskId,
+                ParentTaskId = task.ParentTaskId,
+                ParentTaskTitle = task.ParentTaskTitle,
+                Depth = task.Depth,
+                Title = task.Title,
+                Status = task.Status,
+                Priority = task.Priority,
+                StartDate = task.StartDate,
+                DueDate = task.DueDate,
+                Progress = task.Progress,
+                AssigneeIds = task.AssigneeIds,
+                AssigneeNames = task.AssigneeNames,
+                CanManageTask = task.CanManageTask,
+                ChangeLogCount = task.ChangeLogCount,
+                LatestChangeLogDate = task.LatestChangeLogDate,
+                LatestChangeLogSummary = task.LatestChangeLogSummary,
+                LatestChangeLogKind = task.LatestChangeLogKind
+            };
+
+            foreach (var subTask in FlattenTimelineRowsFromTasks(task.SubTasks))
+                yield return subTask;
+        }
+    }
 }
 
 @section Scripts {
@@ -861,13 +978,101 @@ else
     function filterTasks() {
         const statusVal = document.getElementById('filterStatus')?.value || '';
         const assigneeVal = document.getElementById('filterAssignee')?.value || '';
-        document.querySelectorAll('.task-row, .gantt-row, .gantt-unscheduled-item').forEach(row => {
+        document.querySelectorAll('.task-row, .gantt-unscheduled-item').forEach(row => {
             const rowStatus = row.dataset.status ?? '';
             const rowAssignees = row.dataset.assignees ?? '';
             const matchStatus = !statusVal || rowStatus === statusVal;
             const matchAssignee = !assigneeVal || rowAssignees.split(',').includes(assigneeVal);
             row.style.display = (matchStatus && matchAssignee) ? '' : 'none';
         });
+
+        applyTimelineFilterAndCollapsedVisibility(statusVal, assigneeVal);
+    }
+
+    function updateTimelineExpandIcon(toggle, expanded) {
+        const icon = toggle.querySelector('i');
+        if (!icon) return;
+
+        icon.classList.toggle('bi-caret-down-fill', expanded);
+        icon.classList.toggle('bi-caret-right-fill', !expanded);
+        const title = expanded ? 'Thu gọn task con' : 'Mở rộng task con';
+        toggle.setAttribute('title', title);
+        toggle.setAttribute('aria-label', title);
+    }
+
+    function buildTimelineRowMap() {
+        const map = new Map();
+        document.querySelectorAll('.gantt-row').forEach(row => {
+            const taskId = row.dataset.taskId;
+            if (taskId) {
+                map.set(taskId, row);
+            }
+        });
+        return map;
+    }
+
+    function isTimelineRowCollapsedByAncestor(row, rowMap) {
+        let parentId = row.dataset.parentTaskId || '';
+        while (parentId) {
+            const parent = rowMap.get(parentId);
+            if (!parent) return false;
+
+            const parentToggle = parent.querySelector('.gantt-expand-btn');
+            if (parentToggle && parentToggle.dataset.expanded === 'false') {
+                return true;
+            }
+
+            parentId = parent.dataset.parentTaskId || '';
+        }
+
+        return false;
+    }
+
+    function applyTimelineFilterAndCollapsedVisibility(statusVal, assigneeVal) {
+        const effectiveStatus = statusVal ?? document.getElementById('filterStatus')?.value ?? '';
+        const effectiveAssignee = assigneeVal ?? document.getElementById('filterAssignee')?.value ?? '';
+        const rowMap = buildTimelineRowMap();
+
+        document.querySelectorAll('.gantt-row').forEach(row => {
+            const rowStatus = row.dataset.status ?? '';
+            const rowAssignees = row.dataset.assignees ?? '';
+            const matchStatus = !effectiveStatus || rowStatus === effectiveStatus;
+            const matchAssignee = !effectiveAssignee || rowAssignees.split(',').includes(effectiveAssignee);
+            const hiddenByCollapsedAncestor = isTimelineRowCollapsedByAncestor(row, rowMap);
+
+            row.style.display = (matchStatus && matchAssignee && !hiddenByCollapsedAncestor) ? '' : 'none';
+        });
+    }
+
+    function initTimelineRowToggles() {
+        document.querySelectorAll('.gantt-expand-btn').forEach(toggle => {
+            if (toggle.dataset.bound === 'true') return;
+            toggle.dataset.bound = 'true';
+
+            const applyToggle = () => {
+                const isExpanded = toggle.dataset.expanded !== 'false';
+                const nextExpanded = !isExpanded;
+                toggle.dataset.expanded = nextExpanded ? 'true' : 'false';
+                updateTimelineExpandIcon(toggle, nextExpanded);
+                applyTimelineFilterAndCollapsedVisibility();
+            };
+
+            toggle.addEventListener('click', event => {
+                event.preventDefault();
+                event.stopPropagation();
+                applyToggle();
+            });
+
+            toggle.addEventListener('keydown', event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    applyToggle();
+                }
+            });
+        });
+
+        applyTimelineFilterAndCollapsedVisibility();
     }
 
     function syncCreateTaskDateConstraints() {
@@ -971,8 +1176,53 @@ else
         if (checkedCount > 0) document.getElementById('memberPickerError')?.classList.add('d-none');
     }
 
+    function initProjectTaskSectionToggles() {
+        document.querySelectorAll('[data-section-toggle]').forEach(button => {
+            if (button.dataset.bound === 'true') return;
+            button.dataset.bound = 'true';
+
+            const targetId = button.dataset.sectionTarget;
+            const sectionKey = button.dataset.sectionKey;
+            const target = targetId ? document.getElementById(targetId) : null;
+            if (!target || !sectionKey) return;
+
+            const icon = button.querySelector('i');
+            const baseTitle = button.getAttribute('title') || 'Thu gọn';
+
+            const resolveTitle = (collapsed) => {
+                const subject = baseTitle
+                    .replace('Thu gọn ', '')
+                    .replace('Mở rộng ', '');
+                return `${collapsed ? 'Mở rộng' : 'Thu gọn'} ${subject}`.trim();
+            };
+
+            const applyState = (collapsed) => {
+                target.style.display = collapsed ? 'none' : '';
+                if (icon) {
+                    icon.classList.toggle('bi-caret-right-fill', collapsed);
+                    icon.classList.toggle('bi-caret-down-fill', !collapsed);
+                }
+                const title = resolveTitle(collapsed);
+                button.setAttribute('title', title);
+                button.setAttribute('aria-label', title);
+            };
+
+            const stored = localStorage.getItem(sectionKey);
+            applyState(stored === 'collapsed');
+
+            button.addEventListener('click', () => {
+                const isCollapsed = target.style.display === 'none';
+                const nextCollapsed = !isCollapsed;
+                applyState(nextCollapsed);
+                localStorage.setItem(sectionKey, nextCollapsed ? 'collapsed' : 'expanded');
+            });
+        });
+    }
+
     syncCreateTaskDateConstraints();
     filterMemberCandidates();
     updateSelectedMemberCount();
+    initProjectTaskSectionToggles();
+    initTimelineRowToggles();
     </script>
 }

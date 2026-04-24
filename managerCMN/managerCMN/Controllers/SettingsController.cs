@@ -849,13 +849,13 @@ public class SettingsController : Controller
         if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(content))
         {
             TempData["Error"] = "Tiêu đề và nội dung không được để trống.";
-            return RedirectToAction(nameof(Index), new { tab = "announcements" });
+            return RedirectToAction(nameof(Index), "Notification");
         }
 
         if (scheduledAt <= DateTimeHelper.VietnamNow)
         {
             TempData["Error"] = "Thời gian gửi phải là thời gian trong tương lai.";
-            return RedirectToAction(nameof(Index), new { tab = "announcements" });
+            return RedirectToAction(nameof(Index), "Notification");
         }
 
         var employeeIdClaim = User.FindFirst("EmployeeId")?.Value;
@@ -871,14 +871,14 @@ public class SettingsController : Controller
                 if (ids == null || ids.Count == 0)
                 {
                     TempData["Error"] = "Vui lòng chọn ít nhất một người nhận.";
-                    return RedirectToAction(nameof(Index), new { tab = "announcements" });
+                    return RedirectToAction(nameof(Index), "Notification");
                 }
                 resolvedFilterEmployeeIds = JsonSerializer.Serialize(ids);
             }
             catch
             {
                 TempData["Error"] = "Dữ liệu người nhận không hợp lệ.";
-                return RedirectToAction(nameof(Index), new { tab = "announcements" });
+                return RedirectToAction(nameof(Index), "Notification");
             }
         }
 
@@ -897,7 +897,8 @@ public class SettingsController : Controller
         await _db.SaveChangesAsync();
 
         TempData["Success"] = $"Đã lên lịch thông báo \"{ann.Title}\" vào {scheduledAt:dd/MM/yyyy HH:mm}.";
-        return RedirectToAction(nameof(Index), new { tab = "announcements" });
+        return RedirectToAction(nameof(Index), "Notification");
+            
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -909,14 +910,14 @@ public class SettingsController : Controller
         if (ann.Status != AnnouncementStatus.Pending)
         {
             TempData["Error"] = "Chỉ có thể huỷ thông báo đang chờ gửi.";
-            return RedirectToAction(nameof(Index), new { tab = "announcements" });
+            return RedirectToAction(nameof(Index), "Notification");
         }
 
         ann.Status = AnnouncementStatus.Cancelled;
         await _db.SaveChangesAsync();
 
         TempData["Success"] = "Đã huỷ thông báo.";
-        return RedirectToAction(nameof(Index), new { tab = "announcements" });
+        return RedirectToAction(nameof(Index), "Notification");
     }
 
     [HttpPost, ValidateAntiForgeryToken]
@@ -928,13 +929,13 @@ public class SettingsController : Controller
         if (ann.Status == AnnouncementStatus.Pending)
         {
             TempData["Error"] = "Không thể xóa thông báo đang chờ gửi. Hãy huỷ trước.";
-            return RedirectToAction(nameof(Index), new { tab = "announcements" });
+            return RedirectToAction(nameof(Index), "Notification");
         }
 
         _db.ScheduledAnnouncements.Remove(ann);
         await _db.SaveChangesAsync();
 
         TempData["Success"] = "Đã xóa thông báo.";
-        return RedirectToAction(nameof(Index), new { tab = "announcements" });
+        return RedirectToAction(nameof(Index), "Notification");
     }
 }

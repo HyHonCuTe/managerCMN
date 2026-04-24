@@ -106,12 +106,18 @@ public class ProjectTaskService : IProjectTaskService
 
         var isArchived = await IsProjectArchivedAsync(task.ProjectId);
         vm.IsArchived = isArchived;
-        vm.CanManageTask = !isArchived && await CanManageTaskNodeAsync(task, employeeId);
-        vm.CanManageMembers = vm.CanManageTask;
-        vm.CanCompleteTask = !isArchived && await CanCompleteTaskAsync(task, employeeId);
-        vm.CanUndoDoneTask = !isArchived && await CanUndoDoneTaskAsync(task, employeeId);
-        vm.CanRejectDoneTask = !isArchived && await CanRejectDoneTaskAsync(task, employeeId);
-        vm.CanPostUpdate = !isArchived && await CanPostTaskUpdateAsync(task, employeeId);
+        var isOverdue = IsTaskOverdue(task);
+        var canManageTaskNode = !isArchived && await CanManageTaskNodeAsync(task, employeeId);
+        var canAdjustOverdueTimeline = !isArchived
+            && isOverdue
+            && await CanAdjustOverdueTaskTimelineAsync(task, employeeId);
+
+        vm.CanManageTask = isOverdue ? canAdjustOverdueTimeline : canManageTaskNode;
+        vm.CanManageMembers = !isOverdue && vm.CanManageTask;
+        vm.CanCompleteTask = !isOverdue && !isArchived && await CanCompleteTaskAsync(task, employeeId);
+        vm.CanUndoDoneTask = !isOverdue && !isArchived && await CanUndoDoneTaskAsync(task, employeeId);
+        vm.CanRejectDoneTask = !isOverdue && !isArchived && await CanRejectDoneTaskAsync(task, employeeId);
+        vm.CanPostUpdate = !isOverdue && !isArchived && await CanPostTaskUpdateAsync(task, employeeId);
         vm.WorklogAvailable = worklogAvailable;
         return vm;
     }
@@ -158,6 +164,16 @@ public class ProjectTaskService : IProjectTaskService
     {
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(vm.ProjectTaskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
+
+        if (IsTaskOverdue(task))
+        {
+            var canAdjustOverdueTimeline = await CanAdjustOverdueTaskTimelineAsync(task, employeeId);
+            if (!canAdjustOverdueTimeline)
+                throw new InvalidOperationException("Task đã quá hạn. Không thể thao tác thêm trên task này.");
+
+            if (!await IsTimelineOnlyUpdateAsync(task, vm))
+                throw new InvalidOperationException("Task đã quá hạn. Chỉ Admin/Owner/Manager được chỉnh sửa timeline (ngày bắt đầu và hạn hoàn thành).");
+        }
 
         await EnsureCanManageTaskNodeAsync(task, employeeId);
         await ValidateTaskScheduleAsync(task.ProjectId, task.ParentTaskId, vm.StartDate, vm.DueDate, task.ProjectTaskId);
@@ -231,6 +247,8 @@ public class ProjectTaskService : IProjectTaskService
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(taskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
 
+        EnsureTaskNotOverdueForOperation(task);
+
         await EnsureCanManageTaskNodeAsync(task, employeeId);
         if (task.Status == ProjectTaskStatus.Done)
             throw new InvalidOperationException("Task đã hoàn thành nên không thể xoá hoặc hoàn tác.");
@@ -255,6 +273,8 @@ public class ProjectTaskService : IProjectTaskService
     {
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(vm.ProjectTaskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
+
+        EnsureTaskNotOverdueForOperation(task);
 
         await _accessService.EnsureIsMemberAsync(task.ProjectId, employeeId);
         await EnsureCanViewTaskAsync(task, employeeId);
@@ -345,6 +365,8 @@ public class ProjectTaskService : IProjectTaskService
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(vm.ProjectTaskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
 
+        EnsureTaskNotOverdueForOperation(task);
+
         await _accessService.EnsureIsMemberAsync(task.ProjectId, employeeId);
         await EnsureCanViewTaskAsync(task, employeeId);
 
@@ -412,6 +434,8 @@ public class ProjectTaskService : IProjectTaskService
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(taskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
 
+        EnsureTaskNotOverdueForOperation(task);
+
         await EnsureCanManageTaskNodeAsync(task, actorEmployeeId);
 
         var newAssignees = await SyncAssignmentsAsync(task, employeeIds, actorEmployeeId);
@@ -437,6 +461,8 @@ public class ProjectTaskService : IProjectTaskService
     {
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(vm.ProjectTaskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
+
+        EnsureTaskNotOverdueForOperation(task);
 
         await EnsureCanManageTaskNodeAsync(task, employeeId);
         if (task.Status == ProjectTaskStatus.Done)
@@ -480,6 +506,8 @@ public class ProjectTaskService : IProjectTaskService
             .FirstOrDefaultAsync(c => c.ProjectTaskChecklistItemId == checklistItemId)
             ?? throw new InvalidOperationException("Checklist item không tồn tại.");
 
+        EnsureTaskNotOverdueForOperation(item.ProjectTask);
+
         await _accessService.EnsureIsMemberAsync(item.ProjectTask.ProjectId, employeeId);
         await EnsureCanViewTaskAsync(item.ProjectTask, employeeId);
 
@@ -512,6 +540,8 @@ public class ProjectTaskService : IProjectTaskService
             .FirstOrDefaultAsync(c => c.ProjectTaskChecklistItemId == checklistItemId)
             ?? throw new InvalidOperationException("Checklist item không tồn tại.");
 
+        EnsureTaskNotOverdueForOperation(item.ProjectTask);
+
         await EnsureCanManageTaskNodeAsync(item.ProjectTask, employeeId);
         if (item.ProjectTask.Status == ProjectTaskStatus.Done || item.IsDone)
             throw new InvalidOperationException("Không thể xoá checklist đã hoàn thành.");
@@ -530,6 +560,8 @@ public class ProjectTaskService : IProjectTaskService
     {
         var task = await _unitOfWork.ProjectTasks.GetByIdAsync(vm.ProjectTaskId)
             ?? throw new InvalidOperationException("Task không tồn tại.");
+
+        EnsureTaskNotOverdueForOperation(task);
 
         await _accessService.EnsureIsMemberAsync(task.ProjectId, employeeId);
         await EnsureCanViewTaskAsync(task, employeeId);
@@ -711,6 +743,8 @@ public class ProjectTaskService : IProjectTaskService
         if (parentTask.ProjectId != vm.ProjectId)
             throw new InvalidOperationException("Task cha không thuộc dự án này.");
 
+        EnsureTaskNotOverdueForOperation(parentTask);
+
         await EnsureCanManageTaskNodeAsync(parentTask, employeeId);
     }
 
@@ -735,6 +769,61 @@ public class ProjectTaskService : IProjectTaskService
             return false;
 
         return await IsAssignedToTaskOrAncestorAsync(task, employeeId);
+    }
+
+    private static bool IsTaskOverdue(ProjectTask task)
+        => task.DueDate.HasValue
+            && task.DueDate.Value.Date < DateTime.Today
+            && task.Status != ProjectTaskStatus.Done
+            && task.Status != ProjectTaskStatus.Cancelled;
+
+    private static void EnsureTaskNotOverdueForOperation(ProjectTask task)
+    {
+        if (IsTaskOverdue(task))
+            throw new InvalidOperationException("Task đã quá hạn. Không thể thao tác thêm trên task này.");
+    }
+
+    private async Task<bool> CanAdjustOverdueTaskTimelineAsync(ProjectTask task, int employeeId)
+    {
+        if (_accessService.IsSystemAdmin())
+            return true;
+
+        var role = await _accessService.GetRoleAsync(task.ProjectId, employeeId);
+        if (role == ProjectMemberRole.ProjectOwner)
+            return true;
+
+        return role == ProjectMemberRole.ProjectManager
+            && await IsAssignedToTaskOrAncestorAsync(task, employeeId);
+    }
+
+    private async Task<bool> IsTimelineOnlyUpdateAsync(ProjectTask task, ProjectTaskEditViewModel vm)
+    {
+        var timelineChanged = task.StartDate?.Date != vm.StartDate?.Date
+            || task.DueDate?.Date != vm.DueDate?.Date;
+        if (!timelineChanged)
+            return false;
+
+        var currentAssigneeIds = await _context.ProjectTaskAssignments
+            .AsNoTracking()
+            .Where(a => a.ProjectTaskId == task.ProjectTaskId)
+            .Select(a => a.EmployeeId)
+            .OrderBy(id => id)
+            .ToListAsync();
+
+        var requestedAssigneeIds = (vm.AssigneeIds ?? new List<int>())
+            .Distinct()
+            .OrderBy(id => id)
+            .ToList();
+
+        return string.Equals(task.Title, vm.Title, StringComparison.Ordinal)
+            && string.Equals(task.Description ?? string.Empty, vm.Description ?? string.Empty, StringComparison.Ordinal)
+            && task.Priority == vm.Priority
+            && task.Status == vm.Status
+            && task.EstimatedHours == vm.EstimatedHours
+            && task.ActualHours == vm.ActualHours
+            && task.ProgressMode == vm.ProgressMode
+            && task.Progress == vm.Progress
+            && currentAssigneeIds.SequenceEqual(requestedAssigneeIds);
     }
 
     private async Task<bool> IsAssignedToTaskOrAncestorAsync(ProjectTask task, int employeeId)
@@ -1741,6 +1830,20 @@ public class ProjectTaskService : IProjectTaskService
                         || role == ProjectMemberRole.ProjectOwner
                         || (role == ProjectMemberRole.ProjectManager && isManagedBranch)
                         || (role == ProjectMemberRole.ProjectStaff && isDirectAssignee));
+
+                if (vm.IsOverdue)
+                {
+                    vm.CanManageTask = !isArchived
+                        && (isSystemAdmin
+                            || role == ProjectMemberRole.ProjectOwner
+                            || (role == ProjectMemberRole.ProjectManager && isManagedBranch));
+                    vm.CanManageMembers = false;
+                    vm.CanCompleteTask = false;
+                    vm.CanUndoDoneTask = false;
+                    vm.CanRejectDoneTask = false;
+                    vm.CanPostUpdate = false;
+                }
+
                 vm.SubTasks = BuildTaskTree(tasks, task.ProjectTaskId, depth + 1, employeeId, role,
                     isSystemAdmin, isArchived, isManagedBranch);
                 return vm;

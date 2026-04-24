@@ -65,8 +65,10 @@ public class ProfileController : Controller
             .Select(ur => ur.RoleId)
             .ToHashSetAsync();
 
-    private static bool CanManageTelegramPreferences(IReadOnlySet<int> roleIds)
-        => roleIds.Contains(1) || roleIds.Contains(2);
+    private static bool CanManageTelegramPreferences(IReadOnlySet<int> roleIds, int? jobTitleId)
+        => roleIds.Contains(1)
+           || roleIds.Contains(2)
+           || jobTitleId is 1 or 2;
 
     private static List<TelegramNotificationOptionViewModel> BuildTelegramNotificationOptions(User user, bool includeEmployeeProfileUpdates)
         => TelegramNotificationPreferenceHelper.GetOptions(includeEmployeeProfileUpdates)
@@ -89,8 +91,12 @@ public class ProfileController : Controller
         var user = await _db.Users.FindAsync(userId.Value);
         if (user == null) return RedirectToAction("Index", "Dashboard");
 
+        var employee = await _db.Employees
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.EmployeeId == GetEmployeeId());
+
         var roleIds = await GetRoleIdsAsync(userId.Value);
-        var canManagePreferences = CanManageTelegramPreferences(roleIds);
+        var canManagePreferences = CanManageTelegramPreferences(roleIds, employee?.JobTitleId);
         var model = new TelegramLinkViewModel
         {
             AlreadyLinked = !string.IsNullOrWhiteSpace(user.TelegramChatId),
@@ -123,8 +129,12 @@ public class ProfileController : Controller
         var user = await _db.Users.FindAsync(userId.Value);
         if (user == null) return RedirectToAction("Index", "Dashboard");
 
+        var employee = await _db.Employees
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.EmployeeId == GetEmployeeId());
+
         var roleIds = await GetRoleIdsAsync(userId.Value);
-        if (!CanManageTelegramPreferences(roleIds))
+        if (!CanManageTelegramPreferences(roleIds, employee?.JobTitleId))
         {
             TempData["Error"] = "Nhân viên không được thay đổi danh mục nhận Telegram tại đây.";
             return RedirectToAction(nameof(TelegramLink));

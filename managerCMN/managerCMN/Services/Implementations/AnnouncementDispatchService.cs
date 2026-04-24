@@ -95,44 +95,52 @@ public class AnnouncementDispatchService : BackgroundService
             try { ids = JsonSerializer.Deserialize<List<int>>(ann.FilterEmployeeIds); } catch { }
             if (ids == null || ids.Count == 0) return [];
 
-            return await db.Users
+            var users = await db.Users
                 .AsNoTracking()
                 .Where(u => u.IsActive
                     && u.TelegramChatId != null
-                    && !u.TelegramMuteBroadcast
                     && u.EmployeeId != null
                     && ids.Contains(u.EmployeeId!.Value))
-                .Select(u => u.TelegramChatId!)
                 .ToListAsync(ct);
+
+            return users
+                .Where(u => TelegramNotificationPreferenceHelper.IsEnabled(u, TelegramNotificationCategory.Announcement))
+                .Select(u => u.TelegramChatId!)
+                .ToList();
         }
 
-        // Broad filter: all active employees, optionally narrowed by department/gender
+        // Broad filter: all active employees, optionally narrowed by department/gender.
         var query = db.Users
             .AsNoTracking()
-            .Where(u => u.IsActive && u.TelegramChatId != null && !u.TelegramMuteBroadcast && u.EmployeeId != null)
-            .Join(db.Employees.AsNoTracking().Where(e => e.Status == EmployeeStatus.Active),
-                  u => u.EmployeeId,
-                  e => e.EmployeeId,
-                  (u, e) => new { u.TelegramChatId, e.DepartmentId, GenderVal = (int)e.Gender });
+            .Include(u => u.Employee)
+            .Where(u => u.IsActive
+                && u.TelegramChatId != null
+                && u.EmployeeId != null
+                && u.Employee != null
+                && u.Employee.Status == EmployeeStatus.Active);
 
         if (ann.FilterDepartmentId.HasValue)
-            query = query.Where(x => x.DepartmentId == ann.FilterDepartmentId.Value);
+            query = query.Where(u => u.Employee!.DepartmentId == ann.FilterDepartmentId.Value);
 
         if (ann.FilterGender.HasValue)
-            query = query.Where(x => x.GenderVal == ann.FilterGender.Value);
+            query = query.Where(u => (int)u.Employee!.Gender == ann.FilterGender.Value);
 
-        return await query.Select(x => x.TelegramChatId!).ToListAsync(ct);
+        var recipients = await query.ToListAsync(ct);
+        return recipients
+            .Where(u => TelegramNotificationPreferenceHelper.IsEnabled(u, TelegramNotificationCategory.Announcement))
+            .Select(u => u.TelegramChatId!)
+            .ToList();
     }
 
     private static string BuildTelegramText(Models.Entities.ScheduledAnnouncement ann)
     {
         var scheduledLocal = ann.ScheduledAt.ToString("dd/MM/yyyy HH:mm");
         return
-            $"📢 <b>Thông báo nội bộ</b>\n" +
-            $"━━━━━━━━━━━━━━━━━━\n" +
+            $"📢 <b>Thông báo</b>\n" +
+            $"━━━━━━━━━━━━━━━━━━━━━━━\n" +
             $"<b>{H(ann.Title)}</b>\n\n" +
             $"{H(ann.Content)}\n\n" +
-            $"<i>🕐 Gửi lúc: {scheduledLocal}</i>";
+            $"🌻🌼🌷🪻🥀🪻🌷🌼🌻";
     }
 
     private static string H(string s) => s.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");

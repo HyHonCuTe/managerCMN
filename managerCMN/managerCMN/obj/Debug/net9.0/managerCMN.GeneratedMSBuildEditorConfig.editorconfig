@@ -178,6 +178,10 @@ build_metadata.AdditionalFiles.CssScope =
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZmlsZVxUZWxlZ3JhbUxpbmsuY3NodG1s
 build_metadata.AdditionalFiles.CssScope = 
 
+[E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/Profile/_TelegramNotificationPreferences.cshtml]
+build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvZmlsZVxfVGVsZWdyYW1Ob3RpZmljYXRpb25QcmVmZXJlbmNlcy5jc2h0bWw=
+build_metadata.AdditionalFiles.CssScope = 
+
 [E:/Study/C\#/managerCMN/managerCMN/managerCMN/Views/ProjectTask/Edit.cshtml]
 build_metadata.AdditionalFiles.TargetPath = Vmlld3NcUHJvamVjdFRhc2tcRWRpdC5jc2h0bWw=
 build_metadata.AdditionalFiles.CssScope = 

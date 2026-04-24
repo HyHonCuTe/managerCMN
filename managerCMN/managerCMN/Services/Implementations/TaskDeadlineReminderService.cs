@@ -128,7 +128,7 @@ public class TaskDeadlineReminderService : BackgroundService
             foreach (var empId in assigneeIds)
             {
                 if (!employeeUserMap.TryGetValue(empId, out var userId)) continue;
-                await notificationService.CreateAsync(userId, title, message, targetUrl, telegramText: tg);
+                await notificationService.CreateAsync(userId, title, message, targetUrl, telegramText: tg, telegramCategory: TelegramNotificationCategory.Task);
             }
         }
     }
@@ -195,7 +195,7 @@ public class TaskDeadlineReminderService : BackgroundService
             // Notify creator
             if (employeeUserMap.TryGetValue(ticket.CreatedBy, out var creatorUserId))
             {
-                await notificationService.CreateAsync(creatorUserId, title, message, targetUrl, telegramText: tg);
+                await notificationService.CreateAsync(creatorUserId, title, message, targetUrl, telegramText: tg, telegramCategory: TelegramNotificationCategory.Ticket);
                 notifiedUserIds.Add(creatorUserId);
             }
 
@@ -206,7 +206,7 @@ public class TaskDeadlineReminderService : BackgroundService
                 {
                     if (!employeeUserMap.TryGetValue(empId, out var userId)) continue;
                     if (!notifiedUserIds.Add(userId)) continue;
-                    await notificationService.CreateAsync(userId, title, message, targetUrl, telegramText: tg);
+                    await notificationService.CreateAsync(userId, title, message, targetUrl, telegramText: tg, telegramCategory: TelegramNotificationCategory.Ticket);
                 }
             }
         }

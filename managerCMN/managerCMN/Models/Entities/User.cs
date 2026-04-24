@@ -31,6 +31,9 @@ public class User
 
     public bool TelegramMuteBroadcast { get; set; } = false;
 
+    [MaxLength(500)]
+    public string? TelegramDisabledNotificationTypes { get; set; }
+
     // Navigation
     public int? EmployeeId { get; set; }
     public Employee? Employee { get; set; }

@@ -589,7 +589,7 @@ public class TicketService : ITicketService
         var user = (await _unitOfWork.Users.FindAsync(u => u.EmployeeId == employeeId)).FirstOrDefault();
         if (user != null)
         {
-            await _notificationService.CreateAsync(user.UserId, title, message, telegramText: telegramText);
+            await _notificationService.CreateAsync(user.UserId, title, message, telegramText: telegramText, telegramCategory: TelegramNotificationCategory.Ticket);
         }
     }
 

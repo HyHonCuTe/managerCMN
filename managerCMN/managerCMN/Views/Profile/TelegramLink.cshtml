@@ -1,11 +1,6 @@
+@model TelegramLinkViewModel
 @{
     ViewData["Title"] = "Kết nối Telegram";
-    bool alreadyLinked = ViewBag.AlreadyLinked == true;
-    bool muteBroadcast = ViewBag.MuteBroadcast == true;
-    bool botConfigured = ViewBag.BotConfigured == true;
-    string? token = ViewBag.Token as string;
-    string? deepLink = ViewBag.DeepLink as string;
-    string? botUsername = ViewBag.BotUsername as string;
 }
 
 <div class="mb-4">
@@ -18,7 +13,7 @@
     <h4 class="mb-0"><i class="bi bi-telegram"></i> Kết nối Telegram</h4>
 </div>
 
-@if (!botConfigured)
+@if (!Model.BotConfigured)
 {
     <div class="alert alert-warning">
         <i class="bi bi-exclamation-triangle me-2"></i>
@@ -26,44 +21,23 @@
         Vui lòng liên hệ quản trị viên để thiết lập Telegram Bot.
     </div>
 }
-else if (alreadyLinked)
+else if (Model.AlreadyLinked)
 {
     <div class="row justify-content-center">
-        <div class="col-lg-6">
+        <div class="col-lg-8">
             <div class="card border-success">
-                <div class="card-body text-center py-4">
-                    <div class="mb-3">
-                        <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
-                    </div>
-                    <h5 class="text-success">Đã kết nối Telegram</h5>
-                    <p class="text-muted">Tài khoản của bạn đang nhận thông báo qua Telegram.</p>
-
-                    <hr class="my-3">
-
-                    <div class="d-flex align-items-center justify-content-between mb-3">
-                        <div>
-                            <div class="fw-semibold">Tắt Telegram cho thông báo hệ thống</div>
-                            <small class="text-muted">
-                                Khi bật, bạn vẫn nhận Telegram cho việc giao trực tiếp (task, ticket, đơn từ, ...)
-                                nhưng sẽ không nhận thông báo đại trà từ hệ thống.
-                            </small>
+                <div class="card-body py-4">
+                    <div class="text-center">
+                        <div class="mb-3">
+                            <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
                         </div>
-                        <form asp-action="TelegramToggleMute" method="post" class="ms-3">
-                            @Html.AntiForgeryToken()
-                            <button type="submit" class="btn btn-sm @(muteBroadcast ? "btn-warning" : "btn-outline-secondary")">
-                                @if (muteBroadcast)
-                                {
-                                    <i class="bi bi-bell-slash-fill me-1"></i><text>Đang tắt</text>
-                                }
-                                else
-                                {
-                                    <i class="bi bi-bell-fill me-1"></i><text>Đang bật</text>
-                                }
-                            </button>
-                        </form>
+                        <h5 class="text-success">Đã kết nối Telegram</h5>
+                        <p class="text-muted mb-0">Tài khoản của bạn đang nhận thông báo qua Telegram.</p>
                     </div>
 
-                    <form asp-action="TelegramUnlink" method="post" class="mt-1"
+                    @await Html.PartialAsync("_TelegramNotificationPreferences", Model)
+
+                    <form asp-action="TelegramUnlink" method="post" class="mt-4 text-center"
                           onsubmit="return confirm('Xác nhận hủy kết nối Telegram?')">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-outline-danger">
@@ -98,7 +72,7 @@ else
                         </div>
                         <div>
                             <div class="fw-semibold mb-1">Mã kết nối của bạn</div>
-                            <span class="font-monospace fs-4 fw-bold letter-spacing-1">@token</span>
+                            <span class="font-monospace fs-4 fw-bold letter-spacing-1">@Model.Token</span>
                             <small class="d-block text-primary-emphasis mt-1">
                                 <i class="bi bi-clock me-1"></i>Hết hạn sau 15 phút
                             </small>
@@ -113,7 +87,7 @@ else
                                       style="width:28px;height:28px;">1</span>
                                 <div>
                                     <strong>Mở Telegram</strong> và tìm bot
-                                    <code>&#64;@(botUsername ?? "YourBot")</code>
+                                    <code>&#64;@(Model.BotUsername ?? "YourBot")</code>
                                 </div>
                             </div>
                         </div>
@@ -123,7 +97,7 @@ else
                                       style="width:28px;height:28px;">2</span>
                                 <div>
                                     Gửi lệnh:
-                                    <code class="fs-6">/start @token</code>
+                                    <code class="fs-6">/start @Model.Token</code>
                                     <br>
                                     <small class="text-muted">hoặc nhấn nút bên dưới để mở trực tiếp</small>
                                 </div>
@@ -140,10 +114,10 @@ else
                         </div>
                     </div>
 
-                    @if (!string.IsNullOrWhiteSpace(deepLink))
+                    @if (!string.IsNullOrWhiteSpace(Model.DeepLink))
                     {
                         <div class="d-grid gap-2 d-sm-flex">
-                            <a href="@deepLink" target="_blank" class="btn btn-primary btn-lg">
+                            <a href="@Model.DeepLink" target="_blank" class="btn btn-primary btn-lg">
                                 <i class="bi bi-telegram me-2"></i> Mở Telegram để kết nối
                             </a>
                             <a asp-action="Index" class="btn btn-outline-secondary btn-lg">
@@ -151,6 +125,8 @@ else
                             </a>
                         </div>
                     }
+
+                    @await Html.PartialAsync("_TelegramNotificationPreferences", Model)
 
                     <hr class="my-4">
                     <div class="text-muted small">

@@ -627,7 +627,7 @@ public class ProjectTaskService : IProjectTaskService
             $"💬 {H(shortContent)}";
 
         foreach (var userId in targetUserIds)
-            await _notificationService.CreateAsync(userId, title, message, targetUrl, telegramText: telegramText);
+            await _notificationService.CreateAsync(userId, title, message, targetUrl, telegramText: telegramText, telegramCategory: TelegramNotificationCategory.Task);
     }
 
     public async Task<ProjectTaskAttachment?> GetAttachmentAsync(int attachmentId, int employeeId)
@@ -1525,7 +1525,7 @@ public class ProjectTaskService : IProjectTaskService
             $"👤 Người giao: {H(actorName)}\n" +
             $"📁 Dự án: {H(projectName)}\n" +
             $"🔖 Task: {H(task.Title)}";
-        await _notificationService.CreateAsync(user.UserId, title, message, targetUrl, telegramText: telegramText);
+        await _notificationService.CreateAsync(user.UserId, title, message, targetUrl, telegramText: telegramText, telegramCategory: TelegramNotificationCategory.Task);
     }
 
     private async Task NotifyTaskDoneAsync(ProjectTask task, int completingEmployeeId)
@@ -1552,7 +1552,7 @@ public class ProjectTaskService : IProjectTaskService
             .ToListAsync();
 
         foreach (var userId in managerUserIds)
-            await _notificationService.CreateAsync(userId, title, message, targetUrl, telegramText: telegramText);
+            await _notificationService.CreateAsync(userId, title, message, targetUrl, telegramText: telegramText, telegramCategory: TelegramNotificationCategory.Task);
     }
 
     private async Task<List<string>> GetEmployeeNamesAsync(IEnumerable<int> employeeIds)

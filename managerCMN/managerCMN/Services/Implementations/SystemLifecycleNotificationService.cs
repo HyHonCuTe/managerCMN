@@ -1,4 +1,6 @@
 using managerCMN.Data;
+using managerCMN.Helpers;
+using managerCMN.Models.Enums;
 using managerCMN.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
@@ -86,10 +88,14 @@ public class SystemLifecycleNotificationService : IHostedService
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        return await db.Users
+        var users = await db.Users
             .AsNoTracking()
             .Where(u => !string.IsNullOrEmpty(u.TelegramChatId))
-            .Select(u => u.TelegramChatId!)
             .ToListAsync();
+
+        return users
+            .Where(u => TelegramNotificationPreferenceHelper.IsEnabled(u, TelegramNotificationCategory.SystemLifecycle))
+            .Select(u => u.TelegramChatId!)
+            .ToList();
     }
 }

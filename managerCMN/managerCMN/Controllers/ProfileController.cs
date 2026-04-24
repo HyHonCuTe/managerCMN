@@ -5,8 +5,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using managerCMN.Data;
+using managerCMN.Helpers;
 using managerCMN.Services.Interfaces;
 using managerCMN.Models.Entities;
+using managerCMN.Models.Enums;
+using managerCMN.Models.ViewModels;
 
 namespace managerCMN.Controllers;
 
@@ -56,6 +59,27 @@ public class ProfileController : Controller
         return claim != null && int.TryParse(claim.Value, out var id) ? id : null;
     }
 
+    private async Task<HashSet<int>> GetRoleIdsAsync(int userId)
+        => await _db.UserRoles
+            .Where(ur => ur.UserId == userId)
+            .Select(ur => ur.RoleId)
+            .ToHashSetAsync();
+
+    private static bool CanManageTelegramPreferences(IReadOnlySet<int> roleIds)
+        => roleIds.Contains(1) || roleIds.Contains(2);
+
+    private static List<TelegramNotificationOptionViewModel> BuildTelegramNotificationOptions(User user, bool includeEmployeeProfileUpdates)
+        => TelegramNotificationPreferenceHelper.GetOptions(includeEmployeeProfileUpdates)
+            .Select(option => new TelegramNotificationOptionViewModel
+            {
+                Category = option.Category,
+                Title = option.Title,
+                Description = option.Description,
+                IsMandatory = option.IsMandatory,
+                IsEnabled = TelegramNotificationPreferenceHelper.IsEnabled(user, option.Category)
+            })
+            .ToList();
+
     [HttpGet]
     public async Task<IActionResult> TelegramLink()
     {
@@ -65,20 +89,62 @@ public class ProfileController : Controller
         var user = await _db.Users.FindAsync(userId.Value);
         if (user == null) return RedirectToAction("Index", "Dashboard");
 
-        ViewBag.AlreadyLinked = !string.IsNullOrWhiteSpace(user.TelegramChatId);
-        ViewBag.MuteBroadcast = user.TelegramMuteBroadcast;
-        ViewBag.BotConfigured = _telegram.IsConfigured;
-        ViewBag.BotUsername = _telegram.BotUsername;
+        var roleIds = await GetRoleIdsAsync(userId.Value);
+        var canManagePreferences = CanManageTelegramPreferences(roleIds);
+        var model = new TelegramLinkViewModel
+        {
+            AlreadyLinked = !string.IsNullOrWhiteSpace(user.TelegramChatId),
+            BotConfigured = _telegram.IsConfigured,
+            BotUsername = _telegram.BotUsername,
+            ShowNotificationPreferences = canManagePreferences,
+            NotificationOptions = canManagePreferences
+                ? BuildTelegramNotificationOptions(user, includeEmployeeProfileUpdates: true)
+                : []
+        };
 
         if (_telegram.IsConfigured)
         {
             var token = GenerateLinkToken();
             _cache.Set($"tg_link:{token}", userId.Value, TimeSpan.FromMinutes(15));
-            ViewBag.Token = token;
-            ViewBag.DeepLink = _telegram.GetLinkDeepLink(token);
+            model.Token = token;
+            model.DeepLink = _telegram.GetLinkDeepLink(token);
         }
 
-        return View();
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> TelegramUpdatePreferences(List<TelegramNotificationCategory>? enabledCategories)
+    {
+        var userId = GetUserId();
+        if (userId == null) return RedirectToAction("Index", "Dashboard");
+
+        var user = await _db.Users.FindAsync(userId.Value);
+        if (user == null) return RedirectToAction("Index", "Dashboard");
+
+        var roleIds = await GetRoleIdsAsync(userId.Value);
+        if (!CanManageTelegramPreferences(roleIds))
+        {
+            TempData["Error"] = "Nhân viên không được thay đổi danh mục nhận Telegram tại đây.";
+            return RedirectToAction(nameof(TelegramLink));
+        }
+
+        var allowedOptions = TelegramNotificationPreferenceHelper.GetOptions(includeEmployeeProfileUpdates: true);
+        var enabledSet = (enabledCategories ?? [])
+            .Where(category => category != TelegramNotificationCategory.General)
+            .ToHashSet();
+
+        var disabledCategories = allowedOptions
+            .Where(option => !option.IsMandatory && !enabledSet.Contains(option.Category))
+            .Select(option => option.Category);
+
+        user.TelegramDisabledNotificationTypes = TelegramNotificationPreferenceHelper.SerializeDisabledCategories(disabledCategories);
+        user.TelegramMuteBroadcast = false;
+
+        await _db.SaveChangesAsync();
+        TempData["Success"] = "Đã cập nhật danh mục Telegram sẽ nhận.";
+        return RedirectToAction(nameof(TelegramLink));
     }
 
     [HttpPost]
@@ -434,7 +500,7 @@ public class ProfileController : Controller
                 $"📝 {HE(message)}";
             foreach (var uid in adminManagerUserIds)
             {
-                await _notificationService.CreateAsync(uid, title, message, isPersonal: false, telegramText: tg);
+                await _notificationService.CreateAsync(uid, title, message, isPersonal: false, telegramText: tg, telegramCategory: TelegramNotificationCategory.EmployeeProfileUpdate);
             }
         }
 

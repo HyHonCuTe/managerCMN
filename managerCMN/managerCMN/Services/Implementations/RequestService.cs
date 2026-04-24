@@ -616,14 +616,14 @@ public class RequestService : IRequestService
     {
         var user = (await _unitOfWork.Users.FindAsync(u => u.EmployeeId == approverEmployeeId)).FirstOrDefault();
         if (user != null)
-            await _notificationService.CreateAsync(user.UserId, title, message, telegramText: telegramText);
+            await _notificationService.CreateAsync(user.UserId, title, message, telegramText: telegramText, telegramCategory: TelegramNotificationCategory.Request);
     }
 
     private async Task NotifyEmployee(int employeeId, string title, string message, string? telegramText = null)
     {
         var user = (await _unitOfWork.Users.FindAsync(u => u.EmployeeId == employeeId)).FirstOrDefault();
         if (user != null)
-            await _notificationService.CreateAsync(user.UserId, title, message, telegramText: telegramText);
+            await _notificationService.CreateAsync(user.UserId, title, message, telegramText: telegramText, telegramCategory: TelegramNotificationCategory.Request);
     }
 
     public async Task<int> CountAbsenceRequestsInMonthAsync(int employeeId, DateTime date)

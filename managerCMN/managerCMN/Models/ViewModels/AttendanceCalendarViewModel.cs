@@ -147,7 +147,7 @@ public class AttendanceCalendarViewModel
     public static readonly TimeOnly MorningStart = new(8, 30);
     public static readonly TimeOnly MorningEnd = new(12, 0);
     public static readonly TimeOnly AfternoonStart = new(13, 30);
-    public static readonly TimeOnly AfternoonEnd = new(17, 30);
+    public static readonly TimeOnly AfternoonEnd = new(17, 20);
     /// <summary>Minimum checkout time to count afternoon session (4:00 PM)</summary>
     public static readonly TimeOnly MinAfternoonCheckOut = new(16, 0);
     /// <summary>Minimum checkout time on working Saturdays to count afternoon session (3:00 PM)</summary>

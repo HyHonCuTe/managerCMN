@@ -61,6 +61,17 @@ public static class LeaveReasonHelper
             : "Tính công, không trừ phép";
     }
 
+    public static string GetExcelDisplayCode(LeaveReason reason, bool isHalfDay)
+        => reason switch
+        {
+            LeaveReason.SickLeaveWithCert => isHalfDay ? "O/2" : "O",
+            LeaveReason.BereavementLeave => isHalfDay ? "T/2" : "T",
+            LeaveReason.MarriageLeave => isHalfDay ? "M/2" : "M",
+            _ => GetCountsAsWork(reason)
+                ? (isHalfDay ? "P/2" : "P")
+                : (isHalfDay ? "K/2" : "K")
+        };
+
     public static string GetDisplayName(LeaveReason reason)
         => GetReasonInfo(reason)?.DisplayName ?? reason.ToString();
 

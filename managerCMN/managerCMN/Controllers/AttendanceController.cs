@@ -264,7 +264,7 @@ public class AttendanceController : Controller
 
                 if (useLegacyCoverage && att.CheckIn.HasValue && att.CheckOut.HasValue)
                 {
-                    // Check if covered both shifts: morning 8:30-12:00, afternoon 13:30-17:30.
+                    // Check if covered both shifts: morning 8:30-12:00, afternoon 13:30-17:20.
                     // Working Saturdays use 15:00 as the minimum checkout for afternoon session.
                     var checkIn = att.CheckIn.Value;
                     var checkOut = att.CheckOut.Value;

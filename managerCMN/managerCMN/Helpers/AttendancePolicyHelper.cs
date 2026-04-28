@@ -50,7 +50,7 @@ public static class AttendancePolicyHelper
         LateRequestWindowEnd: new TimeOnly(10, 0),
         MorningCutoff: new TimeOnly(10, 0),
         EarlyLeaveRequestWindowStart: new TimeOnly(16, 0),
-        NoRequestCheckoutThreshold: new TimeOnly(17, 30),
+        NoRequestCheckoutThreshold: new TimeOnly(17, 20),
         MonthlyAbsenceRequestLimit: 2,
         MonthlyMissedCheckInOutRequestLimit: 5,
         MonthlyLateEarlyRequestLimit: 5);

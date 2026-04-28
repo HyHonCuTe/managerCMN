@@ -299,7 +299,7 @@ public class AttendanceService : IAttendanceService
         var morningStart = new TimeOnly(8, 30);
         var morningEnd = new TimeOnly(12, 0);
         var afternoonStart = new TimeOnly(13, 30);
-        var afternoonEnd = new TimeOnly(17, 30);
+        var afternoonEnd = AttendanceCalendarViewModel.AfternoonEnd;
         // minAfternoonCheckOut is a class-level constant
 
         // Header row
@@ -376,7 +376,10 @@ public class AttendanceService : IAttendanceService
                 {
                     cell.Style.Fill.BackgroundColor = XLColor.LightGreen; // Green for attendance/counts-as-work
                 }
-                else if (cellValue == "P" || cellValue == "P/2")
+                else if (cellValue == "P" || cellValue == "P/2"
+                    || cellValue == "O" || cellValue == "O/2"
+                    || cellValue == "T" || cellValue == "T/2"
+                    || cellValue == "M" || cellValue == "M/2")
                 {
                     cell.Style.Fill.BackgroundColor = XLColor.Yellow; // Yellow for paid leave
                 }
@@ -461,20 +464,42 @@ public class AttendanceService : IAttendanceService
             .ToList();
         var approvedRequestInfos = dayRequestInfos.Where(r => r.IsApproved).ToList();
 
-        var paidLeaveReq = approvedRequestInfos
-            .FirstOrDefault(r => r.RequestType == Models.Enums.RequestType.Leave && r.CountsAsWork);
+        var paidLeaveReq = requests
+            .FirstOrDefault(request =>
+            {
+                var reqStart = DateOnly.FromDateTime(request.StartTime);
+                var reqEnd = DateOnly.FromDateTime(request.EndTime);
+                return request.RequestType == Models.Enums.RequestType.Leave
+                    && request.Status == Models.Enums.RequestStatus.FullyApproved
+                    && request.CountsAsWork
+                    && date >= reqStart
+                    && date <= reqEnd;
+            });
         if (paidLeaveReq != null)
         {
-            dayP = paidLeaveReq.IsHalfDayMorning.HasValue ? 0.5m : 1m;
+            var isHalfDay = (date == DateOnly.FromDateTime(paidLeaveReq.StartTime) && paidLeaveReq.IsHalfDayStart)
+                || (date == DateOnly.FromDateTime(paidLeaveReq.EndTime) && paidLeaveReq.IsHalfDayEnd);
+            dayP = isHalfDay ? 0.5m : 1m;
             dayCong = dayP;
-            return dayP == 0.5m ? "P/2" : "P";
+            return LeaveReasonHelper.GetExcelDisplayCode(paidLeaveReq.LeaveReason ?? Models.Enums.LeaveReason.PaidLeave, dayP == 0.5m);
         }
 
-        var unpaidLeaveReq = approvedRequestInfos
-            .FirstOrDefault(r => r.RequestType == Models.Enums.RequestType.Leave && !r.CountsAsWork);
+        var unpaidLeaveReq = requests
+            .FirstOrDefault(request =>
+            {
+                var reqStart = DateOnly.FromDateTime(request.StartTime);
+                var reqEnd = DateOnly.FromDateTime(request.EndTime);
+                return request.RequestType == Models.Enums.RequestType.Leave
+                    && request.Status == Models.Enums.RequestStatus.FullyApproved
+                    && !request.CountsAsWork
+                    && date >= reqStart
+                    && date <= reqEnd;
+            });
         if (unpaidLeaveReq != null)
         {
-            dayK = unpaidLeaveReq.IsHalfDayMorning.HasValue ? 0.5m : 1m;
+            var isHalfDay = (date == DateOnly.FromDateTime(unpaidLeaveReq.StartTime) && unpaidLeaveReq.IsHalfDayStart)
+                || (date == DateOnly.FromDateTime(unpaidLeaveReq.EndTime) && unpaidLeaveReq.IsHalfDayEnd);
+            dayK = isHalfDay ? 0.5m : 1m;
             return dayK == 0.5m ? "K/2" : "K";
         }
 

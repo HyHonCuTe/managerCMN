@@ -112,7 +112,7 @@ public class ContractService : IContractService
             await _unitOfWork.SaveChangesAsync();
             await _logService.LogAsync(
                 GetCurrentUserId(),
-                "Dong bo hop dong het han",
+                "Đồng bộ hợp đồng hết hạn",
                 "Contract",
                 null,
                 new
@@ -153,7 +153,7 @@ public class ContractService : IContractService
         await _unitOfWork.SaveChangesAsync();
         await _logService.LogAsync(
             GetCurrentUserId(),
-            "Sinh ma hop dong cu thieu du lieu",
+            "Sinh mã hợp đồng cũ thiếu dữ liệu",
             "Contract",
             null,
             new

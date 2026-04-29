@@ -83,7 +83,7 @@ public class PermissionService : IPermissionService
 
             await _systemLogService.LogAsync(
                 GetCurrentUserId(),
-                "Cap nhat quyen cho vai tro",
+                "Cập nhật quyền cho vai trò",
                 "RolePermission",
                 dataBefore,
                 new

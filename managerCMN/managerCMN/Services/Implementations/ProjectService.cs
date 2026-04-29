@@ -214,7 +214,24 @@ public class ProjectService : IProjectService
             }
         }
 
-        await _logService.LogAsync(null, "Create", "Project", null, new { project.ProjectId, project.Name }, null);
+        await _logService.LogAsync(
+            null,
+            "Create",
+            "Project",
+            null,
+            new
+            {
+                project.ProjectId,
+                project.Name,
+                project.Description,
+                project.StartDate,
+                project.EndDate,
+                project.Status,
+                project.CreatedByEmployeeId,
+                TemplateId = vm.TemplateId,
+                InitialOwnerEmployeeId = creatorEmployeeId
+            },
+            null);
 
         return project.ProjectId;
     }
@@ -235,6 +252,17 @@ public class ProjectService : IProjectService
         if (vm.Status == ProjectStatus.Archived)
             throw new InvalidOperationException("Hãy dùng nút Lưu trữ để chuyển dự án vào khu lưu trữ.");
 
+        var dataBefore = new
+        {
+            project.ProjectId,
+            project.Name,
+            project.Description,
+            project.StartDate,
+            project.EndDate,
+            project.Status,
+            project.IsArchived
+        };
+
         project.Name = vm.Name;
         project.Description = vm.Description;
         project.StartDate = vm.StartDate;
@@ -244,6 +272,23 @@ public class ProjectService : IProjectService
 
         _unitOfWork.Projects.Update(project);
         await _unitOfWork.SaveChangesAsync();
+        await _logService.LogAsync(
+            null,
+            "Cập nhật dự án",
+            "Project",
+            dataBefore,
+            new
+            {
+                project.ProjectId,
+                project.Name,
+                project.Description,
+                project.StartDate,
+                project.EndDate,
+                project.Status,
+                project.IsArchived,
+                UpdatedByEmployeeId = employeeId
+            },
+            null);
     }
 
     public async Task ArchiveAsync(int projectId, int employeeId)
@@ -265,12 +310,35 @@ public class ProjectService : IProjectService
         if (!project.IsArchived && project.Status != ProjectStatus.Archived)
             project.PriorStatus = project.Status;
 
+        var dataBefore = new
+        {
+            project.ProjectId,
+            project.Name,
+            project.Status,
+            project.IsArchived,
+            project.PriorStatus
+        };
+
         project.IsArchived = true;
         project.Status = ProjectStatus.Archived;
         project.ModifiedDate = DateTimeHelper.VietnamNow;
         _unitOfWork.Projects.Update(project);
         await _unitOfWork.SaveChangesAsync();
-        await _logService.LogAsync(null, "Archive", "Project", null, new { project.ProjectId, project.Name }, null);
+        await _logService.LogAsync(
+            null,
+            "Archive",
+            "Project",
+            dataBefore,
+            new
+            {
+                project.ProjectId,
+                project.Name,
+                project.Status,
+                project.IsArchived,
+                project.PriorStatus,
+                ArchivedByEmployeeId = employeeId
+            },
+            null);
     }
 
     public async Task RestoreAsync(int projectId, int employeeId)
@@ -284,6 +352,15 @@ public class ProjectService : IProjectService
         if (!project.IsArchived && project.Status != ProjectStatus.Archived)
             return;
 
+        var dataBefore = new
+        {
+            project.ProjectId,
+            project.Name,
+            project.Status,
+            project.IsArchived,
+            project.PriorStatus
+        };
+
         project.IsArchived = false;
         // Restore to prior status if available, otherwise to Planning
         project.Status = project.PriorStatus ?? ProjectStatus.Planning;
@@ -291,7 +368,21 @@ public class ProjectService : IProjectService
         project.ModifiedDate = DateTimeHelper.VietnamNow;
         _unitOfWork.Projects.Update(project);
         await _unitOfWork.SaveChangesAsync();
-        await _logService.LogAsync(null, "Restore", "Project", null, new { project.ProjectId, project.Name }, null);
+        await _logService.LogAsync(
+            null,
+            "Restore",
+            "Project",
+            dataBefore,
+            new
+            {
+                project.ProjectId,
+                project.Name,
+                project.Status,
+                project.IsArchived,
+                project.PriorStatus,
+                RestoredByEmployeeId = employeeId
+            },
+            null);
     }
 
     public async Task DeleteAsync(int projectId, int employeeId)
@@ -302,6 +393,14 @@ public class ProjectService : IProjectService
         var project = await _context.Projects
             .FirstOrDefaultAsync(p => p.ProjectId == projectId)
             ?? throw new InvalidOperationException("Dự án không tồn tại.");
+
+        var dataBefore = new
+        {
+            project.ProjectId,
+            project.Name,
+            project.Status,
+            project.IsArchived
+        };
 
         if (!project.IsArchived && project.Status != ProjectStatus.Archived)
             throw new InvalidOperationException("Chỉ được xoá dự án đã nằm trong lưu trữ.");
@@ -373,7 +472,21 @@ public class ProjectService : IProjectService
         await transaction.CommitAsync();
 
         DeleteAttachmentFiles(attachmentPaths);
-        await _logService.LogAsync(null, "Delete", "Project", new { project.ProjectId, project.Name }, null, null);
+        await _logService.LogAsync(
+            null,
+            "Delete",
+            "Project",
+            dataBefore,
+            new
+            {
+                ProjectId = projectId,
+                Deleted = true,
+                DeletedTaskCount = taskIds.Count,
+                DeletedMemberCount = members.Count,
+                DeletedAttachmentCount = attachmentPaths.Count,
+                DeletedByEmployeeId = employeeId
+            },
+            null);
     }
 
     public async Task AddMemberAsync(AddMemberViewModel vm, int actorEmployeeId)
@@ -401,6 +514,9 @@ public class ProjectService : IProjectService
         if (employeeIds.Count == 0)
             throw new InvalidOperationException("Vui lòng chọn ít nhất một nhân viên.");
 
+        var memberCountBefore = await _context.ProjectMembers
+            .CountAsync(m => m.ProjectId == vm.ProjectId);
+
         var addedIds = new List<int>();
         foreach (var employeeId in employeeIds)
         {
@@ -425,7 +541,20 @@ public class ProjectService : IProjectService
             throw new InvalidOperationException("Các nhân viên đã chọn đều đã là thành viên của dự án.");
 
         await _unitOfWork.SaveChangesAsync();
-        await _logService.LogAsync(null, "AddMember", "Project", null, new { vm.ProjectId, EmployeeIds = addedIds }, null);
+        await _logService.LogAsync(
+            null,
+            "AddMember",
+            "Project",
+            new { vm.ProjectId, MemberCount = memberCountBefore },
+            new
+            {
+                vm.ProjectId,
+                EmployeeIds = addedIds,
+                AddedRole = vm.Role,
+                MemberCount = memberCountBefore + addedIds.Count,
+                AddedByEmployeeId = actorEmployeeId
+            },
+            null);
     }
 
     public async Task RemoveMemberAsync(int projectId, int targetEmployeeId, int actorEmployeeId)
@@ -446,8 +575,33 @@ public class ProjectService : IProjectService
         var member = await _unitOfWork.ProjectMembers.GetMemberAsync(projectId, targetEmployeeId)
             ?? throw new InvalidOperationException("Thành viên không tồn tại.");
 
+        var memberCountBefore = await _context.ProjectMembers
+            .CountAsync(m => m.ProjectId == projectId);
+
+        var dataBefore = new
+        {
+            member.ProjectId,
+            member.EmployeeId,
+            member.Role,
+            MemberCount = memberCountBefore
+        };
+
         _unitOfWork.ProjectMembers.Remove(member);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            null,
+            "Xóa thành viên dự án",
+            "Project",
+            dataBefore,
+            new
+            {
+                ProjectId = projectId,
+                RemovedEmployeeId = targetEmployeeId,
+                MemberCount = Math.Max(0, memberCountBefore - 1),
+                RemovedByEmployeeId = actorEmployeeId
+            },
+            null);
     }
 
     public async Task ChangeMemberRoleAsync(ChangeMemberRoleViewModel vm, int actorEmployeeId)
@@ -472,9 +626,30 @@ public class ProjectService : IProjectService
         if (member.Role == vm.NewRole)
             return;
 
+        var dataBefore = new
+        {
+            member.ProjectId,
+            member.EmployeeId,
+            Role = member.Role
+        };
+
         member.Role = vm.NewRole;
         _unitOfWork.ProjectMembers.Update(member);
         await _unitOfWork.SaveChangesAsync();
+
+        await _logService.LogAsync(
+            null,
+            "Cập nhật vai trò thành viên dự án",
+            "Project",
+            dataBefore,
+            new
+            {
+                member.ProjectId,
+                member.EmployeeId,
+                Role = member.Role,
+                UpdatedByEmployeeId = actorEmployeeId
+            },
+            null);
     }
 
     public async Task<IEnumerable<ProjectMemberViewModel>> GetMembersAsync(int projectId, int employeeId, bool ignoreAccessCheck = false)

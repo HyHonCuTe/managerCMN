@@ -602,10 +602,30 @@ public class ProjectTaskService : IProjectTaskService
             throw new InvalidOperationException("Cơ sở dữ liệu chưa cập nhật phần nhật ký công việc. Cần chạy database update trước khi gửi cập nhật/file.");
         }
 
-        await _logService.LogAsync(null, "TaskUpdate", "ProjectTask", null,
-            new { task.ProjectTaskId, task.ProjectId, update.ProjectTaskUpdateId }, null);
+        await _logService.LogAsync(
+            null,
+            "TaskUpdate",
+            "ProjectTask",
+            new
+            {
+                task.ProjectTaskId,
+                task.ProjectId,
+                Status = update.StatusSnapshot,
+                Progress = update.ProgressSnapshot
+            },
+            new
+            {
+                task.ProjectTaskId,
+                task.ProjectId,
+                update.ProjectTaskUpdateId,
+                Status = task.Status,
+                Progress = task.Progress,
+                HasAttachment = attachments.Count > 0,
+                ContentLength = update.Content?.Length ?? 0
+            },
+            null);
 
-        await NotifyAssigneesForTaskUpdateAsync(task, employeeId, update.Content);
+        await NotifyAssigneesForTaskUpdateAsync(task, employeeId, update.Content ?? string.Empty);
     }
 
     private async Task NotifyAssigneesForTaskUpdateAsync(ProjectTask task, int senderEmployeeId, string updateContent)

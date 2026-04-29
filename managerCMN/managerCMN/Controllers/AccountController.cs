@@ -95,9 +95,14 @@ public class AccountController : Controller
             // Email not in employee list - DENY LOGIN
             await _systemLogService.LogAsync(
                 null,
-                "Tu choi dang nhap Google",
+                "Từ chối đăng nhập Google",
                 "Account",
-                null,
+                new
+                {
+                    Email = email,
+                    LoginType = "Google",
+                    EmployeeFound = false
+                },
                 new
                 {
                     Email = email,
@@ -111,6 +116,9 @@ public class AccountController : Controller
         }
 
         var user = await _unitOfWork.Users.GetByEmailAsync(email);
+    var previousLastLogin = user?.LastLogin;
+    var previousEmployeeId = user?.EmployeeId;
+    var hadGoogleId = !string.IsNullOrWhiteSpace(user?.GoogleId);
         bool createdUser = false;
         bool linkedEmployee = false;
         int? assignedRoleId = null;
@@ -158,9 +166,16 @@ public class AccountController : Controller
 
         await _systemLogService.LogAsync(
             user.UserId,
-            "Dang nhap Google thanh cong",
+            "Đăng nhập Google thành công",
             "Account",
-            null,
+            new
+            {
+                user.UserId,
+                user.Email,
+                PreviousEmployeeId = previousEmployeeId,
+                PreviousLastLogin = previousLastLogin,
+                HadGoogleId = hadGoogleId
+            },
             new
             {
                 user.UserId,
@@ -188,6 +203,8 @@ public class AccountController : Controller
             return NotFound();
 
         User? user;
+        DateTime? previousLastLogin = null;
+        int? previousEmployeeId = null;
         bool createdUser = false;
         bool linkedEmployee = false;
         bool assignedAdminRole = false;
@@ -200,6 +217,8 @@ public class AccountController : Controller
             if (emp == null) return NotFound();
 
             user = await _db.Users.FirstOrDefaultAsync(u => u.EmployeeId == employeeId.Value);
+            previousLastLogin = user?.LastLogin;
+            previousEmployeeId = user?.EmployeeId;
             if (user == null)
             {
                 user = new User
@@ -224,6 +243,8 @@ public class AccountController : Controller
             // Original DevLogin: admin@company.local linked to NV001
             const string devEmail = "admin@company.local";
             user = await _unitOfWork.Users.GetByEmailAsync(devEmail);
+            previousLastLogin = user?.LastLogin;
+            previousEmployeeId = user?.EmployeeId;
             if (user == null)
             {
                 var nv001 = await _db.Employees.FirstOrDefaultAsync(e => e.EmployeeCode == "NV001");
@@ -269,9 +290,15 @@ public class AccountController : Controller
 
         await _systemLogService.LogAsync(
             user.UserId,
-            "Dang nhap dev thanh cong",
+            "Đăng nhập dev thành công",
             "Account",
-            null,
+            new
+            {
+                user.UserId,
+                user.Email,
+                PreviousEmployeeId = previousEmployeeId,
+                PreviousLastLogin = previousLastLogin
+            },
             new
             {
                 user.UserId,
@@ -294,16 +321,28 @@ public class AccountController : Controller
     [HttpPost]
     public async Task<IActionResult> Logout()
     {
+        var currentUserId = GetCurrentUserId();
+        var email = User.FindFirstValue(ClaimTypes.Email);
+        var fullName = User.FindFirstValue(ClaimTypes.Name);
+
         await _systemLogService.LogAsync(
-            GetCurrentUserId(),
-            "Dang xuat",
+            currentUserId,
+            "Đăng xuất",
             "Account",
-            null,
             new
             {
-                UserId = GetCurrentUserId(),
-                Email = User.FindFirstValue(ClaimTypes.Email),
-                FullName = User.FindFirstValue(ClaimTypes.Name)
+                UserId = currentUserId,
+                Email = email,
+                FullName = fullName,
+                IsAuthenticated = User.Identity?.IsAuthenticated == true
+            },
+            new
+            {
+                UserId = currentUserId,
+                Email = email,
+                FullName = fullName,
+                LoggedOut = true,
+                LoggedOutAt = DateTimeHelper.VietnamNow
             },
             GetClientIP());
 

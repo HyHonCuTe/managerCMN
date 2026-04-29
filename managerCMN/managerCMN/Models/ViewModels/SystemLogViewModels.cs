@@ -17,10 +17,10 @@ public class SystemLogIndexViewModel
 public class SystemLogListItemViewModel
 {
     public SystemLog Log { get; set; } = null!;
-    public string UserDisplayName { get; set; } = "He thong";
-    public string DetailPreview { get; set; } = "Khong co du lieu chi tiet";
-    public string DataBeforePretty { get; set; } = "Khong co du lieu";
-    public string DataAfterPretty { get; set; } = "Khong co du lieu";
+    public string UserDisplayName { get; set; } = "Hệ thống";
+    public string DetailPreview { get; set; } = "Không có dữ liệu chi tiết";
+    public string DataBeforePretty { get; set; } = "Không có dữ liệu";
+    public string DataAfterPretty { get; set; } = "Không có dữ liệu";
     public bool HasBeforeData { get; set; }
     public bool HasAfterData { get; set; }
 }

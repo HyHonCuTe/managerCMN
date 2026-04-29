@@ -254,6 +254,13 @@ public class TicketService : ITicketService
             CreatedDate = DateTimeHelper.VietnamNow
         };
 
+        var dataBefore = new
+        {
+            ticket.TicketId,
+            ticket.Status,
+            MessageCount = ticket.Messages.Count
+        };
+
         // Handle message attachments
         if (attachments?.Count > 0)
         {
@@ -275,8 +282,15 @@ public class TicketService : ITicketService
             GetCurrentUserId(),
             "Phản hồi Ticket",
             "TicketMessage",
-            null,
-            new { message.TicketMessageId, message.TicketId, message.SenderId },
+            dataBefore,
+            new
+            {
+                message.TicketMessageId,
+                message.TicketId,
+                message.SenderId,
+                TicketStatus = ticket.Status,
+                MessageCount = dataBefore.MessageCount + 1
+            },
             GetClientIP()
         );
 
@@ -317,6 +331,12 @@ public class TicketService : ITicketService
         // Get existing recipient IDs
         var existingRecipientIds = ticket.Recipients.Select(r => r.EmployeeId).ToHashSet();
         var newRecipientIds = recipientIds.Where(id => !existingRecipientIds.Contains(id) && id != ticket.CreatedBy).ToList();
+        var dataBefore = new
+        {
+            ticket.TicketId,
+            ticket.Status,
+            RecipientCount = ticket.Recipients.Count
+        };
 
         // Add new recipients
         foreach (var recipientId in newRecipientIds)
@@ -371,8 +391,16 @@ public class TicketService : ITicketService
             GetCurrentUserId(),
             "Chuyển tiếp Ticket",
             "Ticket",
-            null,
-            new { ticketId, ForwarderId = forwarderId, NewRecipientCount = newRecipientIds.Count },
+            dataBefore,
+            new
+            {
+                ticketId,
+                ForwarderId = forwarderId,
+                NewRecipientIds = newRecipientIds,
+                NewRecipientCount = newRecipientIds.Count,
+                RecipientCount = dataBefore.RecipientCount + newRecipientIds.Count,
+                TicketStatus = ticket.Status
+            },
             GetClientIP()
         );
 
@@ -495,7 +523,7 @@ public class TicketService : ITicketService
 
             await _logService.LogAsync(
                 GetCurrentUserId(),
-                "Bo danh dau sao Ticket",
+                "Bỏ đánh dấu sao Ticket",
                 "TicketStar",
                 new { existingStar.TicketStarId, existingStar.TicketId, existingStar.EmployeeId },
                 null,
@@ -517,7 +545,7 @@ public class TicketService : ITicketService
 
         await _logService.LogAsync(
             GetCurrentUserId(),
-            "Danh dau sao Ticket",
+            "Đánh dấu sao Ticket",
             "TicketStar",
             null,
             new { newStar.TicketStarId, newStar.TicketId, newStar.EmployeeId },

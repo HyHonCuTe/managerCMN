@@ -115,6 +115,15 @@ public class SetupController : Controller
                 return RedirectToAction(nameof(Index));
             }
 
+            var rolesBefore = await _db.UserRoles
+                .Where(ur => ur.UserId == userId)
+                .Join(_db.Roles,
+                    ur => ur.RoleId,
+                    role => role.RoleId,
+                    (ur, role) => new { ur.RoleId, RoleName = role.RoleName })
+                .OrderBy(role => role.RoleId)
+                .ToArrayAsync();
+
             // Assign admin role
             var userRole = new UserRole
             {
@@ -125,17 +134,32 @@ public class SetupController : Controller
             _db.UserRoles.Add(userRole);
             await _db.SaveChangesAsync();
 
+            var rolesAfter = await _db.UserRoles
+                .Where(ur => ur.UserId == userId)
+                .Join(_db.Roles,
+                    ur => ur.RoleId,
+                    role => role.RoleId,
+                    (ur, role) => new { ur.RoleId, RoleName = role.RoleName })
+                .OrderBy(role => role.RoleId)
+                .ToArrayAsync();
+
             await _systemLogService.LogAsync(
                 GetCurrentUserId(),
-                "Cap quyen Admin",
+                "Cấp quyền Admin",
                 "Setup",
-                null,
                 new
                 {
                     TargetUserId = user.UserId,
                     user.Email,
-                    RoleId = adminRole.RoleId,
-                    RoleName = adminRole.RoleName
+                    Roles = rolesBefore
+                },
+                new
+                {
+                    TargetUserId = user.UserId,
+                    user.Email,
+                    AddedRoleId = adminRole.RoleId,
+                    AddedRoleName = adminRole.RoleName,
+                    Roles = rolesAfter
                 },
                 GetClientIP());
 

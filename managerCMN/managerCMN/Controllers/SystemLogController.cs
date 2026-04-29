@@ -88,7 +88,7 @@ public class SystemLogController : Controller
 
         await _logService.LogAsync(
             GetCurrentUserId(),
-            "Xem nhat ky he thong",
+            "Xem nhật ký hệ thống",
             "SystemLog",
             null,
             new
@@ -122,7 +122,7 @@ public class SystemLogController : Controller
     private static string ResolveUserDisplayName(int? userId, IReadOnlyDictionary<int, string> userLookup)
     {
         if (!userId.HasValue)
-            return "He thong";
+            return "Hệ thống";
 
         return userLookup.TryGetValue(userId.Value, out var displayName)
             ? displayName
@@ -133,7 +133,7 @@ public class SystemLogController : Controller
     {
         var source = !string.IsNullOrWhiteSpace(log.DataAfter) ? log.DataAfter : log.DataBefore;
         if (string.IsNullOrWhiteSpace(source))
-            return "Khong co du lieu chi tiet";
+            return "Không có dữ liệu chi tiết";
 
         var formatted = FormatJson(source)
             .Replace(Environment.NewLine, " ")
@@ -145,7 +145,7 @@ public class SystemLogController : Controller
     private static string FormatJson(string? rawJson)
     {
         if (string.IsNullOrWhiteSpace(rawJson))
-            return "Khong co du lieu";
+            return "Không có dữ liệu";
 
         try
         {

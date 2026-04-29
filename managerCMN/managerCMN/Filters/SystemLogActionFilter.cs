@@ -11,6 +11,10 @@ namespace managerCMN.Filters;
 public class SystemLogActionFilter : IAsyncActionFilter
 {
     private readonly ISystemLogService _logService;
+    private static readonly HashSet<string> IgnoredRoutes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Notification/UnreadCount"
+    };
 
     public SystemLogActionFilter(ISystemLogService logService)
     {
@@ -31,27 +35,44 @@ public class SystemLogActionFilter : IAsyncActionFilter
         var ip = context.HttpContext.Connection.RemoteIpAddress?.ToString();
         var statusCode = result.HttpContext.Response.StatusCode;
         var httpMethod = context.HttpContext.Request.Method;
+        var route = $"{controller}/{actionName}";
         var arguments = BuildSafeValue(context.ActionArguments, "Arguments", 0);
-        var action = $"{httpMethod} {controller}/{actionName}";
+        var query = BuildSafeValue(
+            context.HttpContext.Request.Query.ToDictionary(item => item.Key, item => item.Value.ToString()),
+            "Query",
+            0);
+        var action = route;
+
+        var dataBefore = new
+        {
+            Method = httpMethod,
+            Route = route,
+            Query = query,
+            Arguments = arguments
+        };
 
         var dataAfter = new
         {
-            Method = httpMethod,
-            Route = $"{controller}/{actionName}",
             StatusCode = statusCode,
-            Arguments = arguments,
+            ResultType = result.Result?.GetType().Name,
             Error = result.Exception is { } ex && !result.ExceptionHandled
                 ? new { ex.Message, ExceptionType = ex.GetType().Name }
                 : null
         };
 
         _ = int.TryParse(userId, out var uid);
-        await _logService.LogAsync(uid > 0 ? uid : null, action, module, null, dataAfter, ip);
+        await _logService.LogAsync(uid > 0 ? uid : null, action, module, dataBefore, dataAfter, ip);
     }
 
     private static bool ShouldLog(ActionExecutingContext context, ActionExecutedContext result)
     {
         if (SystemLogRequestContext.HasWrittenLog(context.HttpContext))
+            return false;
+
+        var controller = context.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+        var action = context.RouteData.Values["action"]?.ToString() ?? string.Empty;
+        var route = $"{controller}/{action}";
+        if (IgnoredRoutes.Contains(route))
             return false;
 
         var isApiKeyProtected = context.ActionDescriptor is ControllerActionDescriptor cad &&

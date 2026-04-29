@@ -163,6 +163,7 @@ public class RequestService : IRequestService
         var request = await _unitOfWork.Requests.GetWithApprovalsAsync(requestId);
         if (request == null) return;
         if (request.Status == RequestStatus.Rejected || request.Status == RequestStatus.Cancelled) return;
+        var statusBefore = request.Status;
 
         var approval = request.Approvals.FirstOrDefault(a =>
             a.ApproverId == approverEmployeeId && a.Status == ApprovalStatus.Pending);
@@ -233,7 +234,7 @@ public class RequestService : IRequestService
             GetCurrentUserId(),
             allApproved ? "Duyệt đơn hoàn tất" : "Duyệt đơn (cấp " + approval.ApproverOrder + ")",
             "Request",
-            new { request.RequestId, StatusBefore = "Pending" },
+            new { request.RequestId, StatusBefore = statusBefore.ToString() },
             new { request.RequestId, request.Title, request.Status, ApprovedBy = approverName },
             GetClientIP()
         );
@@ -243,6 +244,7 @@ public class RequestService : IRequestService
     {
         var request = await _unitOfWork.Requests.GetWithApprovalsAsync(requestId);
         if (request == null) return;
+        var statusBefore = request.Status;
 
         var approval = request.Approvals.FirstOrDefault(a =>
             a.ApproverId == approverEmployeeId && a.Status == ApprovalStatus.Pending);
@@ -292,7 +294,7 @@ public class RequestService : IRequestService
             GetCurrentUserId(),
             "Từ chối đơn",
             "Request",
-            new { request.RequestId, StatusBefore = "Pending" },
+            new { request.RequestId, StatusBefore = statusBefore.ToString() },
             new { request.RequestId, request.Title, request.Status, RejectedBy = approverName, Comment = comment },
             GetClientIP()
         );
@@ -305,6 +307,7 @@ public class RequestService : IRequestService
         if (request.Status == RequestStatus.FullyApproved
             || request.Status == RequestStatus.Rejected
             || request.Status == RequestStatus.Cancelled) return;
+        var statusBefore = request.Status;
 
         foreach (var a in request.Approvals.Where(a => a.Status == ApprovalStatus.Pending))
         {
@@ -336,7 +339,7 @@ public class RequestService : IRequestService
             GetCurrentUserId(),
             "Admin duyệt đơn",
             "Request",
-            new { request.RequestId, StatusBefore = "Pending" },
+            new { request.RequestId, StatusBefore = statusBefore.ToString() },
             new { request.RequestId, request.Title, request.Status, ApprovedBy = approverName },
             GetClientIP()
         );
@@ -347,6 +350,7 @@ public class RequestService : IRequestService
         var request = await _unitOfWork.Requests.GetWithApprovalsAsync(requestId);
         if (request == null) return;
         if (request.Status == RequestStatus.Rejected || request.Status == RequestStatus.Cancelled) return;
+        var statusBefore = request.Status;
 
         foreach (var a in request.Approvals.Where(a => a.Status == ApprovalStatus.Pending))
         {
@@ -390,7 +394,7 @@ public class RequestService : IRequestService
             GetCurrentUserId(),
             "Admin từ chối đơn",
             "Request",
-            new { request.RequestId, StatusBefore = "Pending" },
+            new { request.RequestId, StatusBefore = statusBefore.ToString() },
             new { request.RequestId, request.Title, request.Status, RejectedBy = approverName, Comment = comment },
             GetClientIP()
         );
@@ -400,6 +404,7 @@ public class RequestService : IRequestService
     {
         var request = await _unitOfWork.Requests.GetWithApprovalsAsync(requestId);
         if (request == null) return;
+        var statusBefore = request.Status;
 
         // Only allow reverting approved requests (any approval level)
         if (request.Status != RequestStatus.Approver1Approved
@@ -459,7 +464,7 @@ public class RequestService : IRequestService
             GetCurrentUserId(),
             "Hoàn duyệt đơn",
             "Request",
-            new { request.RequestId, StatusBefore = "Approved" },
+            new { request.RequestId, StatusBefore = statusBefore.ToString() },
             new { request.RequestId, request.Title, request.Status, RevertedBy = adminName, Comment = comment },
             GetClientIP()
         );
@@ -470,6 +475,7 @@ public class RequestService : IRequestService
         var request = await _unitOfWork.Requests.GetByIdAsync(requestId);
         if (request == null || request.EmployeeId != employeeId) return;
         if (request.Status != RequestStatus.Pending) return;
+        var statusBefore = request.Status;
 
         request.Status = RequestStatus.Cancelled;
         _unitOfWork.Requests.Update(request);
@@ -497,7 +503,7 @@ public class RequestService : IRequestService
             GetCurrentUserId(),
             "Hủy đơn",
             "Request",
-            new { request.RequestId, StatusBefore = "Pending" },
+            new { request.RequestId, StatusBefore = statusBefore.ToString() },
             new { request.RequestId, request.Title, request.Status },
             GetClientIP()
         );

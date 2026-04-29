@@ -3,7 +3,7 @@
     ViewData["Title"] = "Quản lý Nhân viên";
     var leaveSummaries = ViewBag.LeaveSummaries as IReadOnlyDictionary<int, LeaveBalanceSummaryViewModel>;
     var departments    = ViewBag.Departments as List<string> ?? new List<string>();
-    var today = DateTime.Today;
+    var today = DateTimeHelper.VietnamToday;
 
     (string badgeCss, string text) GetEffectiveStatus(Employee emp)
     {

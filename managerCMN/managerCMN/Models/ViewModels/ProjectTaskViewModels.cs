@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Http;
+using managerCMN.Helpers;
 using managerCMN.Models.Enums;
 
 namespace managerCMN.Models.ViewModels;
@@ -24,7 +25,7 @@ public class ProjectTaskTreeViewModel
     public DateTime CreatedDate { get; set; }
     public DateTime? ModifiedDate { get; set; }
     public string? CreatedByName { get; set; }
-    public bool IsOverdue => DueDate.HasValue && DueDate.Value < DateTime.Today && Status != ProjectTaskStatus.Done && Status != ProjectTaskStatus.Cancelled;
+    public bool IsOverdue => DueDate.HasValue && DueDate.Value.Date < DateTimeHelper.VietnamToday && Status != ProjectTaskStatus.Done && Status != ProjectTaskStatus.Cancelled;
     public List<string> AssigneeNames { get; set; } = new();
     public List<int> AssigneeIds { get; set; } = new();
     public List<ProjectTaskAssigneeStatusViewModel> AssigneeStatuses { get; set; } = new();

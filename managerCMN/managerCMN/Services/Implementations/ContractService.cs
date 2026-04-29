@@ -61,7 +61,7 @@ public class ContractService : IContractService
         var existing = await _unitOfWork.Contracts.GetByIdAsync(contract.ContractId);
         var dataBefore = existing != null ? new { existing.ContractId, existing.ContractNumber, existing.EmployeeId, existing.ContractType, existing.StartDate, existing.EndDate, existing.Salary, existing.Status } : null;
 
-        contract.ModifiedAt = DateTime.UtcNow;
+        contract.ModifiedAt = DateTimeHelper.VietnamNow;
         _unitOfWork.Contracts.Update(contract);
         await _unitOfWork.SaveChangesAsync();
 

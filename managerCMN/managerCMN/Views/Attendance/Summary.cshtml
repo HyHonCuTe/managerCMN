@@ -18,7 +18,7 @@
                         }
                     </select>
                     <select name="year" class="form-select form-select-sm" id="attendanceSummaryYear">
-                        @for (int y = DateTime.Now.Year - 2; y <= DateTime.Now.Year + 1; y++)
+                        @for (int y = DateTimeHelper.VietnamNow.Year - 2; y <= DateTimeHelper.VietnamNow.Year + 1; y++)
                         {
                             <option value="@y" selected="@(y == year)">@y</option>
                         }

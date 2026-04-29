@@ -64,5 +64,5 @@ public class PostHistory
     /// <summary>
     /// When this API call was received - stored as local time
     /// </summary>
-    public DateTime CreatedAt { get; set; } = VietnamTimeHelper.Now;
+    public DateTime CreatedAt { get; set; } = DateTimeHelper.VietnamNow;
 }

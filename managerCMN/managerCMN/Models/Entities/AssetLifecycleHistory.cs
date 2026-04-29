@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using managerCMN.Models.Enums;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -12,7 +13,7 @@ public class AssetLifecycleHistory
     public Asset Asset { get; set; } = null!;
 
     public AssetLifecycleEventType EventType { get; set; }
-    public DateTime EventDate { get; set; } = DateTime.UtcNow;
+    public DateTime EventDate { get; set; } = DateTimeHelper.VietnamNow;
 
     public int? EmployeeId { get; set; }
     public Employee? Employee { get; set; }

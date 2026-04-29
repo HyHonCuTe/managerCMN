@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using managerCMN.Models.Enums;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -29,7 +30,7 @@ public class Ticket
     public int? AssignedTo { get; set; }
     public Employee? Assignee { get; set; }
 
-    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedDate { get; set; } = DateTimeHelper.VietnamNow;
 
     public DateTime? ResolvedDate { get; set; }
 

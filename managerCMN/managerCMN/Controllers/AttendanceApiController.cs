@@ -62,7 +62,7 @@ public class AttendanceApiController : ControllerBase
                     continue;
 
                 // Convert to Vietnam time and ensure it's stored without timezone conversion
-                var vietnamTime = VietnamTimeHelper.ToVietnamUnspecified(r.Time);
+                var vietnamTime = r.Time.ToVietnamUnspecified();
                 var code = r.UserId.Trim();
 
                 punchRecords.Add((code, vietnamTime));

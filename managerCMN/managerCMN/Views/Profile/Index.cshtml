@@ -1,7 +1,7 @@
 @model Employee?
 @{
     ViewData["Title"] = "Hồ sơ cá nhân";
-    var today = DateTime.Today;
+    var today = DateTimeHelper.VietnamToday;
 
     string ContractTypeText(ContractType ct) => ct switch
     {

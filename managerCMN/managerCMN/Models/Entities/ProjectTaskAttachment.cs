@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -23,5 +24,5 @@ public class ProjectTaskAttachment
     public int UploadedByEmployeeId { get; set; }
     public Employee UploadedByEmployee { get; set; } = null!;
 
-    public DateTime UploadedDate { get; set; } = DateTime.Now;
+    public DateTime UploadedDate { get; set; } = DateTimeHelper.VietnamNow;
 }

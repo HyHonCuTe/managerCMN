@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
@@ -20,13 +21,14 @@ public class ContractRepository : Repository<Contract>, IContractRepository
 
     public async Task<IEnumerable<Contract>> GetExpiringContractsAsync(int daysBeforeExpiry = 30)
     {
-        var threshold = DateTime.UtcNow.AddDays(daysBeforeExpiry);
+        var today = DateTimeHelper.VietnamToday;
+        var threshold = today.AddDays(daysBeforeExpiry);
         return await _dbSet
             .Include(c => c.Employee)
             .Where(c => c.Status == ContractStatus.Active
                 && c.EndDate != null
-                && c.EndDate <= threshold
-                && c.EndDate >= DateTime.UtcNow)
+                && c.EndDate.Value.Date <= threshold
+                && c.EndDate.Value.Date >= today)
             .ToListAsync();
     }
 

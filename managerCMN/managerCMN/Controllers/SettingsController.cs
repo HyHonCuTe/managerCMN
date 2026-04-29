@@ -694,7 +694,7 @@ public class SettingsController : Controller
             {
                 UserId = userId,
                 RoleId = roleId,
-                AssignedDate = DateTime.UtcNow
+                AssignedDate = DateTimeHelper.VietnamNow
             }).ToList();
 
             await _db.UserRoles.AddRangeAsync(newUserRoles);
@@ -773,7 +773,7 @@ public class SettingsController : Controller
             {
                 EmployeeId = employeeId,
                 Reason = reason?.Trim(),
-                CreatedDate = DateTime.UtcNow
+                CreatedDate = DateTimeHelper.VietnamNow
             };
 
             _db.FullAttendanceEmployees.Add(fullAttendanceEmp);
@@ -801,7 +801,7 @@ public class SettingsController : Controller
             if (fullAttendanceEmp == null) return NotFound();
 
             fullAttendanceEmp.Reason = reason?.Trim();
-            fullAttendanceEmp.UpdatedDate = DateTime.UtcNow;
+            fullAttendanceEmp.UpdatedDate = DateTimeHelper.VietnamNow;
             await _db.SaveChangesAsync();
 
             TempData["Success"] = "Đã cập nhật thông tin thành công!";

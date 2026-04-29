@@ -73,10 +73,10 @@ public class EmployeeController : Controller
         // Additional business logic validations
         if (model.DateOfBirth.HasValue)
         {
-            var age = DateTime.Today.Year - model.DateOfBirth.Value.Year;
-            if (model.DateOfBirth.Value.Date > DateTime.Today.AddYears(-age)) age--;
+            var age = DateTimeHelper.VietnamToday.Year - model.DateOfBirth.Value.Year;
+            if (model.DateOfBirth.Value.Date > DateTimeHelper.VietnamToday.AddYears(-age)) age--;
 
-            if (model.DateOfBirth.Value.Date >= DateTime.Today)
+            if (model.DateOfBirth.Value.Date >= DateTimeHelper.VietnamToday)
             {
                 ModelState.AddModelError(nameof(model.DateOfBirth), "Ngày sinh phải là ngày trong quá khứ");
             }
@@ -305,7 +305,7 @@ public class EmployeeController : Controller
             // Log parameters for debugging
             Console.WriteLine($"AdjustLeaveBalance called: EmployeeId={id}, CurrentYear={currentYearAdjustment}, CarryForward={carryForwardAdjustment}");
 
-            await _leaveService.AdjustBalanceAsync(id, DateTime.Today.Year, currentYearAdjustment, carryForwardAdjustment);
+            await _leaveService.AdjustBalanceAsync(id, DateTimeHelper.VietnamToday.Year, currentYearAdjustment, carryForwardAdjustment);
             TempData["Success"] = "Đã cập nhật số phép cho nhân viên.";
         }
         catch (InvalidOperationException ex)

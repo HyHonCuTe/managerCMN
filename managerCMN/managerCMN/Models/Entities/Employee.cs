@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using managerCMN.Models.Enums;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -93,7 +94,7 @@ public class Employee
 
     public bool IsApprover1 { get; set; }
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTimeHelper.VietnamNow;
 
     // Navigation
     public User? User { get; set; }

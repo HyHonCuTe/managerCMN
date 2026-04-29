@@ -1,3 +1,5 @@
+using managerCMN.Helpers;
+
 namespace managerCMN.Models.Entities;
 
 public class ProjectTaskAssignment
@@ -13,7 +15,7 @@ public class ProjectTaskAssignment
     public int AssignedByEmployeeId { get; set; }
     public Employee AssignedByEmployee { get; set; } = null!;
 
-    public DateTime AssignedDate { get; set; } = DateTime.Now;
+    public DateTime AssignedDate { get; set; } = DateTimeHelper.VietnamNow;
 
     public bool IsCompleted { get; set; } = false;
     public DateTime? CompletedDate { get; set; }

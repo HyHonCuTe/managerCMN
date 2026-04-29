@@ -126,7 +126,7 @@ public class AccountController : Controller
                 GoogleId = googleId,
                 AvatarUrl = picture,
                 IsActive = true,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = DateTimeHelper.VietnamNow,
                 EmployeeId = matchedEmployee?.EmployeeId
             };
             await _unitOfWork.Users.AddAsync(user);
@@ -152,7 +152,7 @@ public class AccountController : Controller
             }
         }
 
-        user.LastLogin = DateTime.UtcNow;
+        user.LastLogin = DateTimeHelper.VietnamNow;
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync();
 
@@ -207,7 +207,7 @@ public class AccountController : Controller
                     Email = emp.Email ?? $"dev-{emp.EmployeeCode.ToLowerInvariant()}@company.local",
                     FullName = emp.FullName,
                     IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = DateTimeHelper.VietnamNow,
                     EmployeeId = emp.EmployeeId
                 };
                 await _unitOfWork.Users.AddAsync(user);
@@ -232,7 +232,7 @@ public class AccountController : Controller
                     Email = devEmail,
                     FullName = "Admin (Dev)",
                     IsActive = true,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = DateTimeHelper.VietnamNow,
                     EmployeeId = nv001?.EmployeeId
                 };
                 await _unitOfWork.Users.AddAsync(user);
@@ -263,7 +263,7 @@ public class AccountController : Controller
             effectiveEmployeeId = user.EmployeeId;
         }
 
-        user.LastLogin = DateTime.UtcNow;
+        user.LastLogin = DateTimeHelper.VietnamNow;
         _unitOfWork.Users.Update(user);
         await _unitOfWork.SaveChangesAsync();
 

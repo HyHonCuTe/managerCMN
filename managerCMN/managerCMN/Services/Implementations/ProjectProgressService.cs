@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
+using managerCMN.Helpers;
 using managerCMN.Models.Enums;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
@@ -29,8 +30,8 @@ public class ProjectProgressService : IProjectProgressService
         if (task.Status == ProjectTaskStatus.Done)
         {
             task.Progress = 100;
-            task.CompletedDate ??= DateTime.Now;
-            task.ModifiedDate = DateTime.Now;
+            task.CompletedDate ??= DateTimeHelper.VietnamNow;
+            task.ModifiedDate = DateTimeHelper.VietnamNow;
             _context.ProjectTasks.Update(task);
             await _context.SaveChangesAsync();
             return;
@@ -40,7 +41,7 @@ public class ProjectProgressService : IProjectProgressService
         {
             task.Progress = 0;
             task.CompletedDate = null;
-            task.ModifiedDate = DateTime.Now;
+            task.ModifiedDate = DateTimeHelper.VietnamNow;
             _context.ProjectTasks.Update(task);
             await _context.SaveChangesAsync();
             return;
@@ -65,7 +66,7 @@ public class ProjectProgressService : IProjectProgressService
         }
         // else: keep manual/current value
 
-        task.ModifiedDate = DateTime.Now;
+        task.ModifiedDate = DateTimeHelper.VietnamNow;
         _context.ProjectTasks.Update(task);
         await _context.SaveChangesAsync();
     }
@@ -99,7 +100,7 @@ public class ProjectProgressService : IProjectProgressService
             project.Progress = totalWeight > 0 ? Math.Round(weightedSum / totalWeight, 2) : 0;
         }
 
-        project.ModifiedDate = DateTime.Now;
+        project.ModifiedDate = DateTimeHelper.VietnamNow;
         _context.Projects.Update(project);
         await _context.SaveChangesAsync();
     }

@@ -33,7 +33,7 @@ public class SystemLogService : ISystemLogService
             DataBefore = dataBefore != null ? JsonSerializer.Serialize(dataBefore, LogSerializerOptions) : null,
             DataAfter = dataAfter != null ? JsonSerializer.Serialize(dataAfter, LogSerializerOptions) : null,
             IPAddress = ipAddress,
-            CreatedDate = VietnamTimeHelper.Now
+            CreatedDate = DateTimeHelper.VietnamNow
         };
 
         await _unitOfWork.SystemLogs.AddAsync(log);

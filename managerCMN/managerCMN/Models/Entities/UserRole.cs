@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -13,5 +14,5 @@ public class UserRole
     public int RoleId { get; set; }
     public Role Role { get; set; } = null!;
 
-    public DateTime AssignedDate { get; set; } = DateTime.UtcNow;
+    public DateTime AssignedDate { get; set; } = DateTimeHelper.VietnamNow;
 }

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using managerCMN.Models.Enums;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -16,7 +17,7 @@ public class TicketRecipient
 
     public TicketRecipientStatus Status { get; set; } = TicketRecipientStatus.Pending;
 
-    public DateTime AddedDate { get; set; } = DateTime.UtcNow;
+    public DateTime AddedDate { get; set; } = DateTimeHelper.VietnamNow;
     public DateTime? ReadDate { get; set; }
     public DateTime? CompletedDate { get; set; }
 

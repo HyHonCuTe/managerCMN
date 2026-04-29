@@ -43,9 +43,9 @@
         : new List<DateTime>();
     int? todayColumn = Model.TimelineStart.HasValue
         && Model.TimelineEnd.HasValue
-        && DateTime.Today >= Model.TimelineStart.Value.Date
-        && DateTime.Today <= Model.TimelineEnd.Value.Date
-            ? (DateTime.Today - Model.TimelineStart.Value.Date).Days + 1
+        && DateTimeHelper.VietnamToday >= Model.TimelineStart.Value.Date
+        && DateTimeHelper.VietnamToday <= Model.TimelineEnd.Value.Date
+            ? (DateTimeHelper.VietnamToday - Model.TimelineStart.Value.Date).Days + 1
             : null;
 }
 
@@ -297,7 +297,7 @@ else if (isProjectViewer && !isSystemAdmin)
                                     <div class="gantt-scale" style="grid-template-columns:repeat(@timelineDays.Count, 34px);">
                                         @foreach (var day in timelineDays)
                                         {
-                                            <div class="gantt-day @(day.Date == DateTime.Today ? "is-today" : "") @((day.DayOfWeek == DayOfWeek.Saturday || day.DayOfWeek == DayOfWeek.Sunday) ? "is-weekend" : "")">
+                                            <div class="gantt-day @(day.Date == DateTimeHelper.VietnamToday ? "is-today" : "") @((day.DayOfWeek == DayOfWeek.Saturday || day.DayOfWeek == DayOfWeek.Sunday) ? "is-weekend" : "")">
                                                 <strong>@day.ToString("dd")</strong>
                                                 <span>@day.ToString("MM")</span>
                                             </div>

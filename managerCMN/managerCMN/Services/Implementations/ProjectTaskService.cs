@@ -139,7 +139,7 @@ public class ProjectTaskService : IProjectTaskService
             EstimatedHours = vm.EstimatedHours,
             ProgressMode = vm.ProgressMode,
             CreatedByEmployeeId = creatorEmployeeId,
-            CreatedDate = DateTime.Now,
+            CreatedDate = DateTimeHelper.VietnamNow,
             Status = ProjectTaskStatus.Todo
         };
 
@@ -202,7 +202,7 @@ public class ProjectTaskService : IProjectTaskService
         task.ActualHours = vm.ActualHours;
         task.Status = vm.Status;
         task.ProgressMode = vm.ProgressMode;
-        task.ModifiedDate = DateTime.Now;
+        task.ModifiedDate = DateTimeHelper.VietnamNow;
 
         if (!wasDone && vm.Status != ProjectTaskStatus.Done && vm.ProgressMode == ProgressMode.Manual)
             task.Progress = vm.Progress;
@@ -211,12 +211,12 @@ public class ProjectTaskService : IProjectTaskService
         {
             task.Status = ProjectTaskStatus.Done;
             task.Progress = 100;
-            task.CompletedDate ??= DateTime.Now;
+            task.CompletedDate ??= DateTimeHelper.VietnamNow;
         }
         else if (vm.Status == ProjectTaskStatus.Done)
         {
             task.Progress = 100;
-            task.CompletedDate = DateTime.Now;
+            task.CompletedDate = DateTimeHelper.VietnamNow;
         }
         else if (vm.Status == ProjectTaskStatus.Cancelled)
         {
@@ -331,12 +331,12 @@ public class ProjectTaskService : IProjectTaskService
         }
 
         task.Status = vm.Status;
-        task.ModifiedDate = DateTime.Now;
+        task.ModifiedDate = DateTimeHelper.VietnamNow;
 
         if (vm.Status == ProjectTaskStatus.Done)
         {
             task.Progress = 100;
-            task.CompletedDate = DateTime.Now;
+            task.CompletedDate = DateTimeHelper.VietnamNow;
         }
         else if (vm.Status == ProjectTaskStatus.Cancelled)
         {
@@ -412,14 +412,14 @@ public class ProjectTaskService : IProjectTaskService
 
             task.Progress = 100;
             task.Status = ProjectTaskStatus.Done;
-            task.CompletedDate = DateTime.Now;
+            task.CompletedDate = DateTimeHelper.VietnamNow;
         }
         else
         {
             task.Progress = vm.Progress;
         }
 
-        task.ModifiedDate = DateTime.Now;
+        task.ModifiedDate = DateTimeHelper.VietnamNow;
         _unitOfWork.ProjectTasks.Update(task);
         await _unitOfWork.SaveChangesAsync();
 
@@ -478,7 +478,7 @@ public class ProjectTaskService : IProjectTaskService
             ProjectTaskId = vm.ProjectTaskId,
             Title = vm.Title,
             SortOrder = maxOrder + 1,
-            CreatedDate = DateTime.Now
+            CreatedDate = DateTimeHelper.VietnamNow
         };
 
         await _context.ProjectTaskChecklistItems.AddAsync(item);
@@ -520,7 +520,7 @@ public class ProjectTaskService : IProjectTaskService
         await EnsureCanCompleteTaskAsync(item.ProjectTask, employeeId);
 
         item.IsDone = true;
-        item.CompletedDate = DateTime.Now;
+        item.CompletedDate = DateTimeHelper.VietnamNow;
         item.CompletedByEmployeeId = employeeId;
 
         _context.ProjectTaskChecklistItems.Update(item);
@@ -584,7 +584,7 @@ public class ProjectTaskService : IProjectTaskService
                 : vm.Content.Trim(),
             StatusSnapshot = task.Status,
             ProgressSnapshot = task.Progress,
-            CreatedDate = DateTime.Now
+            CreatedDate = DateTimeHelper.VietnamNow
         };
 
         if (attachments.Count > 0)
@@ -593,7 +593,7 @@ public class ProjectTaskService : IProjectTaskService
         try
         {
             await _context.ProjectTaskUpdates.AddAsync(update);
-            task.ModifiedDate = DateTime.Now;
+            task.ModifiedDate = DateTimeHelper.VietnamNow;
             _unitOfWork.ProjectTasks.Update(task);
             await _context.SaveChangesAsync();
         }
@@ -773,7 +773,7 @@ public class ProjectTaskService : IProjectTaskService
 
     private static bool IsTaskOverdue(ProjectTask task)
         => task.DueDate.HasValue
-            && task.DueDate.Value.Date < DateTime.Today
+            && task.DueDate.Value.Date < DateTimeHelper.VietnamToday
             && task.Status != ProjectTaskStatus.Done
             && task.Status != ProjectTaskStatus.Cancelled;
 
@@ -1031,7 +1031,7 @@ public class ProjectTaskService : IProjectTaskService
                 : requestedStatus;
             task.CompletedDate = null;
             task.Progress = 0;
-            task.ModifiedDate = DateTime.Now;
+            task.ModifiedDate = DateTimeHelper.VietnamNow;
         }
 
         _unitOfWork.ProjectTasks.Update(task);
@@ -1096,7 +1096,7 @@ public class ProjectTaskService : IProjectTaskService
                 item.Status = ProjectTaskStatus.InProgress;
                 item.CompletedDate = null;
                 item.Progress = 0;
-                item.ModifiedDate = DateTime.Now;
+                item.ModifiedDate = DateTimeHelper.VietnamNow;
                 _unitOfWork.ProjectTasks.Update(item);
                 changedTaskIds.Add(item.ProjectTaskId);
             }
@@ -1375,7 +1375,7 @@ public class ProjectTaskService : IProjectTaskService
                 ProjectTaskId = task.ProjectTaskId,
                 EmployeeId = empId,
                 AssignedByEmployeeId = actorEmployeeId,
-                AssignedDate = DateTime.Now,
+                AssignedDate = DateTimeHelper.VietnamNow,
                 IsCompleted = false,
                 CompletedDate = null
             });
@@ -1421,7 +1421,7 @@ public class ProjectTaskService : IProjectTaskService
             foreach (var assignment in assignments.Where(a => !a.IsCompleted))
             {
                 assignment.IsCompleted = true;
-                assignment.CompletedDate = DateTime.Now;
+                assignment.CompletedDate = DateTimeHelper.VietnamNow;
                 _context.ProjectTaskAssignments.Update(assignment);
                 changed = true;
             }
@@ -1441,7 +1441,7 @@ public class ProjectTaskService : IProjectTaskService
             return (true, false);
 
         currentAssignment.IsCompleted = true;
-        currentAssignment.CompletedDate = DateTime.Now;
+        currentAssignment.CompletedDate = DateTimeHelper.VietnamNow;
         _context.ProjectTaskAssignments.Update(currentAssignment);
 
         ApplyAssignmentCompletionState(task, assignments);
@@ -1460,7 +1460,7 @@ public class ProjectTaskService : IProjectTaskService
         {
             task.Progress = 0;
             task.CompletedDate = null;
-            task.ModifiedDate = DateTime.Now;
+            task.ModifiedDate = DateTimeHelper.VietnamNow;
             return;
         }
 
@@ -1473,7 +1473,7 @@ public class ProjectTaskService : IProjectTaskService
         if (allCompleted)
         {
             task.Status = ProjectTaskStatus.Done;
-            task.CompletedDate ??= DateTime.Now;
+            task.CompletedDate ??= DateTimeHelper.VietnamNow;
         }
         else
         {
@@ -1483,7 +1483,7 @@ public class ProjectTaskService : IProjectTaskService
             task.CompletedDate = null;
         }
 
-        task.ModifiedDate = DateTime.Now;
+        task.ModifiedDate = DateTimeHelper.VietnamNow;
     }
 
     private async Task SaveAttachmentsAsync(ICollection<ProjectTaskAttachment> attachmentCollection, List<IFormFile> files, int uploadedById)
@@ -1509,7 +1509,7 @@ public class ProjectTaskService : IProjectTaskService
                 FileSize = file.Length,
                 ContentType = file.ContentType,
                 UploadedByEmployeeId = uploadedById,
-                UploadedDate = DateTime.Now
+                UploadedDate = DateTimeHelper.VietnamNow
             });
         }
     }
@@ -1532,7 +1532,7 @@ public class ProjectTaskService : IProjectTaskService
                 Content = content,
                 StatusSnapshot = task.Status,
                 ProgressSnapshot = task.Progress,
-                CreatedDate = DateTime.Now
+                CreatedDate = DateTimeHelper.VietnamNow
             });
 
             await _context.SaveChangesAsync();

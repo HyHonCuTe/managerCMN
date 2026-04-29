@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using managerCMN.Models.Enums;
 using managerCMN.Attributes;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.ViewModels;
 
@@ -19,14 +20,14 @@ public class RequestCreateViewModel
     public string Title { get; set; } = string.Empty;
 
     [Required]
-    public DateTime StartTime { get; set; } = DateTime.Today;
+    public DateTime StartTime { get; set; } = DateTimeHelper.VietnamToday;
 
     [Required]
-    public DateTime EndTime { get; set; } = DateTime.Today;
+    public DateTime EndTime { get; set; } = DateTimeHelper.VietnamToday;
 
-    public DateTime StartDate { get; set; } = DateTime.Today;
+    public DateTime StartDate { get; set; } = DateTimeHelper.VietnamToday;
 
-    public DateTime EndDate { get; set; } = DateTime.Today;
+    public DateTime EndDate { get; set; } = DateTimeHelper.VietnamToday;
 
     public string? StartClock { get; set; }
 

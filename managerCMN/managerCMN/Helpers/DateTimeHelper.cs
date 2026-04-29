@@ -26,13 +26,17 @@ public static class DateTimeHelper
         else if (utcDateTime.Kind == DateTimeKind.Unspecified)
             utcDateTime = DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc);
 
-        return TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, VietnamTimeZone);
+        return DateTime.SpecifyKind(
+            TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, VietnamTimeZone),
+            DateTimeKind.Unspecified);
     }
 
     /// <summary>
     /// Get current time in Vietnam timezone
     /// </summary>
-    public static DateTime VietnamNow => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone);
+    public static DateTime VietnamNow => DateTime.SpecifyKind(
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone),
+        DateTimeKind.Unspecified);
 
     /// <summary>
     /// Get today's date in Vietnam timezone
@@ -45,6 +49,30 @@ public static class DateTimeHelper
     public static DateTime? ToVietnamTime(this DateTime? utcDateTime)
     {
         return utcDateTime?.ToVietnamTime();
+    }
+
+    /// <summary>
+    /// Convert any DateTime to Vietnam time and mark as Unspecified to avoid EF timezone conversion.
+    /// For Unspecified kind, keep the input value as-is because it is treated as Vietnam business time.
+    /// </summary>
+    public static DateTime ToVietnamUnspecified(this DateTime dateTime)
+    {
+        DateTime vietnamTime;
+
+        if (dateTime.Kind == DateTimeKind.Utc)
+        {
+            vietnamTime = dateTime.ToVietnamTime();
+        }
+        else if (dateTime.Kind == DateTimeKind.Local)
+        {
+            vietnamTime = dateTime.ToUniversalTime().ToVietnamTime();
+        }
+        else
+        {
+            vietnamTime = dateTime;
+        }
+
+        return DateTime.SpecifyKind(vietnamTime, DateTimeKind.Unspecified);
     }
 
     /// <summary>

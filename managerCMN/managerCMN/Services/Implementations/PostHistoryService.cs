@@ -26,7 +26,7 @@ public class PostHistoryService : IPostHistoryService
             EarliestPunchTime = earliestPunchTime,
             LatestPunchTime = latestPunchTime,
             EmployeeInfo = employeeInfo?[..Math.Min(employeeInfo.Length, 2000)], // Truncate to max length
-            CreatedAt = VietnamTimeHelper.Now
+            CreatedAt = DateTimeHelper.VietnamNow
         };
 
         await _unitOfWork.PostHistories.AddAsync(postHistory);

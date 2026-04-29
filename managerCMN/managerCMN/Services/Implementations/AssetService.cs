@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using ClosedXML.Excel;
 using managerCMN.Data;
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
@@ -127,7 +128,7 @@ public class AssetService : IAssetService
         var dataBefore = new { assignment.AssignmentId, assignment.AssetId, assignment.EmployeeId, assignment.Status };
 
         assignment.Status = AssetAssignmentStatus.Returned;
-        assignment.ReturnDate = DateTime.UtcNow;
+        assignment.ReturnDate = DateTimeHelper.VietnamNow;
         assignment.Condition = condition;
         _unitOfWork.AssetAssignments.Update(assignment);
 
@@ -456,7 +457,7 @@ public class AssetService : IAssetService
         {
             AssetId = assetId,
             EventType = eventType,
-            EventDate = DateTime.UtcNow,
+            EventDate = DateTimeHelper.VietnamNow,
             EmployeeId = employeeId,
             PerformedById = performedById,
             EventDescription = description,

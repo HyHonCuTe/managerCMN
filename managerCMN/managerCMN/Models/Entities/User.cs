@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -21,7 +22,7 @@ public class User
 
     public bool IsActive { get; set; } = true;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTimeHelper.VietnamNow;
 
     public DateTime? LastLogin { get; set; }
 

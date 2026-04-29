@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using managerCMN.Helpers;
 using managerCMN.Models.Enums;
 
 namespace managerCMN.Models.ViewModels;
@@ -109,12 +110,12 @@ public class ProjectTimelineRowViewModel
     public string? LatestChangeLogSummary { get; set; }
     public string? LatestChangeLogKind { get; set; }
     public bool IsOverdue => DueDate.HasValue
-        && DueDate.Value.Date < DateTime.Today
+        && DueDate.Value.Date < DateTimeHelper.VietnamToday
         && Status != ProjectTaskStatus.Done
         && Status != ProjectTaskStatus.Cancelled;
     public bool IsNearDeadline => DueDate.HasValue
-        && DueDate.Value.Date >= DateTime.Today
-        && DueDate.Value.Date <= DateTime.Today.AddDays(2)
+        && DueDate.Value.Date >= DateTimeHelper.VietnamToday
+        && DueDate.Value.Date <= DateTimeHelper.VietnamToday.AddDays(2)
         && Status != ProjectTaskStatus.Done
         && Status != ProjectTaskStatus.Cancelled;
 }

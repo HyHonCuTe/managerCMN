@@ -1,7 +1,7 @@
 @model IEnumerable<Contract>
 @{
     ViewData["Title"] = "Quản lý Hợp đồng";
-    var today = DateTime.Today;
+    var today = DateTimeHelper.VietnamToday;
 
     string GetContractTypeText(ContractType ct) => ct switch
     {

@@ -43,7 +43,7 @@ public class NotificationService : INotificationService
             Message = message,
             TargetUrl = targetUrl,
             IsRead = false,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTimeHelper.VietnamNow
         };
         await _unitOfWork.Notifications.AddAsync(notification);
         await _unitOfWork.SaveChangesAsync();

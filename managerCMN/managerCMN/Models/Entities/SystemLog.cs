@@ -23,5 +23,5 @@ public class SystemLog
     [MaxLength(50)]
     public string? IPAddress { get; set; }
 
-    public DateTime CreatedDate { get; set; } = VietnamTimeHelper.Now;
+    public DateTime CreatedDate { get; set; } = DateTimeHelper.VietnamNow;
 }

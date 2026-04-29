@@ -64,7 +64,7 @@ public class TicketService : ITicketService
     public async Task CreateAsync(Ticket ticket)
     {
         ticket.Status = TicketStatus.Open;
-        ticket.CreatedDate = DateTime.UtcNow;
+        ticket.CreatedDate = DateTimeHelper.VietnamNow;
         await _unitOfWork.Tickets.AddAsync(ticket);
         await _unitOfWork.SaveChangesAsync();
 
@@ -132,7 +132,7 @@ public class TicketService : ITicketService
 
         ticket.Status = TicketStatus.Resolved;
         ticket.Resolution = resolution;
-        ticket.ResolvedDate = DateTime.UtcNow;
+        ticket.ResolvedDate = DateTimeHelper.VietnamNow;
         _unitOfWork.Tickets.Update(ticket);
         await _unitOfWork.SaveChangesAsync();
 
@@ -174,7 +174,7 @@ public class TicketService : ITicketService
     public async Task CreateWithRecipientsAsync(Ticket ticket, List<int> recipientIds, List<IFormFile>? attachments, int creatorId)
     {
         ticket.Status = TicketStatus.Open;
-        ticket.CreatedDate = DateTime.UtcNow;
+        ticket.CreatedDate = DateTimeHelper.VietnamNow;
         ticket.CreatedBy = creatorId;
 
         // Add recipients
@@ -184,7 +184,7 @@ public class TicketService : ITicketService
             {
                 EmployeeId = recipientId,
                 Status = TicketRecipientStatus.Pending,
-                AddedDate = DateTime.UtcNow,
+                AddedDate = DateTimeHelper.VietnamNow,
                 AddedById = creatorId
             });
         }
@@ -251,7 +251,7 @@ public class TicketService : ITicketService
             SenderId = senderId,
             Content = content,
             MessageType = TicketMessageType.Reply,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTimeHelper.VietnamNow
         };
 
         // Handle message attachments
@@ -326,7 +326,7 @@ public class TicketService : ITicketService
                 TicketId = ticketId,
                 EmployeeId = recipientId,
                 Status = TicketRecipientStatus.Pending,
-                AddedDate = DateTime.UtcNow,
+                AddedDate = DateTimeHelper.VietnamNow,
                 AddedById = forwarderId
             };
             await _unitOfWork.TicketRecipients.AddAsync(newRecipient);
@@ -339,7 +339,7 @@ public class TicketService : ITicketService
             SenderId = forwarderId,
             Content = content,
             MessageType = TicketMessageType.Forward,
-            CreatedDate = DateTime.UtcNow
+            CreatedDate = DateTimeHelper.VietnamNow
         };
 
         // Handle attachments
@@ -413,9 +413,9 @@ public class TicketService : ITicketService
         recipient.Status = status;
         if (status == TicketRecipientStatus.Completed)
         {
-            recipient.CompletedDate = DateTime.UtcNow;
+            recipient.CompletedDate = DateTimeHelper.VietnamNow;
             ticket.Status = TicketStatus.Resolved;
-            ticket.ResolvedDate ??= DateTime.UtcNow;
+            ticket.ResolvedDate ??= DateTimeHelper.VietnamNow;
             _unitOfWork.Tickets.Update(ticket);
         }
         else if (status == TicketRecipientStatus.InProgress
@@ -458,7 +458,7 @@ public class TicketService : ITicketService
         var recipient = await _unitOfWork.TicketRecipients.GetByTicketAndEmployeeAsync(ticketId, employeeId);
         if (recipient != null && recipient.ReadDate == null)
         {
-            recipient.ReadDate = DateTime.UtcNow;
+            recipient.ReadDate = DateTimeHelper.VietnamNow;
             if (recipient.Status == TicketRecipientStatus.Pending)
             {
                 recipient.Status = TicketRecipientStatus.Read;
@@ -509,7 +509,7 @@ public class TicketService : ITicketService
         {
             TicketId = ticketId,
             EmployeeId = employeeId,
-            StarredAt = DateTime.UtcNow
+            StarredAt = DateTimeHelper.VietnamNow
         };
 
         await _unitOfWork.TicketStars.AddAsync(newStar);
@@ -571,7 +571,7 @@ public class TicketService : ITicketService
                     FileSize = file.Length,
                     ContentType = file.ContentType,
                     UploadedById = uploadedById,
-                    UploadedDate = DateTime.UtcNow
+                    UploadedDate = DateTimeHelper.VietnamNow
                 });
             }
         }

@@ -1,3 +1,5 @@
+using managerCMN.Helpers;
+
 namespace managerCMN.Models.Entities;
 
 public class RolePermission
@@ -8,7 +10,7 @@ public class RolePermission
 
     public int PermissionId { get; set; }
 
-    public DateTime AssignedDate { get; set; } = DateTime.UtcNow;
+    public DateTime AssignedDate { get; set; } = DateTimeHelper.VietnamNow;
 
     // Navigation properties
     public Role Role { get; set; } = null!;

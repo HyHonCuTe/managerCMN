@@ -4,7 +4,7 @@
     var leaveSummary = ViewBag.LeaveSummary as LeaveBalanceSummaryViewModel;
     var leaveRequests = ViewBag.LeaveRequests as List<LeaveRequest> ?? new List<LeaveRequest>();
 
-    var today = DateTime.Today;
+    var today = DateTimeHelper.VietnamToday;
     var currentContract = Model.Contracts
         .Where(c => c.Status == ContractStatus.Active || c.Status == ContractStatus.Renewed)
         .OrderByDescending(c => c.StartDate)

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -16,6 +17,6 @@ public class FullAttendanceEmployee
     [MaxLength(500)]
     public string? Reason { get; set; } // Lý do (tuỳ chọn)
 
-    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedDate { get; set; } = DateTimeHelper.VietnamNow;
     public DateTime? UpdatedDate { get; set; }
 }

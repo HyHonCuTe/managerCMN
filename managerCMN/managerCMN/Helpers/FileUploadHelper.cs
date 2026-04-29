@@ -137,8 +137,7 @@ public static class FileUploadHelper
         if (sanitizedName.Length > 50)
             sanitizedName = sanitizedName.Substring(0, 50);
 
-        // Add timestamp để avoid conflicts
-        var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+        var timestamp = DateTimeHelper.VietnamNow.ToString("yyyyMMdd_HHmmss");
         var secureFileName = $"{prefix ?? "file"}_{timestamp}_{sanitizedName}{extension}";
 
         return secureFileName;

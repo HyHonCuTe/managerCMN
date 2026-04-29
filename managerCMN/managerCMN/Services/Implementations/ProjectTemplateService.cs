@@ -1,3 +1,4 @@
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.ViewModels;
 using managerCMN.Repositories.Interfaces;
@@ -71,7 +72,7 @@ public class ProjectTemplateService : IProjectTemplateService
             Description = vm.Description,
             IsActive = vm.IsActive,
             CreatedByEmployeeId = creatorEmployeeId,
-            CreatedDate = DateTime.Now
+            CreatedDate = DateTimeHelper.VietnamNow
         };
 
         await _unitOfWork.ProjectTemplates.AddAsync(template);
@@ -89,7 +90,7 @@ public class ProjectTemplateService : IProjectTemplateService
         template.Name = vm.Name;
         template.Description = vm.Description;
         template.IsActive = vm.IsActive;
-        template.ModifiedDate = DateTime.Now;
+        template.ModifiedDate = DateTimeHelper.VietnamNow;
 
         await DeleteAllTemplateTasksAsync(template.Tasks.ToList());
 

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Repositories.Interfaces;
 using managerCMN.Services.Interfaces;
@@ -74,7 +75,7 @@ public class PermissionService : IPermissionService
             {
                 RoleId = roleId,
                 PermissionId = permId,
-                AssignedDate = DateTime.UtcNow
+                AssignedDate = DateTimeHelper.VietnamNow
             }).ToList();
 
             await _context.RolePermissions.AddRangeAsync(newRolePermissions);

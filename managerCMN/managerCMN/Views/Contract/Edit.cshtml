@@ -1,7 +1,7 @@
 @model ContractEditViewModel
 @{
     ViewData["Title"] = "Cập nhật hợp đồng";
-    var today = DateTime.Today;
+    var today = DateTimeHelper.VietnamToday;
     var isExpired = Model.Status == ContractStatus.Expired;
     var isNearExpiry = Model.Status == ContractStatus.Active
         && Model.EndDate.HasValue

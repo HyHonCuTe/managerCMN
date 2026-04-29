@@ -186,7 +186,7 @@
                             </div>
                             <div>
                                 <small class="text-muted d-block">Ngày tạo</small>
-                                @req.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")
+                                @req.CreatedDate.ToString("dd/MM/yyyy HH:mm")
                             </div>
                         </div>
                     </div>
@@ -237,7 +237,7 @@
                                 </div>
                                 @if (a.ApprovedDate.HasValue)
                                 {
-                                    <small class="text-muted"><i class="bi bi-clock"></i> @a.ApprovedDate.Value.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")</small>
+                                    <small class="text-muted"><i class="bi bi-clock"></i> @a.ApprovedDate.Value.ToString("dd/MM/yyyy HH:mm")</small>
                                 }
                                 @if (!string.IsNullOrEmpty(a.Comment))
                                 {

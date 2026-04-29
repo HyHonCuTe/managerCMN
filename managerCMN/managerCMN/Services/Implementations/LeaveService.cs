@@ -151,7 +151,7 @@ public class LeaveService : ILeaveService
             await RestoreDeductedLeaveIfNeededAsync(leaveRequest);
             leaveRequest.Status = RequestStatus.Rejected;
             leaveRequest.ApprovedBy = actorEmployeeId;
-            leaveRequest.ApprovedDate = DateTime.UtcNow;
+            leaveRequest.ApprovedDate = DateTimeHelper.VietnamNow;
             _unitOfWork.LeaveRequests.Update(leaveRequest);
             return;
         }
@@ -211,7 +211,7 @@ public class LeaveService : ILeaveService
             ? RequestStatus.Approver1Approved
             : RequestStatus.FullyApproved;
         request.ApprovedBy = approverId;
-        request.ApprovedDate = DateTime.UtcNow;
+        request.ApprovedDate = DateTimeHelper.VietnamNow;
 
         _unitOfWork.LeaveRequests.Update(request);
         await _unitOfWork.SaveChangesAsync();
@@ -255,7 +255,7 @@ public class LeaveService : ILeaveService
 
         request.Status = RequestStatus.Rejected;
         request.ApprovedBy = approverId;
-        request.ApprovedDate = DateTime.UtcNow;
+        request.ApprovedDate = DateTimeHelper.VietnamNow;
 
         _unitOfWork.LeaveRequests.Update(request);
         await _unitOfWork.SaveChangesAsync();
@@ -766,7 +766,7 @@ public class LeaveService : ILeaveService
         Console.WriteLine($"Final CarryForward (after Math.Max): {finalCarryForward}");
 
         balance.RemainingLeave = currentYearRemaining + finalCarryForward;
-        balance.LastUpdated = DateTime.UtcNow;
+        balance.LastUpdated = DateTimeHelper.VietnamNow;
 
         Console.WriteLine($"UpdateRemainingLeave END: RemainingLeave={balance.RemainingLeave}, LastUpdated={balance.LastUpdated}");
     }

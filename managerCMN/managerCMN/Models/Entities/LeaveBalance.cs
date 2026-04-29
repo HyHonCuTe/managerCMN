@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -22,5 +23,5 @@ public class LeaveBalance
 
     public bool IsManuallyAdjusted { get; set; }
 
-    public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+    public DateTime LastUpdated { get; set; } = DateTimeHelper.VietnamNow;
 }

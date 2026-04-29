@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using managerCMN.Models.Enums;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -18,7 +19,7 @@ public class ProjectTaskUpdate
 
     public ProjectTaskStatus? StatusSnapshot { get; set; }
     public decimal? ProgressSnapshot { get; set; }
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTimeHelper.VietnamNow;
 
     public ICollection<ProjectTaskAttachment> Attachments { get; set; } = new List<ProjectTaskAttachment>();
 }

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -13,5 +14,5 @@ public class TicketStar
     public int EmployeeId { get; set; }
     public Employee Employee { get; set; } = null!;
 
-    public DateTime StarredAt { get; set; } = DateTime.UtcNow;
+    public DateTime StarredAt { get; set; } = DateTimeHelper.VietnamNow;
 }

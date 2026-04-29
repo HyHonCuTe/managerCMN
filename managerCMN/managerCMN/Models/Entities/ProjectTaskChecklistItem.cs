@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -19,5 +20,5 @@ public class ProjectTaskChecklistItem
     public int? CompletedByEmployeeId { get; set; }
     public Employee? CompletedByEmployee { get; set; }
 
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTimeHelper.VietnamNow;
 }

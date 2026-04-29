@@ -109,8 +109,7 @@ public class TaskDeadlineReminderService : BackgroundService
                 continue;
 
             var projectName = projectNames.TryGetValue(task.ProjectId, out var pn) ? pn : "Dự án";
-            // Task deadline is the date itself (midnight start of due date)
-            var deadline = task.DueDate!.Value.Date;
+            var deadline = task.DueDate!.Value.Date.AddDays(1).AddTicks(-1);
             var remaining = deadline - now;
             var timeLeft = FormatTimeLeft(remaining);
             var dueDateStr = task.DueDate.Value.ToString("dd/MM/yyyy");

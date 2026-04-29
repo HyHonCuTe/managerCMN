@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using managerCMN.Models.Enums;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -50,7 +51,7 @@ public class Request
     public int? ApproverId { get; set; }
     public DateTime? ApprovedDate { get; set; }
 
-    public DateTime CreatedDate { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedDate { get; set; } = DateTimeHelper.VietnamNow;
 
     // Navigation
     public ICollection<RequestAttachment> Attachments { get; set; } = new List<RequestAttachment>();

@@ -66,7 +66,7 @@ public class RequestService : IRequestService
     public async Task CreateAsync(Request request, int approver1Id, int approver2Id)
     {
         request.Status = RequestStatus.Pending;
-        request.CreatedDate = DateTime.UtcNow;
+        request.CreatedDate = DateTimeHelper.VietnamNow;
 
         if (request.LeaveReason.HasValue && request.CountsAsWork)
             request.CountsAsWork = LeaveReasonHelper.GetCountsAsWork(request.LeaveReason.Value);
@@ -169,7 +169,7 @@ public class RequestService : IRequestService
         if (approval == null) return;
 
         approval.Status = ApprovalStatus.Approved;
-        approval.ApprovedDate = DateTime.UtcNow;
+        approval.ApprovedDate = DateTimeHelper.VietnamNow;
         approval.Comment = comment;
         _unitOfWork.RequestApprovals.Update(approval);
 
@@ -249,7 +249,7 @@ public class RequestService : IRequestService
         if (approval == null) return;
 
         approval.Status = ApprovalStatus.Rejected;
-        approval.ApprovedDate = DateTime.UtcNow;
+        approval.ApprovedDate = DateTimeHelper.VietnamNow;
         approval.Comment = comment;
         _unitOfWork.RequestApprovals.Update(approval);
 
@@ -309,7 +309,7 @@ public class RequestService : IRequestService
         foreach (var a in request.Approvals.Where(a => a.Status == ApprovalStatus.Pending))
         {
             a.Status = ApprovalStatus.Approved;
-            a.ApprovedDate = DateTime.UtcNow;
+            a.ApprovedDate = DateTimeHelper.VietnamNow;
             a.Comment = comment;
             _unitOfWork.RequestApprovals.Update(a);
         }
@@ -351,7 +351,7 @@ public class RequestService : IRequestService
         foreach (var a in request.Approvals.Where(a => a.Status == ApprovalStatus.Pending))
         {
             a.Status = ApprovalStatus.Rejected;
-            a.ApprovedDate = DateTime.UtcNow;
+            a.ApprovedDate = DateTimeHelper.VietnamNow;
             a.Comment = comment;
             _unitOfWork.RequestApprovals.Update(a);
         }
@@ -413,7 +413,7 @@ public class RequestService : IRequestService
         foreach (var approval in request.Approvals)
         {
             approval.Status = ApprovalStatus.Rejected;
-            approval.ApprovedDate = DateTime.UtcNow;
+            approval.ApprovedDate = DateTimeHelper.VietnamNow;
             approval.Comment = $"[HOÀN DUYỆT BỞI ADMIN] {comment}";
             _unitOfWork.RequestApprovals.Update(approval);
         }

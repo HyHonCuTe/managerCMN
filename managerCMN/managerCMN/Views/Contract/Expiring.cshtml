@@ -32,7 +32,7 @@
             <tbody>
                 @foreach (var c in Model)
                 {
-                    var daysLeft = (c.EndDate!.Value - DateTime.UtcNow).Days;
+                    var daysLeft = (c.EndDate!.Value - DateTimeHelper.VietnamNow).Days;
                 <tr class="@(daysLeft < 0 ? "table-danger" : daysLeft < 7 ? "table-warning" : "")">
                     <td>@c.Employee?.FullName</td>
                     <td>@GetContractTypeText(c.ContractType)</td>

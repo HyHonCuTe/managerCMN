@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using managerCMN.Models.Enums;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -33,7 +34,7 @@ public class Asset
 
     public AssetStatus Status { get; set; } = AssetStatus.Available;
 
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime CreatedAt { get; set; } = DateTimeHelper.VietnamNow;
 
     // Navigation
     public AssetConfiguration? Configuration { get; set; }

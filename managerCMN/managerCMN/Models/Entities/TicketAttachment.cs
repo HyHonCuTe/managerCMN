@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -28,5 +29,5 @@ public class TicketAttachment
     public int UploadedById { get; set; }
     public Employee UploadedBy { get; set; } = null!;
 
-    public DateTime UploadedDate { get; set; } = DateTime.UtcNow;
+    public DateTime UploadedDate { get; set; } = DateTimeHelper.VietnamNow;
 }

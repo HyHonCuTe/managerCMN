@@ -419,7 +419,7 @@
                     </div>
                     <small class="ticket-message-date">
                         <i class="bi bi-calendar"></i>
-                        @Model.Ticket.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")
+                        @Model.Ticket.CreatedDate.ToString("dd/MM/yyyy HH:mm")
                     </small>
                 </div>
             </div>
@@ -500,7 +500,7 @@
                                             }
                                         </div>
                                         <small class="text-muted">
-                                            @msg.CreatedDate.ToVietnamTime().ToString("dd/MM/yyyy HH:mm")
+                                            @msg.CreatedDate.ToString("dd/MM/yyyy HH:mm")
                                         </small>
                                     </div>
                                     <p class="mb-0" style="white-space: pre-wrap;">@msg.Content</p>
@@ -570,7 +570,7 @@
                                     @if (r.ReadDate.HasValue)
                                     {
                                         <small class="text-muted">
-                                            Đã đọc: @r.ReadDate.Value.ToVietnamTime().ToString("dd/MM HH:mm")
+                                            Đã đọc: @r.ReadDate.Value.ToString("dd/MM HH:mm")
                                         </small>
                                     }
                                 </div>

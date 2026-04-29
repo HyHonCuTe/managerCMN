@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using managerCMN.Models.Enums;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -34,7 +35,7 @@ public class ProjectTask
     public int CreatedByEmployeeId { get; set; }
     public Employee CreatedByEmployee { get; set; } = null!;
 
-    public DateTime CreatedDate { get; set; } = DateTime.Now;
+    public DateTime CreatedDate { get; set; } = DateTimeHelper.VietnamNow;
     public DateTime? ModifiedDate { get; set; }
 
     public ICollection<ProjectTask> SubTasks { get; set; } = new List<ProjectTask>();

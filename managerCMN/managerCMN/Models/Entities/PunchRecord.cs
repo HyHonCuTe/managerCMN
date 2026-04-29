@@ -45,5 +45,5 @@ public class PunchRecord
     /// <summary>
     /// When this record was created in the database - stored as local time
     /// </summary>
-    public DateTime CreatedAt { get; set; } = VietnamTimeHelper.Now;
+    public DateTime CreatedAt { get; set; } = DateTimeHelper.VietnamNow;
 }

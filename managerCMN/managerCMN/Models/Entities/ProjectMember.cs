@@ -1,4 +1,5 @@
 using managerCMN.Models.Enums;
+using managerCMN.Helpers;
 
 namespace managerCMN.Models.Entities;
 
@@ -17,5 +18,5 @@ public class ProjectMember
     public int AddedByEmployeeId { get; set; }
     public Employee AddedByEmployee { get; set; } = null!;
 
-    public DateTime JoinedDate { get; set; } = DateTime.Now;
+    public DateTime JoinedDate { get; set; } = DateTimeHelper.VietnamNow;
 }

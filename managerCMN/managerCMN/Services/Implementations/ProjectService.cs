@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using managerCMN.Data;
+using managerCMN.Helpers;
 using managerCMN.Models.Entities;
 using managerCMN.Models.Enums;
 using managerCMN.Models.ViewModels;
@@ -38,7 +39,7 @@ public class ProjectService : IProjectService
                 .OrderByDescending(p => p.CreatedDate)
                 .ToListAsync()
             : (await _unitOfWork.Projects.GetProjectsByMemberAsync(employeeId)).ToList();
-        var now = DateTime.Today;
+        var now = DateTimeHelper.VietnamToday;
         var result = new List<ProjectListViewModel>();
 
         foreach (var p in projects)
@@ -91,7 +92,7 @@ public class ProjectService : IProjectService
         var isSystemAdmin = ignoreAccessCheck || _accessService.IsSystemAdmin();
         var owner = project.Members.FirstOrDefault(m => m.Role == ProjectMemberRole.ProjectOwner);
         var isArchived = project.IsArchived || project.Status == ProjectStatus.Archived;
-        var now = DateTime.Today;
+        var now = DateTimeHelper.VietnamToday;
 
         var allTasks = await _context.ProjectTasks
             .Include(t => t.Assignments)
@@ -155,7 +156,7 @@ public class ProjectService : IProjectService
             EndDate = vm.EndDate,
             Status = ProjectStatus.Planning,
             CreatedByEmployeeId = creatorEmployeeId,
-            CreatedDate = DateTime.Now
+            CreatedDate = DateTimeHelper.VietnamNow
         };
 
         await _unitOfWork.Projects.AddAsync(project);
@@ -167,7 +168,7 @@ public class ProjectService : IProjectService
             EmployeeId = creatorEmployeeId,
             Role = ProjectMemberRole.ProjectOwner,
             AddedByEmployeeId = creatorEmployeeId,
-            JoinedDate = DateTime.Now
+            JoinedDate = DateTimeHelper.VietnamNow
         };
 
         await _unitOfWork.ProjectMembers.AddAsync(ownerMember);
@@ -239,7 +240,7 @@ public class ProjectService : IProjectService
         project.StartDate = vm.StartDate;
         project.EndDate = vm.EndDate;
         project.Status = vm.Status;
-        project.ModifiedDate = DateTime.Now;
+        project.ModifiedDate = DateTimeHelper.VietnamNow;
 
         _unitOfWork.Projects.Update(project);
         await _unitOfWork.SaveChangesAsync();
@@ -266,7 +267,7 @@ public class ProjectService : IProjectService
 
         project.IsArchived = true;
         project.Status = ProjectStatus.Archived;
-        project.ModifiedDate = DateTime.Now;
+        project.ModifiedDate = DateTimeHelper.VietnamNow;
         _unitOfWork.Projects.Update(project);
         await _unitOfWork.SaveChangesAsync();
         await _logService.LogAsync(null, "Archive", "Project", null, new { project.ProjectId, project.Name }, null);
@@ -287,7 +288,7 @@ public class ProjectService : IProjectService
         // Restore to prior status if available, otherwise to Planning
         project.Status = project.PriorStatus ?? ProjectStatus.Planning;
         project.PriorStatus = null;
-        project.ModifiedDate = DateTime.Now;
+        project.ModifiedDate = DateTimeHelper.VietnamNow;
         _unitOfWork.Projects.Update(project);
         await _unitOfWork.SaveChangesAsync();
         await _logService.LogAsync(null, "Restore", "Project", null, new { project.ProjectId, project.Name }, null);
@@ -413,7 +414,7 @@ public class ProjectService : IProjectService
                 EmployeeId = employeeId,
                 Role = vm.Role,
                 AddedByEmployeeId = actorEmployeeId,
-                JoinedDate = DateTime.Now
+                JoinedDate = DateTimeHelper.VietnamNow
             };
 
             await _unitOfWork.ProjectMembers.AddAsync(member);
@@ -507,7 +508,7 @@ public class ProjectService : IProjectService
         ProgressMode = ProgressMode.Auto,
         Progress = 0,
         CreatedByEmployeeId = creatorEmployeeId,
-        CreatedDate = DateTime.Now
+        CreatedDate = DateTimeHelper.VietnamNow
     };
 
     private void DeleteAttachmentFiles(IEnumerable<string> filePaths)
